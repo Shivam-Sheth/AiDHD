@@ -1,0 +1,40 @@
+{
+  "@context": "https://nanda.mit.edu/agentfacts/v1",
+  "id": "agent:aidhd:group-planning",
+  "name": "AiDHD Group Planning Agent",
+  "description": "Reconciles multi-person budgets and preferences into costed outing packages, then books end-to-end via per-category Prava mandates.",
+  "version": "0.1.0",
+  "provider": {
+    "name": "AiDHD",
+    "url": "https://github.com/Shivam-Sheth/AiDHD"
+  },
+  "capabilities": [
+    "collect_group_preferences",
+    "reconcile_budgets",
+    "generate_packages",
+    "merchant_trust_lookup",
+    "prava_mandate_orchestration",
+    "ticket_and_dining_booking"
+  ],
+  "endpoints": {
+    "a2a": "/api/nanda/a2a",
+    "card": "/api/nanda/agent-card"
+  },
+  "protocols": ["A2A", "HTTP+JSON"],
+  "payment": {
+    "provider": "Prava",
+    "model": "per-category mandates",
+    "network": "Visa Intelligent Commerce / Trusted Agent Protocol"
+  },
+  "discovery": {
+    "tags": [
+      "agentic-commerce",
+      "group-planning",
+      "booking",
+      "prava",
+      "senso",
+      "openai"
+    ],
+    "hackathon": "Prava Agentic Commerce Hackathon 2026"
+  }
+}

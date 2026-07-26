@@ -1,9 +1,21 @@
 import { hasWhatsApp } from "./config";
+import { normalizePhone } from "./whatsapp-phonebook";
+
+function graphVersion() {
+  return process.env.META_GRAPH_VERSION || "v25.0";
+}
+
+type WaSendResult = {
+  ok: true;
+  mode: "live" | "mock";
+  message_id?: string;
+  data?: unknown;
+  preview?: unknown;
+};
 
 /**
  * WhatsApp Cloud API collector transport.
- * Conversation stays inside a defined business task (budget + prefs for an event)
- * to stay compliant with Meta's post-Oct-2025 open-domain chatbot restrictions.
+ * Business-initiated opens should use a template; freeform text works inside the 24h window.
  */
 export async function sendWhatsAppMessage(input: {
   to: string;
@@ -12,11 +24,11 @@ export async function sendWhatsAppMessage(input: {
     type: "button" | "list";
     buttons?: { id: string; title: string }[];
   };
-}) {
+}): Promise<WaSendResult> {
   if (!hasWhatsApp()) {
     return {
       ok: true,
-      mode: "mock" as const,
+      mode: "mock",
       message_id: `wamid.mock.${Date.now()}`,
       preview: input,
     };
@@ -24,10 +36,11 @@ export async function sendWhatsAppMessage(input: {
 
   const token = process.env.META_WHATSAPP_TOKEN!;
   const phoneId = process.env.META_WHATSAPP_PHONE_NUMBER_ID!;
+  const to = normalizePhone(input.to);
 
   const payload: Record<string, unknown> = {
     messaging_product: "whatsapp",
-    to: input.to,
+    to,
     type: input.interactive ? "interactive" : "text",
   };
 
@@ -46,8 +59,50 @@ export async function sendWhatsAppMessage(input: {
     payload.text = { body: input.body };
   }
 
+  return postMessage(phoneId, token, payload);
+}
+
+/** First-touch opener — mirrors Meta dashboard (templates deliver reliably). */
+export async function sendWhatsAppTemplate(input: {
+  to: string;
+  name?: string;
+  language?: string;
+}): Promise<WaSendResult> {
+  if (!hasWhatsApp()) {
+    return {
+      ok: true,
+      mode: "mock",
+      message_id: `wamid.mock.tpl.${Date.now()}`,
+      preview: input,
+    };
+  }
+
+  const token = process.env.META_WHATSAPP_TOKEN!;
+  const phoneId = process.env.META_WHATSAPP_PHONE_NUMBER_ID!;
+  const to = normalizePhone(input.to);
+  const name =
+    input.name || process.env.META_WHATSAPP_TEMPLATE || "hello_world";
+  const language =
+    input.language || process.env.META_WHATSAPP_TEMPLATE_LANG || "en_US";
+
+  return postMessage(phoneId, token, {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name,
+      language: { code: language },
+    },
+  });
+}
+
+async function postMessage(
+  phoneId: string,
+  token: string,
+  payload: Record<string, unknown>,
+): Promise<WaSendResult> {
   const res = await fetch(
-    `https://graph.facebook.com/v19.0/${phoneId}/messages`,
+    `https://graph.facebook.com/${graphVersion()}/${phoneId}/messages`,
     {
       method: "POST",
       headers: {
@@ -58,8 +113,31 @@ export async function sendWhatsAppMessage(input: {
     },
   );
 
-  const data = await res.json();
-  return { ok: res.ok, mode: "live" as const, data };
+  const data = (await res.json()) as {
+    error?: {
+      message?: string;
+      code?: number;
+      error_user_msg?: string;
+      error_data?: { details?: string };
+    };
+    messages?: Array<{ id?: string }>;
+  };
+
+  if (!res.ok) {
+    const detail =
+      data.error?.error_data?.details ||
+      data.error?.error_user_msg ||
+      data.error?.message ||
+      `WhatsApp send failed (${res.status})`;
+    throw new Error(detail);
+  }
+
+  return {
+    ok: true,
+    mode: "live",
+    message_id: data.messages?.[0]?.id,
+    data,
+  };
 }
 
 export function scriptedWhatsAppFlow(eventTitle: string) {

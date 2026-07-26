@@ -15,9 +15,9 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "AiDHD — Concierge for group plans",
+  title: "AiDHD — Concierge for group nights & trips",
   description:
-    "Your group texts budgets and vibes. AiDHD turns that into a costed plan and books it with scoped Prava payments.",
+    "Group nights out and weekend trips from the same chat. AiDHD builds costed plans and books with scoped Prava payments per category.",
 };
 
 export default function RootLayout({

@@ -34,6 +34,10 @@ export function DemoApp() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [waPhones, setWaPhones] = useState("");
+  const [waReplyPhone, setWaReplyPhone] = useState("+17735411355");
+  const [waReplyMsg, setWaReplyMsg] = useState("PLAN");
+  const [waNote, setWaNote] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await j<Snapshot>(`/api/events/${EVENT_ID}`);
@@ -82,6 +86,62 @@ export function DemoApp() {
       await j("/api/demo/seed-responses", { method: "POST" });
       await j(`/api/events/${EVENT_ID}/reconcile`, { method: "POST" });
     });
+  }
+
+  async function inviteWhatsApp() {
+    const phones = waPhones
+      .split(/[\n,]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (!phones.length) {
+      setWaNote("Add at least one +1… number (must be a Meta test recipient).");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setWaNote(null);
+    try {
+      const res = await j<{ invited: string[]; tip?: string }>(
+        "/api/channels/whatsapp/invite",
+        {
+          method: "POST",
+          body: JSON.stringify({ phones }),
+        },
+      );
+      setWaNote(
+        `Invited ${res.invited.length}. Look in WhatsApp for chat from +1 (555) 158-1137 (Meta test number) — may be under message requests. ${res.tip ?? ""}`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "WhatsApp invite failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Bypass Meta webhook — types a reply as if it came from WhatsApp. */
+  async function simulateWhatsAppReply() {
+    setBusy(true);
+    setError(null);
+    setWaNote(null);
+    try {
+      const res = await j<{ replies: string[] }>(
+        "/api/channels/whatsapp/simulate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            phone: waReplyPhone,
+            message: waReplyMsg,
+          }),
+        },
+      );
+      setWaNote(
+        `Bot replied on WhatsApp (${res.replies.length} msg). If phone was quiet, Meta webhook URL may be stale — use this box meanwhile.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Simulate failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function choosePlan(pkg: PackageData) {
@@ -140,6 +200,7 @@ export function DemoApp() {
           <nav className="hidden items-center gap-8 md:flex">
             {[
               ["problem", "Problem"],
+              ["use-cases", "Nights & trips"],
               ["how-it-works", "How it works"],
               ["demo", "Demo"],
             ].map(([id, label]) => (
@@ -175,13 +236,13 @@ export function DemoApp() {
               AiDHD
             </h1>
             <p className="mt-4 text-xl font-semibold text-[var(--accent)] sm:text-2xl">
-              Concierge for group plans
+              Concierge for group nights & trips
             </p>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-neutral-600 lg:mx-0">
-              Your friends drop budgets and vibes in the chat. AiDHD builds a
-              few costed options, you pick one, and it books — paying with a
-              separate Prava limit for tickets and dinner, not one scary lump
-              sum.
+              Friday concert or a weekend getaway — same mess in the chat.
+              Friends drop budgets and vibes. AiDHD builds a few costed plans
+              and books them with separate Prava limits per category (tickets,
+              dinner, flights, hotel) — not one scary lump sum.
             </p>
             <div className="mt-10 flex flex-wrap justify-center gap-4 lg:justify-start">
               <button
@@ -211,27 +272,83 @@ export function DemoApp() {
       <section id="problem" className="border-t border-neutral-200 bg-white py-20 lg:py-24">
         <div className="mx-auto max-w-3xl px-6 text-center lg:px-10">
           <h2 className="font-display text-3xl font-bold text-neutral-900 sm:text-4xl">
-            Group chat is where nights go to die
+            Group chat is where plans go to die
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-neutral-600">
-            Three budgets. Two vibes. Zero bookings. Someone spends an hour
-            reconciling Ticketmaster tabs and OpenTable holds — then the plan
-            falls apart. AiDHD is the agent that finishes the job.
+            Three budgets. Two vibes. Zero bookings. Whether it&apos;s
+            Ticketmaster + dinner or flights + a hotel for the weekend, someone
+            burns an hour reconciling tabs — then the plan falls apart. AiDHD is
+            the agent that finishes the job.
           </p>
+        </div>
+      </section>
+
+      {/* Use cases */}
+      <section
+        id="use-cases"
+        className="border-t border-neutral-200 bg-neutral-50 bg-grid-pattern py-20 lg:py-24"
+      >
+        <div className="mx-auto max-w-6xl px-6 lg:px-10">
+          <h2 className="font-display text-center text-3xl font-bold text-neutral-900 sm:text-4xl">
+            Same product. Two kinds of plans.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-neutral-600">
+            Nights out and multi-day travel share one flow: collect → package →
+            pay per category → book.
+          </p>
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
+            <article className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-lg shadow-neutral-200/40">
+              <p className="text-xs font-semibold tracking-wider text-[var(--accent)] uppercase">
+                Night out
+              </p>
+              <h3 className="font-display mt-2 text-2xl font-semibold text-neutral-900">
+                Concert + dinner
+              </h3>
+              <p className="mt-3 text-neutral-600 leading-relaxed">
+                Tickets, timing, and a pre-show table that fit everyone&apos;s
+                budget. Live in today&apos;s demo — end-to-end with Prava
+                mandates for ticket and dining.
+              </p>
+              <ul className="mt-4 space-y-1.5 text-sm text-neutral-600">
+                <li>· Ticket tier + venue</li>
+                <li>· Dinner reservation</li>
+                <li>· Separate spend caps per category</li>
+              </ul>
+            </article>
+            <article className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-lg shadow-neutral-200/40">
+              <p className="text-xs font-semibold tracking-wider text-[var(--accent)] uppercase">
+                Travel
+              </p>
+              <h3 className="font-display mt-2 text-2xl font-semibold text-neutral-900">
+                Weekend / multi-day trip
+              </h3>
+              <p className="mt-3 text-neutral-600 leading-relaxed">
+                Flights, hotel, day-by-day itinerary, and at least one dinner —
+                same reconciliation agent, same per-category Prava mandates
+                (flight · hotel · dining · activities).
+              </p>
+              <ul className="mt-4 space-y-1.5 text-sm text-neutral-600">
+                <li>· Flights + hotel stays</li>
+                <li>· Itinerary days that fit the group</li>
+                <li>· Re-mandate only the leg that fails</li>
+              </ul>
+            </article>
+          </div>
         </div>
       </section>
 
       {/* How it works */}
       <section
         id="how-it-works"
-        className="bg-neutral-50 bg-grid-pattern py-20 lg:py-28"
+        className="bg-white py-20 lg:py-28"
       >
         <div className="mx-auto max-w-6xl px-6 lg:px-10">
           <h2 className="font-display text-center text-3xl font-bold text-neutral-900 sm:text-4xl">
             How it works
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-center text-neutral-600">
-            Three steps from messy group chat to confirmed night out.
+            Three steps from messy group chat to a booked night — or a booked
+            trip.
           </p>
           <div className="relative mt-16">
             <div
@@ -243,17 +360,17 @@ export function DemoApp() {
                 {
                   n: "1",
                   t: "Everyone shares a budget + vibe",
-                  d: "Web, WhatsApp, or iMessage — same simple questions. No accounts to set up for the demo.",
+                  d: "Web, WhatsApp, or iMessage — dates, spend caps, and prefs for a night out or a trip.",
                 },
                 {
                   n: "2",
                   t: "AiDHD builds 2–3 real plans",
-                  d: "Tickets + dinner, priced for the group, with merchant trust checks. Distinct options — not three clones.",
+                  d: "Outings: tickets + dinner. Trips: flights + hotel + itinerary + dining — priced for the group, trust-checked.",
                 },
                 {
                   n: "3",
                   t: "You pick. It pays & books.",
-                  d: "Separate Prava spend limits per category. If tickets sell out, only that limit is re-asked.",
+                  d: "Separate Prava limits per category. If a flight or ticket fails, only that mandate is re-asked.",
                 },
               ].map((s) => (
                 <div
@@ -281,13 +398,96 @@ export function DemoApp() {
             Live demo
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-neutral-600">
-            Friday night out — concert + dinner for three friends.
+            Tonight&apos;s path: concert + dinner. Same engine powers group
+            travel (flights + hotel + itinerary) with per-category Prava
+            mandates.
           </p>
 
           {error && (
             <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-700">
               {error}
             </p>
+          )}
+
+          {integrations.whatsapp === "live" && (
+            <div className="mt-8 rounded-2xl border border-neutral-200 bg-neutral-50 px-5 py-5">
+              <p className="text-xs font-medium tracking-wider text-neutral-500 uppercase">
+                WhatsApp sandbox
+              </p>
+              <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-neutral-600">
+                <li>
+                  Meta → app <strong>AiDHD</strong> → left sidebar{" "}
+                  <strong>Use cases</strong> (not a menu named “WhatsApp”)
+                </li>
+                <li>
+                  Open <strong>Connect with customers through WhatsApp</strong> →{" "}
+                  <strong>Step 1. Try it out</strong>
+                </li>
+                <li>
+                  On <strong>Send a message from your test number</strong>, open
+                  the <strong>Recipient</strong> dropdown →{" "}
+                  <strong>Manage phone number list</strong> /{" "}
+                  <strong>Add phone number</strong>
+                </li>
+                <li>
+                  Enter friend&apos;s number with country code → they get a
+                  WhatsApp code → they accept → status must show allowed
+                </li>
+                <li>
+                  Paste those numbers below → Text friends → they reply in the
+                  chat from <strong>+1 (555) 158-1137</strong>
+                </li>
+              </ol>
+              <textarea
+                value={waPhones}
+                onChange={(e) => setWaPhones(e.target.value)}
+                placeholder="+15551234567, +15559876543"
+                rows={2}
+                className="mt-4 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-[var(--accent)]"
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void inviteWhatsApp()}
+                className="mt-3 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {busy ? "Sending…" : "Text friends to collect prefs"}
+              </button>
+              <div className="mt-5 border-t border-neutral-200 pt-4">
+                <p className="text-xs font-medium tracking-wider text-neutral-500 uppercase">
+                  If WhatsApp stays silent — reply here
+                </p>
+                <p className="mt-1 text-sm text-neutral-600">
+                  Meta webhook tunnels go stale. This sends the bot reply to your
+                  phone without waiting on Meta inbound.
+                </p>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={waReplyPhone}
+                    onChange={(e) => setWaReplyPhone(e.target.value)}
+                    placeholder="+17735411355"
+                    className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)] sm:w-44"
+                  />
+                  <input
+                    value={waReplyMsg}
+                    onChange={(e) => setWaReplyMsg(e.target.value)}
+                    placeholder="PLAN"
+                    className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void simulateWhatsAppReply()}
+                    className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 disabled:opacity-50"
+                  >
+                    Send as WhatsApp reply
+                  </button>
+                </div>
+              </div>
+              {waNote && (
+                <p className="mt-3 text-sm text-neutral-600">{waNote}</p>
+              )}
+            </div>
           )}
 
           <div className="mt-10 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl shadow-neutral-200/50">
@@ -520,33 +720,27 @@ function HeroCard() {
         <div className="h-2 w-2 rounded-full bg-amber-400" />
         <div className="h-2 w-2 rounded-full bg-[var(--accent)]" />
         <span className="ml-2 text-sm font-medium text-neutral-500">
-          Group night — AiDHD
+          Nights & trips — AiDHD
         </span>
       </div>
-      <div className="space-y-4 p-4">
+      <div className="space-y-3 p-4">
         <div className="rounded-xl bg-neutral-100 p-3">
           <p className="mb-1 text-xs font-medium tracking-wider text-neutral-500 uppercase">
-            Group chat
+            Night out
           </p>
           <p className="text-sm text-neutral-700">
-            Maya $150 · Jordan $100 · Sam $200 — Brooklyn, seats vs standing,
-            vegetarian dinner…
+            Brooklyn Steel + dinner — ticket & dining mandates
           </p>
-        </div>
-        <div className="flex justify-center">
-          <span className="text-sm font-semibold text-[var(--accent)]">
-            ↓ AiDHD plans
-          </span>
         </div>
         <div className="glow-accent rounded-xl border border-teal-100 bg-teal-50 p-3">
           <p className="mb-1 text-xs font-medium tracking-wider text-teal-800 uppercase">
-            Best match
+            Also: group travel
           </p>
           <p className="text-sm text-neutral-800">
-            Brooklyn Steel GA + Lilia — $348 total · trust-checked merchants
+            NYC → Miami weekend — flights, hotel, itinerary, dinner
           </p>
           <p className="mt-2 text-xs font-medium text-[var(--accent)]">
-            Then: ticket mandate + dining mandate → booked
+            Flight · hotel · dining · activity caps → booked
           </p>
         </div>
       </div>

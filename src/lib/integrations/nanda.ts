@@ -7,7 +7,7 @@ export const AIDHD_AGENT_FACTS = {
   id: "agent:aidhd:group-planning",
   name: "AiDHD Group Planning Agent",
   description:
-    "Reconciles multi-person budgets and preferences into costed outing packages, then books end-to-end via per-category Prava mandates.",
+    "Reconciles multi-person budgets and preferences into costed night-out and travel packages, then books end-to-end via per-category Prava mandates (tickets/dining or flights/hotel/dining).",
   version: "0.1.0",
   provider: {
     name: "AiDHD",
@@ -20,6 +20,7 @@ export const AIDHD_AGENT_FACTS = {
     "merchant_trust_lookup",
     "prava_mandate_orchestration",
     "ticket_and_dining_booking",
+    "group_travel_flight_hotel_booking",
   ],
   endpoints: {
     a2a: "/api/nanda/a2a",
@@ -35,6 +36,7 @@ export const AIDHD_AGENT_FACTS = {
     tags: [
       "agentic-commerce",
       "group-planning",
+      "group-travel",
       "booking",
       "prava",
       "senso",

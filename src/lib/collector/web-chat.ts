@@ -8,7 +8,7 @@ import {
   setCollector,
   upsertEvent,
 } from "../store";
-import type { ChatMessage, CollectorSession, Response } from "../types";
+import type { Channel, ChatMessage, CollectorSession, Response } from "../types";
 
 function msg(role: "assistant" | "user", content: string): ChatMessage {
   return { id: randomUUID(), role, content, ts: new Date().toISOString() };
@@ -41,33 +41,47 @@ function parseTags(text: string): string[] {
   return tags;
 }
 
-export function startCollector(eventId: string, userId: string): CollectorSession {
+export function startCollector(
+  eventId: string,
+  userId: string,
+  opts?: { channel?: Channel; name?: string },
+): CollectorSession {
   const existing = getCollector(eventId, userId);
   if (existing) return existing;
 
   const event = getEvent(eventId);
   const user = getUser(userId);
+  const channel = opts?.channel ?? user?.channel ?? "web";
+  const name = opts?.name ?? user?.name ?? "there";
   const session: CollectorSession = {
     user_id: userId,
     event_id: eventId,
-    channel: user?.channel ?? "web",
+    channel,
     step: "budget",
     draft: {
       event_id: eventId,
       user_id: userId,
-      channel: user?.channel ?? "web",
+      channel,
       budget_currency: "USD",
     },
-    messages: [
-      msg(
-        "assistant",
-        `Hey ${user?.name ?? "there"} — I'm collecting your budget and prefs for "${event?.title ?? "the outing"}". This stays on-task: budget → availability → vibe → submit.`,
-      ),
-      msg(
-        "assistant",
-        "What's your budget cap for the night? (e.g. 80, 120, 200 — or pick Under $80 / $80–$120 / $120–$200)",
-      ),
-    ],
+    messages:
+      channel === "whatsapp"
+        ? [
+            msg(
+              "assistant",
+              `Hey ${name} — budget for "${event?.title ?? "the outing"}"? (e.g. 120)`,
+            ),
+          ]
+        : [
+            msg(
+              "assistant",
+              `Hey ${name} — I'm collecting your budget and prefs for "${event?.title ?? "the outing"}". This stays on-task: budget → availability → vibe → submit. Text EVENTS anytime for Ticketmaster picks, or HELP for commands.`,
+            ),
+            msg(
+              "assistant",
+              "What's your budget cap for the night? (e.g. 80, 120, 200 — or pick Under $80 / $80–$120 / $120–$200)",
+            ),
+          ],
   };
   setCollector(session);
   return session;
@@ -95,7 +109,9 @@ export function handleCollectorMessage(
     session.messages.push(
       msg(
         "assistant",
-        `Budget locked at $${budget}. Which nights work? Reply with Fri Aug 7, Sat Aug 8, or Either.`,
+        session.channel === "whatsapp"
+          ? `Got $${budget}. Nights: Fri Aug 7, Sat Aug 8, or Either?`
+          : `Budget locked at $${budget}. Which nights work? Reply with Fri Aug 7, Sat Aug 8, or Either.`,
       ),
     );
     setCollector(session);
@@ -103,27 +119,56 @@ export function handleCollectorMessage(
   }
 
   if (session.step === "availability") {
-    const lower = text.toLowerCase();
+    const lower = text.toLowerCase().replace(/,/g, " ");
     const dates: string[] = [];
-    if (lower.includes("either") || lower.includes("both")) {
+    if (
+      lower.includes("either") ||
+      lower.includes("both") ||
+      lower.includes("any") ||
+      lower.includes("whenever")
+    ) {
       dates.push("2026-08-07", "2026-08-08");
     } else {
-      if (lower.includes("fri") || lower.includes("7")) dates.push("2026-08-07");
-      if (lower.includes("sat") || lower.includes("8")) dates.push("2026-08-08");
+      const fri =
+        /\bfri(day)?\b/.test(lower) ||
+        /\baug(ust)?\s*7\b/.test(lower) ||
+        /\b08[\/-]0?7\b/.test(lower) ||
+        /\b2026-08-07\b/.test(lower) ||
+        /\b7(th)?\b/.test(lower);
+      const sat =
+        /\bsat(urday)?\b/.test(lower) ||
+        /\baug(ust)?\s*8\b/.test(lower) ||
+        /\b08[\/-]0?8\b/.test(lower) ||
+        /\b2026-08-08\b/.test(lower) ||
+        /\b8(th)?\b/.test(lower);
+      // Bare "7" / "8" alone
+      if (fri) dates.push("2026-08-07");
+      if (sat) dates.push("2026-08-08");
+      if (!dates.length && /^\s*7\s*$/.test(lower)) dates.push("2026-08-07");
+      if (!dates.length && /^\s*8\s*$/.test(lower)) dates.push("2026-08-08");
     }
-    if (!dates.length) {
+    // de-dupe
+    const uniq = [...new Set(dates)];
+    if (!uniq.length) {
       session.messages.push(
-        msg("assistant", "Pick Fri Aug 7, Sat Aug 8, or Either so I can schedule around it."),
+        msg(
+          "assistant",
+          session.channel === "whatsapp"
+            ? "Which night — Fri Aug 7, Sat Aug 8, or Either?"
+            : "Pick Fri Aug 7, Sat Aug 8, or Either so I can schedule around it.",
+        ),
       );
       setCollector(session);
       return { session, allIn: false };
     }
-    session.draft.availability = dates;
+    session.draft.availability = uniq;
     session.step = "preferences";
     session.messages.push(
       msg(
         "assistant",
-        "Any vibe prefs? Free text is fine — standing room, neighborhood, food constraints, energy level…",
+        session.channel === "whatsapp"
+          ? "Vibe prefs? (e.g. Brooklyn, vegetarian, standing ok)"
+          : "Any vibe prefs? Free text is fine — standing room, neighborhood, food constraints, energy level…",
       ),
     );
     setCollector(session);
@@ -139,7 +184,9 @@ export function handleCollectorMessage(
     session.messages.push(
       msg(
         "assistant",
-        `Confirm submit?\n• Budget: $${session.draft.budget_cap}\n• Nights: ${session.draft.availability?.join(", ")}\n• Prefs: ${text}\n\nReply YES to submit, or edit prefs.`,
+        session.channel === "whatsapp"
+          ? `Confirm?\n$${session.draft.budget_cap} · ${session.draft.availability?.join(", ")} · ${text}\nReply YES`
+          : `Confirm submit?\n• Budget: $${session.draft.budget_cap}\n• Nights: ${session.draft.availability?.join(", ")}\n• Prefs: ${text}\n\nReply YES to submit, or edit prefs.`,
       ),
     );
     setCollector(session);

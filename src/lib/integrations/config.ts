@@ -1,3 +1,7 @@
+export function hasGemini() {
+  return Boolean(process.env.GEMINI_API_KEY);
+}
+
 export function hasOpenAI() {
   return Boolean(process.env.OPENAI_API_KEY);
 }
@@ -25,8 +29,11 @@ export function hasTicketmaster() {
 }
 
 export function integrationStatus() {
+  const llm = hasGemini() ? "gemini" : hasOpenAI() ? "openai" : "mock";
   return {
-    openai: hasOpenAI() ? "live" : "mock",
+    llm,
+    gemini: hasGemini() ? "live" : "mock",
+    openai: hasOpenAI() ? "live" : "standby",
     prava: hasPrava() ? "live" : "mock",
     senso: hasSenso() ? "live" : "mock",
     linq: hasLinq() ? "live" : "mock",

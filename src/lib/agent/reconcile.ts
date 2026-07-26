@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
-import OpenAI from "openai";
 import { searchDining } from "../integrations/dining";
-import { hasOpenAI } from "../integrations/config";
+import { completeJson } from "../integrations/llm";
 import { lookupVendorTrust } from "../integrations/senso";
 import { searchTickets } from "../integrations/ticketmaster";
 import { getUser } from "../demo-users";
@@ -84,41 +83,41 @@ function noteConflicts(responses: Response[]): string[] {
 }
 
 async function maybePolishLabels(
+  eventId: string,
   packages: Package[],
   conflicts: string[],
 ): Promise<Package[]> {
-  if (!hasOpenAI()) return packages;
+  const result = await completeJson({
+    system:
+      'You refine short package labels/rationales for a group planning agent (nights out and trips). Return JSON {"packages":[{id,label,rationale}]}. Keep labels under 4 words. Mention conflicts honestly.',
+    user: JSON.stringify({
+      conflicts,
+      packages: packages.map((p) => ({
+        id: p.id,
+        label: p.label,
+        rationale: p.rationale,
+        total_cost: p.total_cost,
+        fit_score: p.fit_score,
+      })),
+    }),
+  });
+
+  if (!result) {
+    pushAgentLog(
+      eventId,
+      "llm_polish",
+      "LLM polish skipped (Gemini/OpenAI unavailable) — using deterministic package copy",
+    );
+    return packages;
+  }
 
   try {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const res = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            'You refine short package labels/rationales for a group outing agent. Return JSON {"packages":[{id,label,rationale}]}. Keep labels under 4 words. Mention conflicts honestly.',
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            conflicts,
-            packages: packages.map((p) => ({
-              id: p.id,
-              label: p.label,
-              rationale: p.rationale,
-              total_cost: p.total_cost,
-              fit_score: p.fit_score,
-            })),
-          }),
-        },
-      ],
-    });
-
-    const raw = res.choices[0]?.message?.content;
-    if (!raw) return packages;
-    const parsed = JSON.parse(raw) as {
+    pushAgentLog(
+      eventId,
+      "llm_polish",
+      `Refined package copy via ${result.provider}`,
+    );
+    const parsed = JSON.parse(result.text) as {
       packages?: Array<{ id: string; label: string; rationale: string }>;
     };
     if (!parsed.packages) return packages;
@@ -279,6 +278,6 @@ export async function reconcileAndGeneratePackages(
     }));
   }
 
-  packages = await maybePolishLabels(packages, conflicts);
+  packages = await maybePolishLabels(event.id, packages, conflicts);
   return { packages, conflicts, envelope };
 }

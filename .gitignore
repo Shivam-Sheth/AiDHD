@@ -39,6 +39,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# ephemeral local tunnel URL for Meta WhatsApp webhook
+.whatsapp-tunnel-url
+
 # vercel
 .vercel
 

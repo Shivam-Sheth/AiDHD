@@ -1,14 +1,14 @@
 # AiDHD
 
-**Group planning agent that finishes the job.**
+**Concierge for group nights & trips — the agent that finishes the job.**
 
-Built for [Prava's Agentic Commerce Hackathon](https://agentic-commerce.devfolio.co/) (Jul 31–Aug 2 2026). One person starts an outing, the group drops budgets & prefs from web / WhatsApp / iMessage, AiDHD reconciles into 2–3 costed packages, the group votes, and the agent books end-to-end with **separate Prava mandates per cost category**.
+Built for [Prava's Agentic Commerce Hackathon](https://agentic-commerce.devfolio.co/) (Jul 31–Aug 2 2026). One person starts a **night out** or a **multi-day trip**, the group drops budgets & prefs from web / WhatsApp / iMessage, AiDHD reconciles into 2–3 costed packages, the group votes, and the agent books end-to-end with **separate Prava mandates per cost category** (tickets/dining for outings; flights/hotel/dining/activities for travel).
 
 > Working name in the build prompt was "Splitrip". Product brand in this repo: **AiDHD**.
 
 ## Why this exists
 
-Group chats are where nights go to die: three budgets, two vibes, zero bookings. AiDHD is the agent that reconciles the mess and actually pays + reserves — without asking for one scary lump-sum charge.
+Group chats are where plans go to die — Friday concerts and weekend getaways alike. Three budgets, two vibes, zero bookings. AiDHD reconciles the mess and actually pays + reserves — without one scary lump-sum charge.
 
 ## Demo (2–3 min script)
 
@@ -68,7 +68,7 @@ A2A ping: `POST /api/nanda/a2a` with `{ "method": "trust.ping" }`
 
 ## MVP cuts (intentional)
 
-- **Outing** mode is fully wired (tickets + dinner). Trip mode shares the data model but stubs flights/hotel.  
+- **Outing** mode is fully wired end-to-end in the live demo (tickets + dinner). **Travel** is a first-class product surface (same collect → package → per-category Prava flow for flights, hotel, itinerary, dining); trip inventory uses realistic fixtures for the hackathon while outing booking stays live.  
 - Hardcoded 3-person demo group — no auth.  
 - Integrations degrade to realistic mocks until keys are supplied. **Prava must be live for the final submission.**  
 - WhatsApp/iMessage show live-shaped transcripts; wire sandbox credentials via `.env.local` (see `.env.example`).  
@@ -101,14 +101,17 @@ curl http://localhost:3000/api/health
 
 ## Credentials
 
-Copy `.env.example` → `.env.local`. Ask for keys as each phase needs them — the app never blocks on missing credentials.
+Copy `.env.example` → `.env.local`. The app never blocks on missing credentials (falls back to mocks/fixtures).
+
+**Shareable setup guide for teammates:** [`docs/API_KEYS.md`](./docs/API_KEYS.md)  
+(links for Prava, Gemini, Senso, Ticketmaster, Meta WhatsApp — no secrets in that file)
 
 Priority order for the hackathon weekend:
 
 1. `PRAVA_SECRET_KEY` (required for submission)  
-2. `OPENAI_API_KEY`  
+2. `GEMINI_API_KEY` (preferred LLM; OpenAI optional fallback)  
 3. `SENSO_API_KEY`  
-4. `LINQ_API_KEY` / Meta WhatsApp / Ticketmaster  
+4. `TICKETMASTER_API_KEY` / Meta WhatsApp / `LINQ_API_KEY`  
 
 ## Stack
 

@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# local agent skill installs
+.cursor/
+.claude/
+.agents/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

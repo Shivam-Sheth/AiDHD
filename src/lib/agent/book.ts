@@ -50,6 +50,22 @@ export async function requestMandatesForPackage(eventId: string, packageId: stri
       category,
     });
 
+    if (session.error) {
+      pushAgentLog(
+        eventId,
+        "prava_warn",
+        `${category} session warning: ${session.error}`,
+      );
+    } else {
+      pushAgentLog(
+        eventId,
+        "prava_session",
+        `${category} · ${session.mode} session ${session.session_id}${
+          session.iframe_url ? " · collect UI ready" : ""
+        }`,
+      );
+    }
+
     const registered = await registerMandate({
       session_id: session.session_id,
       merchant: comp.vendor,
@@ -57,6 +73,7 @@ export async function requestMandatesForPackage(eventId: string, packageId: stri
       currency: comp.currency,
       duration_minutes: category === "ticket" ? 30 : 45,
       category,
+      iframe_url: session.iframe_url,
     });
 
     const mandate: Mandate = {

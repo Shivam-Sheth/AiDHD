@@ -5,14 +5,19 @@ export interface PravaSessionResult {
   session_id: string;
   session_token: string;
   iframe_url?: string;
+  order_id?: string;
+  expires_at?: string;
   mode: "live" | "mock";
+  error?: string;
 }
 
 export interface PravaMandateResult {
   mandate_id: string;
   intent_id: string;
+  session_id?: string;
   status: "approved" | "requested";
   mode: "live" | "mock";
+  iframe_url?: string;
 }
 
 export interface PravaTokenResult {
@@ -27,8 +32,8 @@ export interface PravaTokenResult {
 
 /**
  * Prava flow per docs.prava.space:
- * session → passkey approval → mandate (merchant + amount + duration) → single-use payment token.
- * We request one mandate per cost category for resilient partial-failure booking.
+ * session → passkey / card collect → mandate (merchant + amount + duration)
+ * → single-use payment token. One mandate per cost category.
  */
 export async function createPravaSession(input: {
   user_id: string;
@@ -37,6 +42,7 @@ export async function createPravaSession(input: {
   amount: number;
   currency: string;
   category: string;
+  merchant_url?: string;
 }): Promise<PravaSessionResult> {
   if (hasPrava()) {
     try {
@@ -56,7 +62,7 @@ export async function createPravaSession(input: {
             {
               merchant_details: {
                 name: input.merchant,
-                url: "https://aidhd.app",
+                url: input.merchant_url || "https://ai-dhd.vercel.app",
                 country_code_iso2: "US",
               },
               product_details: [
@@ -70,22 +76,46 @@ export async function createPravaSession(input: {
           ],
         }),
       });
-      if (res.ok) {
-        const data = (await res.json()) as {
-          id?: string;
-          session_id?: string;
-          session_token?: string;
-          iframe_url?: string;
-        };
+
+      const data = (await res.json()) as {
+        session_id?: string;
+        session_token?: string;
+        iframe_url?: string;
+        order_id?: string;
+        expires_at?: string;
+        message?: string;
+        error?: string;
+        detail?: string;
+      };
+
+      if (res.ok && data.session_id) {
         return {
-          session_id: data.session_id || data.id || randomUUID(),
-          session_token: data.session_token || randomUUID(),
+          session_id: data.session_id,
+          session_token: data.session_token || "",
           iframe_url: data.iframe_url,
+          order_id: data.order_id,
+          expires_at: data.expires_at,
           mode: "live",
         };
       }
-    } catch {
-      // fall through
+
+      return {
+        session_id: `sess_err_${randomUUID().slice(0, 8)}`,
+        session_token: "",
+        mode: "live",
+        error:
+          data.message ||
+          data.error ||
+          data.detail ||
+          `Prava session failed (${res.status})`,
+      };
+    } catch (e) {
+      return {
+        session_id: `sess_err_${randomUUID().slice(0, 8)}`,
+        session_token: "",
+        mode: "live",
+        error: e instanceof Error ? e.message : "Prava request failed",
+      };
     }
   }
 
@@ -93,7 +123,6 @@ export async function createPravaSession(input: {
   return {
     session_id,
     session_token: `st_mock_${randomUUID().slice(0, 8)}`,
-    iframe_url: undefined,
     mode: "mock",
   };
 }
@@ -105,17 +134,22 @@ export async function registerMandate(input: {
   currency: string;
   duration_minutes: number;
   category: string;
+  iframe_url?: string;
 }): Promise<PravaMandateResult> {
-  if (hasPrava()) {
-    // Live path: registerIntent via SDK/API when keys are present.
-    // Until the dashboard credentials are wired, we still mint stable IDs.
-  }
-
+  // Intent registration / passkey approval happens via Prava collect UI (iframe).
+  // For the hackathon demo we bind each category to its live session_id.
+  const live = hasPrava() && !input.session_id.startsWith("sess_mock");
   return {
-    mandate_id: `md_mock_${input.category}_${randomUUID().slice(0, 6)}`,
-    intent_id: `intent_mock_${randomUUID().slice(0, 8)}`,
-    status: "approved",
-    mode: hasPrava() ? "live" : "mock",
+    mandate_id: live
+      ? `md_${input.category}_${input.session_id.slice(-8)}`
+      : `md_mock_${input.category}_${randomUUID().slice(0, 6)}`,
+    intent_id: live
+      ? `intent_${input.session_id.slice(-10)}`
+      : `intent_mock_${randomUUID().slice(0, 8)}`,
+    session_id: input.session_id,
+    status: "requested",
+    mode: live ? "live" : "mock",
+    iframe_url: input.iframe_url,
   };
 }
 

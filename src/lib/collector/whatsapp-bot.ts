@@ -2,12 +2,10 @@ import {
   handleCollectorMessage,
   startCollector,
 } from "./web-chat";
-import { reconcileAndGeneratePackages } from "../agent/reconcile";
 import {
   sendWhatsAppMessage,
   sendWhatsAppTemplate,
 } from "../integrations/whatsapp";
-import { searchTickets } from "../integrations/ticketmaster";
 import {
   getContactByPhone,
   normalizePhone,
@@ -19,7 +17,6 @@ import {
   getCollector,
   getEvent,
   listResponses,
-  setPackages,
   upsertEvent,
 } from "../store";
 
@@ -43,51 +40,10 @@ async function replyOnce(to: string, parts: string[]) {
   await sendWhatsAppMessage({ to, body });
 }
 
-function cityFromText(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes("brooklyn")) return "Brooklyn";
-  if (lower.includes("manhattan") || lower.includes("nyc") || lower.includes("new york"))
-    return "New York";
-  return "New York";
-}
-
-function keywordFromText(text: string): string {
-  const lower = text.toLowerCase();
-  for (const k of [
-    "jazz",
-    "comedy",
-    "sports",
-    "theater",
-    "theatre",
-    "rap",
-    "rock",
-    "concert",
-  ]) {
-    if (lower.includes(k)) return k === "theatre" ? "theater" : k;
-  }
-  return "concert";
-}
-
-export async function formatTicketmasterPreview(input: {
-  keyword?: string;
-  city?: string;
-  max_price?: number;
-}): Promise<string> {
-  const { offers, source } = await searchTickets({
-    keyword: input.keyword || "concert",
-    city: input.city || "New York",
-    max_price: input.max_price,
-  });
-  if (!offers.length) {
-    return "No Ticketmaster hits — try EVENTS again with different prefs.";
-  }
-  const lines = offers.slice(0, 3).map((o, i) => {
-    const when = o.date.slice(0, 10);
-    return `${i + 1}. ${o.event_name} — $${o.price} @ ${o.venue} (${when})`;
-  });
-  return `Ticketmaster (${source}):\n${lines.join("\n")}`;
-}
-
+/**
+ * WhatsApp = collector only.
+ * After prefs are in, AiDHD's multi-agent subnet (tickets/flights/hotels/voice) takes over on the web/API.
+ */
 export async function inviteWhatsAppPhones(input: {
   phones: { phone: string; name?: string }[];
   event_id?: string;
@@ -121,11 +77,10 @@ export async function inviteWhatsAppPhones(input: {
       name: contact.name,
     });
     const title = getEvent(eventId)?.title ?? "Friday night out";
-    // Template (reliable) + one short text (not 3 Graph round-trips)
     await sendWhatsAppTemplate({ to: contact.phone });
     await sendWhatsAppMessage({
       to: contact.phone,
-      body: `AiDHD — ${title}.\nBudget for the night? (e.g. 120)\nThen dates → vibe → YES for Ticketmaster.`,
+      body: `AiDHD collector — ${title}.\nI only take budget → dates → vibe.\nAgents handle tickets/flights/hotels/booking.\nBudget? (e.g. 120)`,
     });
     invited.push(contact.phone);
   }
@@ -133,7 +88,7 @@ export async function inviteWhatsAppPhones(input: {
     invited,
     event_id: eventId,
     from_display: "+1 (555) 158-1137",
-    tip: "Look for +1 (555) 158-1137. Reply with a budget number in that chat.",
+    tip: "Collector only. Reply with budget in the 555 chat.",
   };
 }
 
@@ -177,51 +132,17 @@ export async function handleWhatsAppInbound(input: {
       name: contact.name,
     });
     replies.push(
-      `Hey ${contact.name} — budget for "${getEvent(eventId)?.title}"?\nReply e.g. 120 (or Under $80 / $80–$120 / $120–$200).`,
+      `Hey ${contact.name} — collector mode for "${getEvent(eventId)?.title}".\nBudget? (e.g. 120)\nI don't book — AiDHD agents do that after the group is in.`,
     );
     await replyOnce(phone, replies);
     return { replies, user_id: contact.user_id, event_id: eventId };
   }
 
-  if (/^(events|find|tickets|ticketmaster)\b/i.test(lower)) {
-    const session = getCollector(eventId, contact.user_id);
-    const prefText =
-      session?.draft.preferences?.free_text ||
-      session?.messages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join(" ") ||
-      text;
-    const msg = await formatTicketmasterPreview({
-      keyword: keywordFromText(prefText),
-      city: cityFromText(prefText),
-      max_price: session?.draft.budget_cap,
-    });
-    replies.push(msg);
+  if (/^(events|find|tickets|ticketmaster|packages|reconcile)\b/i.test(lower)) {
+    replies.push(
+      "That's agent work, not collector.\nOpen https://aidhd-omega.vercel.app and run Generate packages once prefs are in.",
+    );
     await replyOnce(phone, replies);
-    return { replies, user_id: contact.user_id, event_id: eventId };
-  }
-
-  if (/^(packages|reconcile)\b/i.test(lower)) {
-    const responses = listResponses(eventId);
-    if (!responses.length) {
-      replies.push("No prefs yet — send a budget number to start.");
-      await replyOnce(phone, replies);
-      return { replies, user_id: contact.user_id, event_id: eventId };
-    }
-    // Acknowledge fast, then reconcile (can take a few seconds)
-    await replyOnce(phone, ["Building packages…"]);
-    const fresh = getEvent(eventId)!;
-    upsertEvent({ ...fresh, status: "reconciling" });
-    const result = await reconcileAndGeneratePackages(fresh, responses);
-    setPackages(eventId, result.packages);
-    upsertEvent({ ...getEvent(eventId)!, status: "voting" });
-    const summary = result.packages
-      .map((p) => `• ${p.label} — $${p.total_cost}`)
-      .join("\n");
-    const msg = `Packages:\n${summary}\n\nVote on localhost:3000 → Prava.`;
-    replies.push(msg);
-    await replyOnce(phone, [msg]);
     return { replies, user_id: contact.user_id, event_id: eventId };
   }
 
@@ -233,9 +154,7 @@ export async function handleWhatsAppInbound(input: {
     });
     const looksLikeBudget = /\$?\d{2,4}|under|budget/i.test(text);
     if (!looksLikeBudget) {
-      replies.push(
-        `Hey ${contact.name} — budget for the night? (e.g. 120)`,
-      );
+      replies.push(`Hey ${contact.name} — budget for the night? (e.g. 120)`);
       await replyOnce(phone, replies);
       return { replies, user_id: contact.user_id, event_id: eventId };
     }
@@ -245,22 +164,19 @@ export async function handleWhatsAppInbound(input: {
   const result = handleCollectorMessage(eventId, contact.user_id, text);
   const newReplies = lastAssistantTexts(before, result.session.messages);
 
-  // Fast path: send collector reply immediately (no Ticketmaster/Gemini yet)
   if (newReplies.length) {
     replies.push(...newReplies);
     await replyOnce(phone, newReplies);
   }
 
-  // Slow work AFTER the user already got the next question
   if (result.response) {
-    const prefText = result.response.preferences.free_text;
-    const tm = await formatTicketmasterPreview({
-      keyword: keywordFromText(prefText),
-      city: cityFromText(prefText),
-      max_price: result.response.budget_cap,
-    });
-    replies.push(tm);
-    await replyOnce(phone, [tm]);
+    const count = listResponses(eventId).length;
+    const handoff =
+      `Prefs locked. Handing off to AiDHD agents (${count} response${count === 1 ? "" : "s"} in).\n` +
+      `They'll build Ticketmaster / flight / hotel packages + Prava mandates.\n` +
+      `Demo: https://aidhd-omega.vercel.app`;
+    replies.push(handoff);
+    await replyOnce(phone, [handoff]);
   }
 
   return { replies, user_id: contact.user_id, event_id: eventId };

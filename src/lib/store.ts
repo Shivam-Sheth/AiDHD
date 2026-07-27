@@ -69,6 +69,22 @@ export function seedDemoEvent(): Event {
   };
 
   store.events.set(event.id, event);
+
+  // Travel demo twin — same group, multi-day Miami trip
+  const trip: Event = {
+    id: "evt_demo_miami",
+    type: "trip",
+    title: "NYC → Miami weekend",
+    destination_or_venue: "Miami Beach",
+    proposed_dates: ["2026-08-14", "2026-08-15", "2026-08-16"],
+    organizer_id: DEMO_USERS[0].id,
+    invitee_ids: DEMO_USERS.map((u) => u.id),
+    status: "collecting",
+    created_via: "web",
+    created_at: new Date().toISOString(),
+  };
+  store.events.set(trip.id, trip);
+
   store.seeded = true;
   return event;
 }

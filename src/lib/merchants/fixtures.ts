@@ -104,3 +104,143 @@ export const DINING_INVENTORY: DiningOffer[] = [
     party_size: 3,
   },
 ];
+
+export interface FlightOffer {
+  id: string;
+  vendor: string;
+  airline: string;
+  from: string;
+  to: string;
+  depart: string;
+  arrive: string;
+  cabin: string;
+  price_per_person: number;
+  currency: string;
+  tags: string[];
+}
+
+export interface HotelOffer {
+  id: string;
+  vendor: string;
+  name: string;
+  neighborhood: string;
+  check_in: string;
+  check_out: string;
+  nights: number;
+  price_total: number;
+  currency: string;
+  tags: string[];
+}
+
+export interface ItineraryDayOffer {
+  id: string;
+  day: string;
+  title: string;
+  details: string;
+  cost: number;
+  currency: string;
+  tags: string[];
+}
+
+/** NYC → Miami weekend trip fixtures (hackathon travel demo). */
+export const FLIGHT_INVENTORY: FlightOffer[] = [
+  {
+    id: "flt_budget_b6",
+    vendor: "Duffel / JetBlue",
+    airline: "JetBlue",
+    from: "JFK",
+    to: "MIA",
+    depart: "2026-08-14T08:15:00-04:00",
+    arrive: "2026-08-14T11:20:00-04:00",
+    cabin: "Basic",
+    price_per_person: 129,
+    currency: "USD",
+    tags: ["budget", "morning", "nonstop"],
+  },
+  {
+    id: "flt_match_aa",
+    vendor: "Duffel / American",
+    airline: "American",
+    from: "LGA",
+    to: "MIA",
+    depart: "2026-08-14T10:40:00-04:00",
+    arrive: "2026-08-14T13:55:00-04:00",
+    cabin: "Main Cabin",
+    price_per_person: 189,
+    currency: "USD",
+    tags: ["flexible", "afternoon", "nonstop"],
+  },
+  {
+    id: "flt_splurge_dl",
+    vendor: "Duffel / Delta",
+    airline: "Delta",
+    from: "JFK",
+    to: "MIA",
+    depart: "2026-08-14T16:05:00-04:00",
+    arrive: "2026-08-14T19:10:00-04:00",
+    cabin: "Comfort+",
+    price_per_person: 279,
+    currency: "USD",
+    tags: ["splurge", "legroom", "nonstop"],
+  },
+];
+
+export const HOTEL_INVENTORY: HotelOffer[] = [
+  {
+    id: "htl_budget_freehand",
+    vendor: "Booking.com",
+    name: "Freehand Miami",
+    neighborhood: "Downtown",
+    check_in: "2026-08-14",
+    check_out: "2026-08-16",
+    nights: 2,
+    price_total: 280,
+    currency: "USD",
+    tags: ["budget", "social", "pool"],
+  },
+  {
+    id: "htl_match_1hotel",
+    vendor: "Expedia",
+    name: "1 Hotel South Beach",
+    neighborhood: "South Beach",
+    check_in: "2026-08-14",
+    check_out: "2026-08-16",
+    nights: 2,
+    price_total: 520,
+    currency: "USD",
+    tags: ["beach", "match", "walkable"],
+  },
+  {
+    id: "htl_splurge_faena",
+    vendor: "Amex Travel",
+    name: "Faena Hotel Miami Beach",
+    neighborhood: "Mid-Beach",
+    check_in: "2026-08-14",
+    check_out: "2026-08-16",
+    nights: 2,
+    price_total: 890,
+    currency: "USD",
+    tags: ["splurge", "design", "cabana"],
+  },
+];
+
+export const ITINERARY_INVENTORY: ItineraryDayOffer[] = [
+  {
+    id: "itin_day1_beach",
+    day: "2026-08-14",
+    title: "Arrive + South Beach sunset",
+    details: "Hotel check-in, Ocean Drive walk, casual ceviche",
+    cost: 60,
+    currency: "USD",
+    tags: ["arrival", "beach"],
+  },
+  {
+    id: "itin_day2_wynwood",
+    day: "2026-08-15",
+    title: "Wynwood walls + dinner",
+    details: "Street art morning, Design District lunch, group dinner booking",
+    cost: 90,
+    currency: "USD",
+    tags: ["culture", "dinner"],
+  },
+];

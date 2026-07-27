@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
 import { reserveDining } from "../integrations/dining";
+import { reserveFlight } from "../integrations/flights";
+import { reserveHotel } from "../integrations/hotels";
 import { sendBookingConfirmationToGroup } from "../integrations/linq";
 import {
   createPravaSession,
@@ -7,6 +9,7 @@ import {
   registerMandate,
 } from "../integrations/prava";
 import { reserveTicket } from "../integrations/ticketmaster";
+import { runVoiceConfirmation } from "../integrations/voice";
 import {
   getEvent,
   getMandate,
@@ -19,6 +22,7 @@ import {
   upsertMandate,
 } from "../store";
 import type { Mandate, MandateCategory, PackageComponent } from "../types";
+import { getUser } from "../demo-users";
 
 function categoryFor(comp: PackageComponent): MandateCategory | null {
   if (comp.type === "ticket" || comp.type === "dining" || comp.type === "flight" || comp.type === "hotel") {
@@ -131,7 +135,7 @@ export async function executeBookings(
     (m) => m.package_id === pkg.id && m.status === "approved",
   );
 
-  const results = [];
+  const results: Array<Record<string, unknown>> = [];
 
   for (const mandate of mandates) {
     const comp = pkg.components.find((c) => c.type === mandate.category);
@@ -155,10 +159,20 @@ export async function executeBookings(
       );
     } else if (mandate.category === "dining") {
       reservation = await reserveDining(comp.merchant_id || "din");
+    } else if (mandate.category === "flight") {
+      const r = await reserveFlight(comp.merchant_id || "flt");
+      reservation = r.ok
+        ? { ok: true, confirmation_id: r.confirmation_id }
+        : { ok: false, failure_reason: r.failure_reason! };
+    } else if (mandate.category === "hotel") {
+      const r = await reserveHotel(comp.merchant_id || "htl");
+      reservation = r.ok
+        ? { ok: true, confirmation_id: r.confirmation_id }
+        : { ok: false, failure_reason: r.failure_reason! };
     } else {
       reservation = {
         ok: true,
-        confirmation_id: `MOCK-${mandate.category.toUpperCase()}-${Date.now().toString(36)}`,
+        confirmation_id: `MOCK-${String(mandate.category).toUpperCase()}-${Date.now().toString(36)}`,
       };
     }
 
@@ -231,6 +245,25 @@ export async function executeBookings(
       summary,
     });
     pushAgentLog(eventId, "confirmed", "Fan-out confirmation to group channels");
+
+    // Voice agent — Jarvis-style confirm call / clip for organizer
+    const organizer = getUser(fresh.organizer_id);
+    const voice = await runVoiceConfirmation({
+      organizer_name: organizer?.name ?? "there",
+      organizer_phone: process.env.VOICE_CONFIRM_PHONE,
+      event_title: fresh.title,
+      package_label: pkg.label,
+      total_cost: pkg.total_cost,
+      categories: [...required],
+    });
+    pushAgentLog(
+      eventId,
+      "agent:voice",
+      `${voice.mode} · ${voice.detail} · "${voice.script.slice(0, 80)}…"`,
+    );
+    (results as Array<Record<string, unknown>>).push({
+      voice,
+    });
   }
 
   return results;

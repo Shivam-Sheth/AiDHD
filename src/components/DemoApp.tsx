@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { PackageData, Snapshot } from "@/lib/types-client";
 
 const EVENT_ID = "evt_demo_friday";
+const TRIP_EVENT_ID = "evt_demo_miami";
 
 async function j<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -38,12 +39,14 @@ export function DemoApp() {
   const [waReplyPhone, setWaReplyPhone] = useState("+17735411355");
   const [waReplyMsg, setWaReplyMsg] = useState("PLAN");
   const [waNote, setWaNote] = useState<string | null>(null);
+  const [eventId, setEventId] = useState(EVENT_ID);
+  const [voiceClip, setVoiceClip] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const data = await j<Snapshot>(`/api/events/${EVENT_ID}`);
+    const data = await j<Snapshot>(`/api/events/${eventId}`);
     setSnap(data);
     return data;
-  }, []);
+  }, [eventId]);
 
   useEffect(() => {
     void (async () => {
@@ -51,7 +54,7 @@ export function DemoApp() {
         await j("/api/demo/reset", { method: "POST" });
         const [health, data] = await Promise.all([
           j<{ integrations: Record<string, string> }>("/api/health"),
-          j<Snapshot>(`/api/events/${EVENT_ID}`),
+          j<Snapshot>(`/api/events/${eventId}`),
         ]);
         setIntegrations(health.integrations);
         setSnap(data);
@@ -59,7 +62,7 @@ export function DemoApp() {
         setError(e instanceof Error ? e.message : "Failed to load");
       }
     })();
-  }, []);
+  }, [eventId]);
 
   const phase = phaseFrom(snap);
 
@@ -83,8 +86,11 @@ export function DemoApp() {
   async function startDemo() {
     scrollTo("demo");
     await run(async () => {
-      await j("/api/demo/seed-responses", { method: "POST" });
-      await j(`/api/events/${EVENT_ID}/reconcile`, { method: "POST" });
+      await j("/api/demo/seed-responses", {
+        method: "POST",
+        body: JSON.stringify({ event_id: eventId }),
+      });
+      await j(`/api/events/${eventId}/reconcile`, { method: "POST" });
     });
   }
 
@@ -148,12 +154,12 @@ export function DemoApp() {
     setSelected(pkg.id);
     await run(async () => {
       for (const u of snap?.users ?? []) {
-        await j(`/api/events/${EVENT_ID}/vote`, {
+        await j(`/api/events/${eventId}/vote`, {
           method: "POST",
           body: JSON.stringify({ package_id: pkg.id, user_id: u.id }),
         });
       }
-      await j(`/api/events/${EVENT_ID}/mandates`, {
+      await j(`/api/events/${eventId}/mandates`, {
         method: "POST",
         body: JSON.stringify({ action: "request", package_id: pkg.id }),
       });
@@ -162,14 +168,19 @@ export function DemoApp() {
 
   async function payAndBook() {
     await run(async () => {
-      await j(`/api/events/${EVENT_ID}/mandates`, {
+      await j(`/api/events/${eventId}/mandates`, {
         method: "POST",
         body: JSON.stringify({ action: "approve_all" }),
       });
-      await j(`/api/events/${EVENT_ID}/book`, {
+      const bookRes = await j<{
+        results?: Array<{ voice?: { audio_url?: string; script?: string } }>;
+      }>(`/api/events/${eventId}/book`, {
         method: "POST",
         body: JSON.stringify({}),
       });
+      const voice = bookRes.results?.find((r) => r.voice)?.voice;
+      if (voice?.audio_url) setVoiceClip(voice.audio_url);
+      else if (voice?.script) setWaNote(`Voice script: ${voice.script}`);
     });
   }
 
@@ -398,10 +409,43 @@ export function DemoApp() {
             Live demo
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-neutral-600">
-            Tonight&apos;s path: concert + dinner. Same engine powers group
-            travel (flights + hotel + itinerary) with per-category Prava
-            mandates.
+            WhatsApp collects prefs only. AiDHD&apos;s agent subnet plans +
+            books (outing or trip) with per-category Prava mandates + voice
+            confirm.
           </p>
+
+          <div className="mt-6 flex justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setEventId(EVENT_ID);
+                setSelected(null);
+                setVoiceClip(null);
+              }}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                eventId === EVENT_ID
+                  ? "bg-[var(--accent)] text-white"
+                  : "bg-neutral-100 text-neutral-700"
+              }`}
+            >
+              Outing demo
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEventId(TRIP_EVENT_ID);
+                setSelected(null);
+                setVoiceClip(null);
+              }}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                eventId === TRIP_EVENT_ID
+                  ? "bg-[var(--accent)] text-white"
+                  : "bg-neutral-100 text-neutral-700"
+              }`}
+            >
+              Travel demo (Miami)
+            </button>
+          </div>
 
           {error && (
             <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-700">
@@ -669,6 +713,14 @@ export function DemoApp() {
                         </p>
                       ))}
                   </div>
+                  {voiceClip && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-medium tracking-wider text-neutral-500 uppercase">
+                        Voice agent confirm
+                      </p>
+                      <audio controls src={voiceClip} className="mx-auto w-full max-w-sm" />
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => void resetDemo()}

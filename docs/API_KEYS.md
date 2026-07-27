@@ -5,7 +5,11 @@ yo — if you’re helping with AiDHD for the Prava hackathon, this is the infor
 
 - hackathon: https://agentic-commerce.devfolio.co/
 - repo: https://github.com/Shivam-Sheth/AiDHD
+- live (keyed deploy): https://aidhd-omega.vercel.app
 - after install, hit http://localhost:3000 and check http://localhost:3000/api/health
+- agent subnet card: http://localhost:3000/api/agents
+
+**architecture reminder:** WhatsApp/web = **collect only**. Multi-agent subnet does search → packages → Prava → book → voice confirm.
 
 ---
 
@@ -20,33 +24,47 @@ cp .env.example .env.local
 npm run dev
 ```
 
-missing keys = mocks. you’re fine to run the UI without everything.
-
 ---
 
 ## what you actually need
 
-**must-have for submission**
-- `PRAVA_SECRET_KEY` → https://dashboard.prava.space/ (docs: https://docs.prava.space/quickstart)
+### Core (submission)
+| Key | Link |
+|---|---|
+| `PRAVA_SECRET_KEY` | https://dashboard.prava.space/ |
+| `GEMINI_API_KEY` (+ `GEMINI_MODEL=gemini-2.5-flash`) | https://aistudio.google.com/apikey |
+| `SENSO_API_KEY` | https://senso.ai |
 
-**makes the agent feel real**
-- `GEMINI_API_KEY` → https://aistudio.google.com/apikey  
-  set `GEMINI_MODEL=gemini-2.5-flash`
-- `SENSO_API_KEY` → https://senso.ai (geo board: https://geo.senso.ai)
+### Outing merchants
+| Key | Link |
+|---|---|
+| `TICKETMASTER_API_KEY` | https://developer.ticketmaster.com/ (Discovery) |
+| dining | fixtures now; later Resy/OpenTable via Linq |
 
-**nice for the live demo**
-- `TICKETMASTER_API_KEY` → https://developer.ticketmaster.com/ (Discovery API consumer key only)
-- WhatsApp:
-  - `META_WHATSAPP_TOKEN`
-  - `META_WHATSAPP_PHONE_NUMBER_ID`
-  - keep `META_WHATSAPP_VERIFY_TOKEN=aidhd_verify`
-  - meta: https://developers.facebook.com/apps/ → your app → **Use cases** → **Connect with customers through WhatsApp** → Step 1  
-    (there’s often no sidebar item literally named “WhatsApp”)
+### Travel merchants (NEW)
+| Key | Link | Notes |
+|---|---|---|
+| `DUFFEL_API_KEY` | https://duffel.com/ | flights search (fixtures if empty) |
+| `AMADEUS_API_KEY` + `AMADEUS_API_SECRET` | https://developers.amadeus.com/ | hotels; set `AMADEUS_LIVE=1` to hit test API |
 
-**optional**
-- `OPENAI_API_KEY` → https://platform.openai.com/api-keys (fallback if gemini dies)
-- `LINQ_API_KEY` → https://www.linqapp.com/ (imessage; mock without it)
-- `LLAMA_API_KEY` → whatever llama host you use
+### Channels
+| Key | Link |
+|---|---|
+| `META_WHATSAPP_TOKEN` + `META_WHATSAPP_PHONE_NUMBER_ID` | https://developers.facebook.com/apps/ → Use cases → WhatsApp |
+| `LINQ_API_KEY` | https://www.linqapp.com/ (iMessage track) |
+
+### Voice / Jarvis confirm (NEW)
+| Key | Link | Notes |
+|---|---|---|
+| `ELEVENLABS_API_KEY` (+ optional `ELEVENLABS_VOICE_ID`) | https://elevenlabs.io/ | TTS clip after booking |
+| `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM_NUMBER` | https://www.twilio.com/ | live outbound confirm call |
+| `VOICE_CONFIRM_PHONE` | your +1… | who gets the call |
+
+### Optional
+| Key | Link |
+|---|---|
+| `OPENAI_API_KEY` | https://platform.openai.com/api-keys |
+| `LLAMA_API_KEY` | groq / together / meta |
 
 ---
 
@@ -56,73 +74,62 @@ missing keys = mocks. you’re fine to run the UI without everything.
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash
 OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4o-mini
 
 PRAVA_SECRET_KEY=
 PRAVA_API_KEY=
 PRAVA_PUBLISHABLE_KEY=
 
 SENSO_API_KEY=
+TICKETMASTER_API_KEY=
 
-LINQ_API_KEY=
+DUFFEL_API_KEY=
+AMADEUS_API_KEY=
+AMADEUS_API_SECRET=
+AMADEUS_LIVE=
 
 META_WHATSAPP_TOKEN=
 META_WHATSAPP_PHONE_NUMBER_ID=
 META_WHATSAPP_VERIFY_TOKEN=aidhd_verify
 META_GRAPH_VERSION=v25.0
 META_WHATSAPP_TEMPLATE=hello_world
-META_WHATSAPP_TEMPLATE_LANG=en_US
-WHATSAPP_DEFAULT_EVENT_ID=evt_demo_friday
-WHATSAPP_JORDAN_PHONE=
 
-TICKETMASTER_API_KEY=
-LLAMA_API_KEY=
+LINQ_API_KEY=
+
+ELEVENLABS_API_KEY=
+ELEVENLABS_VOICE_ID=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM_NUMBER=
+VOICE_CONFIRM_PHONE=
 ```
 
 ---
 
-## WhatsApp sandbox (friends as recipients)
+## how the agent subnet works
 
-1. Meta → Use cases → Connect with customers through WhatsApp → **Step 1. Try it out**
-2. claim the **test number** (looks like `+1 (555) …`)
-3. copy access token + phone number id into `.env.local`
-4. Recipient dropdown → manage phone list → add buddies’ `+1…` numbers → they have to accept
-5. webhook (when you want inbound replies):
-   - callback: `https://YOUR-TUNNEL/api/channels/whatsapp/webhook`
-   - verify token: `aidhd_verify`
-   - subscribe: `messages`
-6. tunnel locally:
-   ```bash
-   npx cloudflared tunnel --url http://localhost:3000
-   npm run whatsapp:keepalive
-   ```
-7. if inbound is flaky: on the site use **Send as WhatsApp reply** (skips Meta webhook)
+1. **Collector** (WhatsApp / web / Linq) — budget, dates, vibe only  
+2. **Orchestrator** — fans out to specialists  
+3. **tickets / dining / flights / hotels / itinerary / trust** — build 2–3 packages  
+4. **payments** — separate Prava mandate per category  
+5. **voice** — ElevenLabs script/audio + optional Twilio call to confirm  
 
-bot chat is with the **555 test number**, not shivam’s personal phone. flow: budget → dates → vibe → `YES` → ticketmaster picks. cmds: `PLAN` / `EVENTS` / `PACKAGES`.
+`GET /api/agents` lists the subnet. Demo UI has **Outing** vs **Travel (Miami)** toggles.
 
 ---
 
-## Ticketmaster one-liner
+## WhatsApp sandbox
 
-developer.ticketmaster.com → login → get api key → Discovery only. ignore partner/purchase/presence.
-
----
-
-## sanity check
-
-```bash
-curl http://localhost:3000/api/health
-```
-
-you want `prava`, `gemini`, `senso`, `ticketmaster`, `whatsapp` → `live` when you’ve keyed them.
+test number looks like `+1 (555) …`  
+webhook (prod): `https://aidhd-omega.vercel.app/api/channels/whatsapp/webhook`  
+verify: `aidhd_verify`  
+subscribe: `messages`
 
 ---
 
 ## please don’t
 
 - commit `.env.local`
-- drop keys in the group chat forever (rotate if you already did)
-- expect meta temp tokens to last more than ~24h — regenerate when it dies
-- forget that cloudflare quick tunnel URLs change when you restart them
+- expect the collector bot to book stuff (it won’t — by design)
+- forget Meta temp tokens die ~24h
 
-ping shivam if something’s weird. keep real keys in 1password / dm, not in this md.
+ping shivam if something’s weird.

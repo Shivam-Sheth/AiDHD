@@ -28,6 +28,28 @@ export function hasTicketmaster() {
   return Boolean(process.env.TICKETMASTER_API_KEY);
 }
 
+export function hasDuffel() {
+  return Boolean(process.env.DUFFEL_API_KEY);
+}
+
+export function hasAmadeus() {
+  return Boolean(
+    process.env.AMADEUS_API_KEY && process.env.AMADEUS_API_SECRET,
+  );
+}
+
+export function hasElevenLabs() {
+  return Boolean(process.env.ELEVENLABS_API_KEY);
+}
+
+export function hasTwilio() {
+  return Boolean(
+    process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_FROM_NUMBER,
+  );
+}
+
 export function integrationStatus() {
   const llm = hasGemini() ? "gemini" : hasOpenAI() ? "openai" : "mock";
   return {
@@ -39,6 +61,11 @@ export function integrationStatus() {
     linq: hasLinq() ? "live" : "mock",
     whatsapp: hasWhatsApp() ? "live" : "mock",
     ticketmaster: hasTicketmaster() ? "live" : "mock",
+    duffel: hasDuffel() ? "live" : "fixture",
+    amadeus: hasAmadeus() ? "standby" : "fixture",
+    elevenlabs: hasElevenLabs() ? "live" : "mock",
+    twilio: hasTwilio() ? "live" : "mock",
+    agents: "subnet",
     nanda: "registered",
   } as const;
 }

@@ -32,10 +32,9 @@ export function hasDuffel() {
   return Boolean(process.env.DUFFEL_API_KEY);
 }
 
+/** @deprecated Amadeus self-service portal shut down — use Duffel Stays. */
 export function hasAmadeus() {
-  return Boolean(
-    process.env.AMADEUS_API_KEY && process.env.AMADEUS_API_SECRET,
-  );
+  return false;
 }
 
 export function hasElevenLabs() {
@@ -62,7 +61,7 @@ export function integrationStatus() {
     whatsapp: hasWhatsApp() ? "live" : "mock",
     ticketmaster: hasTicketmaster() ? "live" : "mock",
     duffel: hasDuffel() ? "live" : "fixture",
-    amadeus: hasAmadeus() ? "standby" : "fixture",
+    duffel_stays: hasDuffel() ? "live" : "fixture",
     elevenlabs: hasElevenLabs() ? "live" : "mock",
     twilio: hasTwilio() ? "live" : "mock",
     agents: "subnet",

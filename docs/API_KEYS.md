@@ -41,11 +41,12 @@ npm run dev
 | `TICKETMASTER_API_KEY` | https://developer.ticketmaster.com/ (Discovery) |
 | dining | fixtures now; later Resy/OpenTable via Linq |
 
-### Travel merchants (NEW)
+### Travel merchants
 | Key | Link | Notes |
 |---|---|---|
-| `DUFFEL_API_KEY` | https://duffel.com/ | flights search (fixtures if empty) |
-| `AMADEUS_API_KEY` + `AMADEUS_API_SECRET` | https://developers.amadeus.com/ | hotels; set `AMADEUS_LIVE=1` to hit test API |
+| `DUFFEL_API_KEY` | https://duffel.com/ | **flights + hotels** (Duffel Stays). One token. Fixtures if empty. |
+
+~~Amadeus self-service~~ is **decommissioned** (enterprise-only now). Don’t sign up there — use Duffel Stays instead: https://duffel.com/docs/guides/getting-started-with-stays
 
 ### Channels
 | Key | Link |
@@ -83,9 +84,6 @@ SENSO_API_KEY=
 TICKETMASTER_API_KEY=
 
 DUFFEL_API_KEY=
-AMADEUS_API_KEY=
-AMADEUS_API_SECRET=
-AMADEUS_LIVE=
 
 META_WHATSAPP_TOKEN=
 META_WHATSAPP_PHONE_NUMBER_ID=

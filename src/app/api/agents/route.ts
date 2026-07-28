@@ -16,7 +16,7 @@ export async function GET() {
       { id: "tickets", role: "Ticketmaster Discovery search" },
       { id: "dining", role: "Dining search (Linq/fixtures)" },
       { id: "flights", role: "Flight search (Duffel when keyed)" },
-      { id: "hotels", role: "Hotel search (Amadeus when keyed)" },
+      { id: "hotels", role: "Hotel/stays search (Duffel Stays when keyed)" },
       { id: "itinerary", role: "Day-by-day trip plan" },
       { id: "trust", role: "Senso vendor trust" },
       { id: "payments", role: "Per-category Prava mandates" },

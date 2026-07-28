@@ -1,11 +1,17 @@
-import { hasElevenLabs, hasTwilio } from "./config";
+import { hasElevenAgentsOutbound, hasElevenLabs, hasTwilio } from "./config";
 
 export interface VoiceConfirmResult {
   ok: boolean;
-  mode: "elevenlabs+twilio" | "elevenlabs" | "script" | "mock";
+  mode:
+    | "eleven_agents"
+    | "elevenlabs+twilio"
+    | "elevenlabs"
+    | "script"
+    | "mock";
   script: string;
   audio_url?: string;
   call_sid?: string;
+  conversation_id?: string;
   detail: string;
 }
 
@@ -85,6 +91,75 @@ export async function synthesizeSpeech(script: string): Promise<{
   return { audio_url, mode: "elevenlabs" };
 }
 
+export async function placeElevenAgentsOutbound(input: {
+  to: string;
+  first_message: string;
+  agent_id?: string;
+}): Promise<{
+  ok: boolean;
+  mode: "eleven_agents" | "mock";
+  conversation_id?: string;
+  call_sid?: string;
+  detail: string;
+}> {
+  const agentId =
+    input.agent_id ||
+    process.env.ELEVENLABS_AGENT_ID ||
+    process.env.ELEVENLABS_HOTEL_AGENT_ID;
+  const phoneNumberId = process.env.ELEVENLABS_AGENT_PHONE_NUMBER_ID;
+
+  if (!hasElevenLabs() || !agentId || !phoneNumberId) {
+    return {
+      ok: false,
+      mode: "mock",
+      detail:
+        "ElevenAgents outbound needs ELEVENLABS_API_KEY + ELEVENLABS_AGENT_ID + ELEVENLABS_AGENT_PHONE_NUMBER_ID",
+    };
+  }
+
+  const to = input.to.startsWith("+") ? input.to : `+${input.to.replace(/\D/g, "")}`;
+  const res = await fetch(
+    "https://api.elevenlabs.io/v1/convai/twilio/outbound-call",
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": process.env.ELEVENLABS_API_KEY!,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        agent_id: agentId,
+        agent_phone_number_id: phoneNumberId,
+        to_number: to,
+        conversation_initiation_client_data: {
+          conversation_config_override: {
+            agent: { first_message: input.first_message },
+          },
+        },
+      }),
+    },
+  );
+  const data = (await res.json()) as {
+    conversation_id?: string;
+    callSid?: string;
+    call_sid?: string;
+    message?: string;
+  };
+  if (!res.ok) {
+    return {
+      ok: false,
+      mode: "mock",
+      detail: data.message || `ElevenAgents outbound failed (${res.status})`,
+    };
+  }
+  return {
+    ok: true,
+    mode: "eleven_agents",
+    conversation_id: data.conversation_id,
+    call_sid: data.callSid || data.call_sid,
+    detail: `ElevenAgents outbound ${data.conversation_id || data.callSid || "started"}`,
+  };
+}
+
 export async function placeConfirmCall(input: {
   to: string;
   script: string;
@@ -94,7 +169,7 @@ export async function placeConfirmCall(input: {
     return {
       mode: "mock",
       detail:
-        "Twilio not keyed — voice script ready; call skipped (set TWILIO_* to dial).",
+        "Twilio not keyed — use ElevenAgents outbound IDs instead, or set TWILIO_*.",
     };
   }
 
@@ -150,6 +225,22 @@ export async function runVoiceConfirmation(input: {
   const script = await craftVoiceScript(input);
   const speech = await synthesizeSpeech(script);
 
+  if (input.organizer_phone && hasElevenAgentsOutbound()) {
+    const call = await placeElevenAgentsOutbound({
+      to: input.organizer_phone,
+      first_message: script,
+    });
+    return {
+      ok: call.ok,
+      mode: call.ok ? "eleven_agents" : speech.mode === "elevenlabs" ? "elevenlabs" : "script",
+      script,
+      audio_url: speech.audio_url,
+      call_sid: call.call_sid,
+      conversation_id: call.conversation_id,
+      detail: call.detail,
+    };
+  }
+
   if (input.organizer_phone && hasTwilio()) {
     const call = await placeConfirmCall({
       to: input.organizer_phone,
@@ -177,7 +268,7 @@ export async function runVoiceConfirmation(input: {
     script,
     audio_url: speech.audio_url,
     detail: speech.audio_url
-      ? "Voice clip synthesized — play in demo or fan out via WhatsApp later"
-      : "Script ready (add ELEVENLABS_API_KEY for audio, TWILIO_* for live call)",
+      ? "Voice clip ready — add ElevenAgents phone IDs for live outbound (Twilio optional)"
+      : "Script ready (ELEVENLABS_API_KEY for audio; agent+phone IDs for call)",
   };
 }

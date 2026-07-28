@@ -132,9 +132,48 @@ export async function handleWhatsAppInbound(input: {
       name: contact.name,
     });
     replies.push(
-      `Hey ${contact.name} — collector mode for "${getEvent(eventId)?.title}".\nBudget? (e.g. 120)\nI don't book — AiDHD agents do that after the group is in.`,
+      `Hey ${contact.name} — collector mode for "${getEvent(eventId)?.title}".\nBudget? (e.g. 120)\nOr RESEARCH <venue> | <phone> | <question> to spin a background call agent.`,
     );
     await replyOnce(phone, replies);
+    return { replies, user_id: contact.user_id, event_id: eventId };
+  }
+
+  // Dual-agent research: user asks → background agent calls venue
+  if (/^research\b/i.test(lower) || /^call\s+(and\s+)?ask\b/i.test(lower)) {
+    const { startBackgroundResearchCall } = await import(
+      "../agents/research-call"
+    );
+    // Format: RESEARCH Go-Kart Track | +15551212 | height limit?
+    const raw = text.replace(/^(research|call\s+(and\s+)?ask)\s*/i, "");
+    const parts = raw.split("|").map((p) => p.trim()).filter(Boolean);
+    if (parts.length < 3) {
+      replies.push(
+        "Format:\nRESEARCH Venue Name | +1phone | your question\nExample:\nRESEARCH Miami Go-Karts | +13055550100 | What's the height limit?",
+      );
+      await replyOnce(phone, replies);
+      return { replies, user_id: contact.user_id, event_id: eventId };
+    }
+    await replyOnce(phone, [
+      `On it — research agent is calling ${parts[0]} in the background. I'll text you the answer.`,
+    ]);
+    const job = await startBackgroundResearchCall({
+      venue_name: parts[0],
+      venue_phone: parts[1],
+      question: parts.slice(2).join(" | "),
+      reply_to_phone: phone,
+      reply_channel: "whatsapp",
+    });
+    // If still calling (live Eleven), tell user to wait; if done (sim), already texted
+    if (job.status === "calling") {
+      replies.push(`Call started (${job.id.slice(0, 8)}…). Hang tight.`);
+      await replyOnce(phone, [replies[replies.length - 1]]);
+    } else if (job.status === "done" && job.findings) {
+      // already WhatsApp'd in completeResearchJob; avoid dup if reply failed
+      replies.push(job.findings);
+    } else if (job.status === "failed") {
+      replies.push(`Research failed: ${job.findings || "unknown"}`);
+      await replyOnce(phone, [replies[replies.length - 1]]);
+    }
     return { replies, user_id: contact.user_id, event_id: eventId };
   }
 

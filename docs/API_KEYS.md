@@ -54,18 +54,36 @@ npm run dev
 | `META_WHATSAPP_TOKEN` + `META_WHATSAPP_PHONE_NUMBER_ID` | https://developers.facebook.com/apps/ → Use cases → WhatsApp |
 | `LINQ_API_KEY` | https://www.linqapp.com/ (iMessage track) |
 
-### Voice / Jarvis confirm (NEW)
-| Key | Link | Notes |
-|---|---|---|
-| `ELEVENLABS_API_KEY` (+ optional `ELEVENLABS_VOICE_ID`) | https://elevenlabs.io/ | TTS clip after booking |
-| `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM_NUMBER` | https://www.twilio.com/ | live outbound confirm call |
-| `VOICE_CONFIRM_PHONE` | your +1… | who gets the call |
+### Voice / dual-agent calls (ElevenAgents)
+| Key | Notes |
+|---|---|
+| `ELEVENLABS_API_KEY` | https://elevenlabs.io → API keys |
+| `ELEVENLABS_HOTEL_AGENT_ID` | Agents → Templates → **Hotel Reservation** → Use template → copy agent id |
+| `ELEVENLABS_RESEARCH_AGENT_ID` | New agent: “venue research caller” (asks height limits, policies…) |
+| `ELEVENLABS_AGENT_ID` | Confirm / concierge agent (Jarvis booking confirm) |
+| `ELEVENLABS_AGENT_PHONE_NUMBER_ID` | Agents → Phone numbers (import Twilio/Exotel or plan number) |
+| `VOICE_CONFIRM_PHONE` | Your +1… for confirm calls / research replies |
+
+**Cool demo pattern:** you’re on a call with the concierge agent → ask “what’s the go-kart height limit?” → AiDHD spins the **research agent** to call the track in the background → answer texts back on WhatsApp.
+
+```bash
+# WhatsApp
+RESEARCH Miami Go-Karts | +13055550100 | What's the height limit?
+
+# or API
+curl -X POST https://aidhd-omega.vercel.app/api/agents/research-call \
+  -H 'content-type: application/json' \
+  -d '{"question":"height limit?","venue_name":"Miami Go-Karts","venue_phone":"+13055550100","reply_to_phone":"+17735411355"}'
+```
+
+Twilio is **optional** if ElevenAgents has a phone number linked (often still Twilio under the hood, but you don’t write Twilio code).
 
 ### Optional
 | Key | Link |
 |---|---|
 | `OPENAI_API_KEY` | https://platform.openai.com/api-keys |
 | `LLAMA_API_KEY` | groq / together / meta |
+| `TWILIO_*` | only if not using ElevenAgents outbound |
 
 ---
 

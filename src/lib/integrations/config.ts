@@ -41,6 +41,17 @@ export function hasElevenLabs() {
   return Boolean(process.env.ELEVENLABS_API_KEY);
 }
 
+/** ElevenAgents outbound (phone number imported into Eleven — may still use Twilio under the hood). */
+export function hasElevenAgentsOutbound() {
+  return Boolean(
+    process.env.ELEVENLABS_API_KEY &&
+      process.env.ELEVENLABS_AGENT_PHONE_NUMBER_ID &&
+      (process.env.ELEVENLABS_AGENT_ID ||
+        process.env.ELEVENLABS_RESEARCH_AGENT_ID ||
+        process.env.ELEVENLABS_HOTEL_AGENT_ID),
+  );
+}
+
 export function hasTwilio() {
   return Boolean(
     process.env.TWILIO_ACCOUNT_SID &&
@@ -63,6 +74,7 @@ export function integrationStatus() {
     duffel: hasDuffel() ? "live" : "fixture",
     duffel_stays: hasDuffel() ? "live" : "fixture",
     elevenlabs: hasElevenLabs() ? "live" : "mock",
+    eleven_agents: hasElevenAgentsOutbound() ? "live" : "standby",
     twilio: hasTwilio() ? "live" : "mock",
     agents: "subnet",
     nanda: "registered",

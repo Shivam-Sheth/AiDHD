@@ -499,6 +499,52 @@ export function DemoApp() {
               </button>
               <div className="mt-5 border-t border-neutral-200 pt-4">
                 <p className="text-xs font-medium tracking-wider text-neutral-500 uppercase">
+                  Dual-agent research call
+                </p>
+                <p className="mt-1 text-sm text-neutral-600">
+                  Concierge stays with you; research agent calls the venue
+                  (go-kart height limits, hotel policy…). Uses ElevenAgents
+                  Hotel / Research templates when keyed — otherwise simulates.
+                </p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void (async () => {
+                      setBusy(true);
+                      setError(null);
+                      try {
+                        const res = await j<{
+                          job: { id: string; findings?: string; status: string };
+                        }>("/api/agents/research-call", {
+                          method: "POST",
+                          body: JSON.stringify({
+                            venue_name: "Miami Go-Karts",
+                            venue_phone: "+13055550100",
+                            question: "What's the height limit for drivers?",
+                            reply_to_phone: waReplyPhone,
+                            simulate: true,
+                          }),
+                        });
+                        setWaNote(
+                          `Research ${res.job.status}: ${res.job.findings ?? res.job.id}`,
+                        );
+                      } catch (e) {
+                        setError(
+                          e instanceof Error ? e.message : "Research failed",
+                        );
+                      } finally {
+                        setBusy(false);
+                      }
+                    })()
+                  }
+                  className="mt-3 rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 disabled:opacity-50"
+                >
+                  Demo: call track about height limit
+                </button>
+              </div>
+              <div className="mt-5 border-t border-neutral-200 pt-4">
+                <p className="text-xs font-medium tracking-wider text-neutral-500 uppercase">
                   If WhatsApp stays silent — reply here
                 </p>
                 <p className="mt-1 text-sm text-neutral-600">

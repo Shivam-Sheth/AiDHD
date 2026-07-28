@@ -36,6 +36,6 @@ export async function POST(
       { status: 400 },
     );
   }
-  const result = handleCollectorMessage(id, body.user_id, body.message);
+  const result = await handleCollectorMessage(id, body.user_id, body.message);
   return NextResponse.json(result);
 }

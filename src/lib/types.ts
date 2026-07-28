@@ -46,6 +46,11 @@ export interface Response {
   preferences: {
     free_text: string;
     structured_tags: string[];
+    /** Trip: where they're flying from */
+    origin_city?: string;
+    origin_country?: string;
+    /** Trip: where they want to go */
+    destination?: string;
   };
   availability: string[];
   responded_at: string;
@@ -123,8 +128,20 @@ export interface CollectorSession {
   user_id: string;
   event_id: string;
   channel: Channel;
-  step: "greet" | "budget" | "availability" | "preferences" | "confirm" | "done";
-  draft: Partial<Omit<Response, "id" | "responded_at">>;
+  step:
+    | "mode"
+    | "budget"
+    | "origin"
+    | "destination"
+    | "availability"
+    | "preferences"
+    | "confirm"
+    | "done";
+  draft: Partial<Omit<Response, "id" | "responded_at">> & {
+    /** Bits absorbed early from a multi-pref message */
+    pending_vibe?: string;
+    pending_place?: string;
+  };
   messages: ChatMessage[];
 }
 

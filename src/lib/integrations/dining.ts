@@ -11,7 +11,9 @@ export async function searchDining(input: {
 
   let offers = [...DINING_INVENTORY];
   if (input.max_per_person != null) {
-    offers = offers.filter((o) => o.price_per_person <= input.max_per_person!);
+    const capped = offers.filter((o) => o.price_per_person <= input.max_per_person!);
+    // Low budgets can wipe inventory — keep cheapest options instead of empty.
+    offers = capped.length ? capped : [...offers].sort((a, b) => a.price_per_person - b.price_per_person);
   }
   if (input.tags?.length) {
     const tags = input.tags.map((t) => t.toLowerCase());

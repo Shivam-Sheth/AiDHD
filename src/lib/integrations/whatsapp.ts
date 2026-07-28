@@ -124,12 +124,19 @@ async function postMessage(
   };
 
   if (!res.ok) {
-    const detail =
+    const raw =
       data.error?.error_data?.details ||
       data.error?.error_user_msg ||
       data.error?.message ||
       `WhatsApp send failed (${res.status})`;
-    throw new Error(detail);
+    const expired =
+      data.error?.code === 190 ||
+      /expired|session has expired|validating access token/i.test(raw);
+    throw new Error(
+      expired
+        ? "Meta WhatsApp token expired — refresh in Meta Developer → AiDHD → WhatsApp → API Setup → temporary access token, then update META_WHATSAPP_TOKEN in .env.local + Vercel."
+        : raw,
+    );
   }
 
   return {
@@ -154,21 +161,21 @@ export function scriptedWhatsAppFlow(eventTitle: string) {
     { from: "user", text: "$80–$120" },
     {
       from: "bot",
-      text: "Which nights work?",
-      buttons: ["Fri Aug 7", "Sat Aug 8", "Either"],
+      text: "What date range works?",
+      buttons: ["Aug 11–20", "Aug 14–16", "Sep 5–7"],
     },
-    { from: "user", text: "Fri Aug 7" },
+    { from: "user", text: "Aug 11–20" },
     {
       from: "bot",
-      text: "Any vibe prefs? (free text — e.g. standing room ok, hate long dinners)",
+      text: "Any vibe prefs? (e.g. movie, escape room, lunch/dinner, veg, alc)",
     },
     {
       from: "user",
-      text: "Standing room fine, want Brooklyn not Midtown, vegetarian-friendly dinner",
+      text: "Escape room then dinner, veg ok, light alc",
     },
     {
       from: "bot",
-      text: "Got it — budget $120, Fri Aug 7, Brooklyn + vegetarian. Submitting to AiDHD.",
+      text: "Got it — budget $120, Aug 11–20, escape room + dinner, veg, alc. Submitting to AiDHD.",
     },
   ];
 }

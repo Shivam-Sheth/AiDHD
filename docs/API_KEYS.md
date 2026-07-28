@@ -108,6 +108,8 @@ META_WHATSAPP_PHONE_NUMBER_ID=
 META_WHATSAPP_VERIFY_TOKEN=aidhd_verify
 META_GRAPH_VERSION=v25.0
 META_WHATSAPP_TEMPLATE=hello_world
+# Cross-instance WhatsApp state (JSONBlob id) — stops mid-flow "Hey I'm AiDHD" resets
+AIDHD_STATE_BLOB_ID=
 
 LINQ_API_KEY=
 
@@ -139,6 +141,10 @@ test number looks like `+1 (555) …`
 webhook (prod): `https://aidhd-omega.vercel.app/api/channels/whatsapp/webhook`  
 verify: `aidhd_verify`  
 subscribe: `messages`
+
+**Chat commands (after Ticketmaster + Duffel keys):**  
+`OUTING` — Friday tickets + dinner · `TRIP` / `MIAMI` — flights + hotels  
+budget → dates → vibe → `YES` (auto package lookup) · or `PACKAGES` · `VOTE 1`
 
 ---
 

@@ -58,7 +58,7 @@ export function seedDemoEvent(): Event {
   const event: Event = {
     id: "evt_demo_friday",
     type: "outing",
-    title: "Friday night out — concert + dinner",
+    title: "Group outing",
     destination_or_venue: "Brooklyn / Manhattan",
     proposed_dates: ["2026-08-07", "2026-08-08"],
     organizer_id: DEMO_USERS[0].id,
@@ -74,7 +74,7 @@ export function seedDemoEvent(): Event {
   const trip: Event = {
     id: "evt_demo_miami",
     type: "trip",
-    title: "NYC → Miami weekend",
+    title: "Group trip",
     destination_or_venue: "Miami Beach",
     proposed_dates: ["2026-08-14", "2026-08-15", "2026-08-16"],
     organizer_id: DEMO_USERS[0].id,
@@ -121,7 +121,21 @@ export function addResponse(input: Omit<Response, "id" | "responded_at">): Respo
     responded_at: new Date().toISOString(),
   };
   getStore().responses.set(response.id, response);
+  schedulePersist();
   return response;
+}
+
+export function upsertResponse(response: Response) {
+  getStore().responses.set(response.id, response);
+  schedulePersist();
+  return response;
+}
+
+/** Latest response for a user on an event (if any). */
+export function getResponseForUser(eventId: string, userId: string) {
+  return listResponses(eventId)
+    .filter((r) => r.user_id === userId)
+    .sort((a, b) => b.responded_at.localeCompare(a.responded_at))[0];
 }
 
 export function listPackages(eventId: string): Package[] {
@@ -134,6 +148,7 @@ export function setPackages(eventId: string, packages: Package[]) {
     if (pkg.event_id === eventId) store.packages.delete(id);
   }
   for (const pkg of packages) store.packages.set(pkg.id, pkg);
+  schedulePersist();
 }
 
 export function getPackage(id: string) {
@@ -142,6 +157,7 @@ export function getPackage(id: string) {
 
 export function upsertPackage(pkg: Package) {
   getStore().packages.set(pkg.id, pkg);
+  schedulePersist();
 }
 
 export function listMandates(eventId: string): Mandate[] {
@@ -176,11 +192,25 @@ export function getCollector(eventId: string, userId: string) {
   return getStore().collectors.get(collectorKey(eventId, userId));
 }
 
+export function clearCollector(eventId: string, userId: string) {
+  getStore().collectors.delete(collectorKey(eventId, userId));
+  schedulePersist();
+}
+
 export function setCollector(session: CollectorSession) {
   getStore().collectors.set(
     collectorKey(session.event_id, session.user_id),
     session,
   );
+  schedulePersist();
+}
+
+function schedulePersist() {
+  try {
+    void import("./state-sync").then((m) => m.scheduleDurableFlush());
+  } catch {
+    /* ignore */
+  }
 }
 
 export function pushAgentLog(eventId: string, step: string, detail: string) {

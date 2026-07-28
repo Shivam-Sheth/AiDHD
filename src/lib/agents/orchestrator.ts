@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { searchDining } from "../integrations/dining";
 import { searchFlights } from "../integrations/flights";
-import { searchHotels, searchItineraryDays } from "../integrations/hotels";
+import { searchHotels } from "../integrations/hotels";
 import { completeJson } from "../integrations/llm";
 import { lookupVendorTrust } from "../integrations/senso";
 import { searchTickets } from "../integrations/ticketmaster";
@@ -9,6 +9,7 @@ import { getUser } from "../demo-users";
 import { pushAgentLog } from "../store";
 import type { Event, Package, PackageComponent, Response } from "../types";
 import type { AgentId, AgentRunResult } from "./types";
+import { planDatesLabel } from "../agent/plan-dates";
 
 function holdExpiry(hours = 2) {
   return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
@@ -56,6 +57,14 @@ function extractTags(responses: Response[]): string[] {
       "beach",
       "miami",
       "budget",
+      "movie",
+      "cinema",
+      "concert",
+      "theatre",
+      "theater",
+      "escape",
+      "comedy",
+      "museum",
     ]) {
       if (text.includes(keyword)) tags.add(keyword);
     }
@@ -126,6 +135,7 @@ async function runOutingAgents(
   const tags = extractTags(responses);
   const party = responses.length || 3;
   const maxCap = Math.max(...responses.map((r) => r.budget_cap));
+  const datesLabel = planDatesLabel(responses, event.proposed_dates);
 
   logAgent(event.id, "orchestrator", "Dispatching tickets + dining + trust agents");
 
@@ -146,16 +156,22 @@ async function runOutingAgents(
 
   logAgent(event.id, "trust", "Senso trust attached per component");
 
-  const cheapT = [...tickets.offers].sort((a, b) => a.price - b.price)[0];
+  if (!tickets.offers.length || !dining.offers.length) {
+    throw new Error(
+      `No outing inventory (tickets=${tickets.offers.length} dining=${dining.offers.length})`,
+    );
+  }
+
+  const cheapT = [...tickets.offers].sort((a, b) => a.price - b.price)[0]!;
   const midT = tickets.offers[1] ?? cheapT;
-  const highT = [...tickets.offers].sort((a, b) => b.price - a.price)[0];
+  const highT = [...tickets.offers].sort((a, b) => b.price - a.price)[0]!;
   const cheapD = [...dining.offers].sort(
     (a, b) => a.price_per_person - b.price_per_person,
-  )[0];
+  )[0]!;
   const midD = dining.offers[1] ?? cheapD;
   const highD = [...dining.offers].sort(
     (a, b) => b.price_per_person - a.price_per_person,
-  )[0];
+  )[0]!;
 
   async function build(
     label: string,
@@ -170,7 +186,7 @@ async function runOutingAgents(
         vendor: t.vendor,
         cost: t.price * party,
         currency: t.currency,
-        details: `${t.event_name} · ${t.tier} · ${t.venue}`,
+        details: `${t.event_name} · ${t.tier} · ${t.venue} · ${datesLabel}`,
         hold_expires_at: holdExpiry(),
         merchant_id: t.id,
       }),
@@ -179,7 +195,7 @@ async function runOutingAgents(
         vendor: d.vendor,
         cost: d.price_per_person * party,
         currency: d.currency,
-        details: `${d.vendor} · ${d.cuisine} · ${d.neighborhood}`,
+        details: `${d.vendor} · ${d.cuisine} · ${d.neighborhood} · ${datesLabel}`,
         hold_expires_at: holdExpiry(1.5),
         merchant_id: d.id,
       }),
@@ -199,22 +215,34 @@ async function runOutingAgents(
   }
 
   let packages: Package[] = await Promise.all([
-    build("Budget-friendly", `Fits envelope $${envelope}.`, cheapT, cheapD, 0.78),
+    build(
+      "Budget-friendly",
+      `Dates: ${datesLabel}. Fits envelope $${envelope}.`,
+      cheapT,
+      cheapD,
+      0.78,
+    ),
     build(
       "Best match",
-      `Prefs: ${tags.slice(0, 4).join(", ") || "general"}. ${conflicts[0] ?? ""}`,
+      `Dates: ${datesLabel}. Prefs: ${tags.slice(0, 4).join(", ") || "general"}. ${conflicts[0] ?? ""}`,
       midT,
       midD,
       0.91,
     ),
-    build("Splurge", `Premium stack vs $${envelope} envelope.`, highT, highD, 0.7),
+    build(
+      "Splurge",
+      `Dates: ${datesLabel}. Premium stack vs $${envelope} envelope.`,
+      highT,
+      highD,
+      0.7,
+    ),
   ]);
 
   packages = await polish(event.id, packages, conflicts);
   return { packages, conflicts, envelope };
 }
 
-/** Travel subnet: flights + hotels + itinerary + dining + trust */
+/** Travel subnet: flights + hotels (+ optional destination tickets if vibe asks) */
 async function runTripAgents(
   event: Event,
   responses: Response[],
@@ -224,37 +252,86 @@ async function runTripAgents(
   const tags = extractTags(responses);
   const party = responses.length || 3;
   const maxCap = Math.max(...responses.map((r) => r.budget_cap));
+  const datesLabel = planDatesLabel(responses, event.proposed_dates);
+
+  const vibeBlob = responses
+    .map((r) => r.preferences.free_text)
+    .join(" ")
+    .toLowerCase();
+  const wantsActivity =
+    /movie|cinema|concert|show|theatre|theater|comedy|sports|game|museum|escape/.test(
+      vibeBlob,
+    ) ||
+    tags.some((t) =>
+      /movie|concert|theatre|theater|comedy|sports|museum|escape/.test(t),
+    );
+  const ticketKeyword = /movie|cinema/.test(vibeBlob)
+    ? "movie"
+    : /escape/.test(vibeBlob)
+      ? "escape room"
+      : /comedy/.test(vibeBlob)
+        ? "comedy"
+        : /museum/.test(vibeBlob)
+          ? "museum"
+          : /concert|show|theatre|theater/.test(vibeBlob)
+            ? "concert"
+            : "concert";
 
   logAgent(
     event.id,
     "orchestrator",
-    "Trip mode — dispatching flights + hotels + itinerary + dining agents",
+    wantsActivity
+      ? "Trip mode — flights + hotels + destination activity"
+      : "Trip mode — flights + hotels",
   );
 
-  const [flights, hotels, days, dining] = await Promise.all([
+  const originTag = tags.find((t) => t.startsWith("origin:"));
+  const destTag = tags.find((t) => t.startsWith("dest:"));
+  const destCityTag = tags.find((t) => t.startsWith("destination:"));
+  const originCode = originTag?.split(":")[1] || "JFK";
+  const destCode = destTag?.split(":")[1] || "MIA";
+  const hotelCity =
+    responses
+      .map((r) => r.preferences.destination)
+      .find(Boolean) ||
+    destCityTag?.split(":")[1] ||
+    "Miami";
+
+  const [flights, hotels, tickets] = await Promise.all([
     searchFlights({
-      origin: "JFK",
-      destination: "MIA",
+      origin: originCode,
+      destination: destCode,
       max_price: maxCap,
     }).then((r) => {
-      logAgent(event.id, "flights", `source=${r.source} offers=${r.offers.length}`);
+      logAgent(
+        event.id,
+        "flights",
+        `source=${r.source} offers=${r.offers.length} ${originCode}→${destCode}`,
+      );
       return r;
     }),
-    searchHotels({ city: "Miami", max_total: envelope * 0.5 }).then((r) => {
-      logAgent(event.id, "hotels", `source=${r.source} offers=${r.offers.length}`);
+    searchHotels({ city: hotelCity, max_total: envelope * 0.7 }).then((r) => {
+      logAgent(
+        event.id,
+        "hotels",
+        `source=${r.source} offers=${r.offers.length} city=${hotelCity}`,
+      );
       return r;
     }),
-    searchItineraryDays().then((r) => {
-      logAgent(event.id, "itinerary", `days=${r.length}`);
-      return r;
-    }),
-    searchDining({
-      max_per_person: maxCap * 0.35,
-      tags: [...tags, "miami", "beach"],
-    }).then((r) => {
-      logAgent(event.id, "dining", `source=${r.source} offers=${r.offers.length}`);
-      return r;
-    }),
+    wantsActivity
+      ? searchTickets({
+          keyword: ticketKeyword,
+          city: hotelCity,
+          max_price: maxCap * 0.35,
+        }).then((r) => {
+          logAgent(
+            event.id,
+            "tickets",
+            `dest activity source=${r.source} offers=${r.offers.length} city=${hotelCity} kw=${ticketKeyword}`,
+          );
+          return r;
+        })
+      : Promise.resolve({ offers: [], source: "fixture" as const }),
   ]);
 
   const tiers = [
@@ -263,70 +340,67 @@ async function runTripAgents(
       fit: 0.8,
       f: flights.offers[0],
       h: hotels.offers[0],
-      d: dining.offers[0],
+      t: tickets.offers[0],
     },
     {
       label: "Best match",
       fit: 0.92,
       f: flights.offers[1] ?? flights.offers[0],
       h: hotels.offers[1] ?? hotels.offers[0],
-      d: dining.offers[1] ?? dining.offers[0],
+      t: tickets.offers[1] ?? tickets.offers[0],
     },
     {
       label: "Splurge trip",
       fit: 0.72,
       f: flights.offers[2] ?? flights.offers[0],
       h: hotels.offers[2] ?? hotels.offers[0],
-      d: dining.offers[dining.offers.length - 1] ?? dining.offers[0],
+      t: tickets.offers[2] ?? tickets.offers[0],
     },
-  ];
+  ].filter((t) => t.f && t.h);
+
+  if (!tiers.length) {
+    throw new Error(
+      `No trip inventory (flights=${flights.offers.length} hotels=${hotels.offers.length})`,
+    );
+  }
 
   let packages: Package[] = [];
   for (const tier of tiers) {
-    const flightCost = tier.f.price_per_person * party;
-    const hotelShare = tier.h.price_total; // room total for group
-    const diningCost = tier.d.price_per_person * party;
-    const itinCost = days.reduce((s, x) => s + x.cost, 0);
+    const flightCost = tier.f!.price_per_person * party;
+    const hotelShare = tier.h!.price_total;
 
     const comps = await Promise.all([
       enrich({
         type: "flight",
-        vendor: tier.f.vendor,
+        vendor: tier.f!.vendor,
         cost: flightCost,
-        currency: tier.f.currency,
-        details: `${tier.f.airline} ${tier.f.from}→${tier.f.to} · ${tier.f.cabin} · ${new Date(tier.f.depart).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} ×${party}`,
+        currency: tier.f!.currency,
+        details: `${tier.f!.airline} ${tier.f!.from}→${tier.f!.to} · ${tier.f!.cabin} · ${new Date(tier.f!.depart).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} ×${party} · ${datesLabel}`,
         hold_expires_at: holdExpiry(3),
-        merchant_id: tier.f.id,
+        merchant_id: tier.f!.id,
       }),
       enrich({
         type: "hotel",
-        vendor: tier.h.vendor,
+        vendor: tier.h!.vendor,
         cost: hotelShare,
-        currency: tier.h.currency,
-        details: `${tier.h.name} · ${tier.h.neighborhood} · ${tier.h.nights} nights · ${tier.h.check_in}→${tier.h.check_out}`,
+        currency: tier.h!.currency,
+        details: `${tier.h!.name} · ${tier.h!.neighborhood} · ${tier.h!.nights} nights · ${tier.h!.check_in}→${tier.h!.check_out}`,
         hold_expires_at: holdExpiry(4),
-        merchant_id: tier.h.id,
+        merchant_id: tier.h!.id,
       }),
-      enrich({
-        type: "dining",
-        vendor: tier.d.vendor,
-        cost: diningCost,
-        currency: tier.d.currency,
-        details: `${tier.d.vendor} · ${tier.d.cuisine} · party of ${party}`,
-        hold_expires_at: holdExpiry(1.5),
-        merchant_id: tier.d.id,
-      }),
-      ...days.map((day) =>
-        enrich({
-          type: "itinerary_day",
-          vendor: "AiDHD Itinerary",
-          cost: day.cost,
-          currency: day.currency,
-          details: `${day.day}: ${day.title} — ${day.details}`,
-          hold_expires_at: holdExpiry(24),
-          merchant_id: day.id,
-        }),
-      ),
+      ...(tier.t
+        ? [
+            enrich({
+              type: "ticket" as const,
+              vendor: tier.t.vendor,
+              cost: tier.t.price * party,
+              currency: tier.t.currency,
+              details: `${tier.t.event_name} · ${tier.t.tier} · ${tier.t.venue} (${hotelCity}) · ${datesLabel}`,
+              hold_expires_at: holdExpiry(2),
+              merchant_id: tier.t.id,
+            }),
+          ]
+        : []),
     ]);
 
     const total = comps.reduce((s, c) => s + c.cost, 0);
@@ -334,7 +408,7 @@ async function runTripAgents(
       id: randomUUID(),
       event_id: event.id,
       label: tier.label,
-      rationale: `NYC→Miami · flights+hotel+itinerary+dinner vs group envelope $${envelope}. ${conflicts[0] ?? "Caps compatible."} Itinerary add-on $${itinCost}.`,
+      rationale: `Dates: ${datesLabel}. ${originCode}→${destCode} · flights + hotel${tier.t ? ` + ${hotelCity} activity` : ""} vs group envelope $${envelope}. ${conflicts[0] ?? "Caps compatible."}`,
       components: comps,
       total_cost: total,
       cost_per_person: Math.round((total / party) * 100) / 100,
@@ -343,7 +417,7 @@ async function runTripAgents(
     });
   }
 
-  logAgent(event.id, "trust", "Senso trust on flight/hotel/dining vendors");
+  logAgent(event.id, "trust", "Senso trust on trip vendors");
   packages = await polish(event.id, packages, conflicts);
   return { packages, conflicts, envelope };
 }

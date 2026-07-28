@@ -51,7 +51,10 @@ export async function searchTickets(input: {
 
   let offers = [...TICKET_INVENTORY];
   if (input.max_price != null) {
-    offers = offers.filter((o) => o.price <= input.max_price!);
+    const capped = offers.filter((o) => o.price <= input.max_price!);
+    offers = capped.length
+      ? capped
+      : [...offers].sort((a, b) => a.price - b.price);
   }
   return { offers, source: "fixture" };
 }

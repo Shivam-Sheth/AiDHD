@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { handleWhatsAppInbound } from "@/lib/collector/whatsapp-bot";
 import { claimWhatsAppMessage } from "@/lib/integrations/whatsapp-phonebook";
+import { recordWhatsAppWebhookHit } from "@/lib/integrations/whatsapp-webhook-debug";
+import {
+  ensureHydrated,
+  flushDurableNow,
+} from "@/lib/state-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,7 +13,7 @@ export const dynamic = "force-dynamic";
 /**
  * Meta WhatsApp Cloud API webhook.
  * GET  — hub challenge verification
- * POST — process inbound + send reply before responding (reliable in next dev)
+ * POST — process inbound + send reply before responding
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -64,7 +69,6 @@ function extractJobs(body: {
       );
       for (const message of value.messages) {
         if (!message.id || !message.from) continue;
-        if (!claimWhatsAppMessage(message.id)) continue;
         let text =
           message.text?.body ||
           message.button?.text ||
@@ -86,8 +90,21 @@ function extractJobs(body: {
 }
 
 async function processJobs(jobs: InboundJob[]) {
+  // Restore contacts/collectors/responses before dedup — otherwise cold starts wipe mid-flow.
+  await ensureHydrated();
   for (const job of jobs) {
     try {
+      if (!claimWhatsAppMessage(job.id)) {
+        console.log(`[whatsapp inbound] skip dup ${job.id}`);
+        recordWhatsAppWebhookHit({
+          at: new Date().toISOString(),
+          handled: 0,
+          from: job.from,
+          text: job.text,
+          note: "dup",
+        });
+        continue;
+      }
       console.log(
         `[whatsapp inbound] from=${job.from} text=${JSON.stringify(job.text.slice(0, 80))}`,
       );
@@ -96,8 +113,23 @@ async function processJobs(jobs: InboundJob[]) {
         text: job.text,
         profileName: job.profileName,
       });
+      await flushDurableNow();
+      recordWhatsAppWebhookHit({
+        at: new Date().toISOString(),
+        handled: 1,
+        from: job.from,
+        text: job.text.slice(0, 80),
+        note: "replied",
+      });
       console.log(`[whatsapp inbound] replied ok from=${job.from}`);
     } catch (err) {
+      recordWhatsAppWebhookHit({
+        at: new Date().toISOString(),
+        handled: 0,
+        from: job.from,
+        text: job.text.slice(0, 80),
+        note: err instanceof Error ? err.message : "error",
+      });
       console.error("[whatsapp webhook]", job.id, err);
     }
   }
@@ -115,7 +147,19 @@ export async function POST(req: Request) {
   }
 
   const jobs = extractJobs(body);
-  // Must await — fire-and-forget / after() was dropping date/vibe replies in local tunnel.
+  if (!jobs.length) {
+    const raw = JSON.stringify(body);
+    recordWhatsAppWebhookHit({
+      at: new Date().toISOString(),
+      handled: 0,
+      note: raw.includes('"statuses"')
+        ? "status-only"
+        : raw.includes('"messages"')
+          ? "messages-but-empty"
+          : "no-jobs",
+    });
+    console.log(`[whatsapp webhook] no text jobs len=${raw.length}`);
+  }
   if (jobs.length) await processJobs(jobs);
 
   return NextResponse.json({ ok: true, handled: jobs.length });

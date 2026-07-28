@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       ...result,
       tip:
         result.tip ||
-        "Check WhatsApp for a chat from +1 (555) 158-1137. Number must be a Meta test recipient.",
+        "Check WhatsApp for +1 (555) 158-1137. hello_world is Meta’s sandbox opener; AiDHD’s planning message follows.",
     });
   } catch (err) {
     return NextResponse.json(

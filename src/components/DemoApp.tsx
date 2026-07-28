@@ -107,15 +107,20 @@ export function DemoApp() {
     setError(null);
     setWaNote(null);
     try {
-      const res = await j<{ invited: string[]; tip?: string }>(
-        "/api/channels/whatsapp/invite",
-        {
-          method: "POST",
-          body: JSON.stringify({ phones }),
-        },
-      );
+      const res = await j<{
+        invited: string[];
+        failed?: { phone: string; error: string }[];
+        tip?: string;
+      }>("/api/channels/whatsapp/invite", {
+        method: "POST",
+        body: JSON.stringify({ phones }),
+      });
+      const failBit =
+        res.failed?.length ?
+          ` Failed: ${res.failed.map((f) => f.phone).join(", ")} (must be Meta-allowed with +1…).`
+        : "";
       setWaNote(
-        `Invited ${res.invited.length}. Look in WhatsApp for chat from +1 (555) 158-1137 (Meta test number) — may be under message requests. ${res.tip ?? ""}`,
+        `Invited ${res.invited.length}. They get Meta hello_world first. Ask them to reply “hi” — then AiDHD sends the planning intro (Meta blocks freeform until they reply).${failBit} ${res.tip ?? ""}`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "WhatsApp invite failed");
@@ -668,6 +673,11 @@ export function DemoApp() {
                             <div className="font-display font-semibold text-neutral-900">
                               {pkg.label}
                             </div>
+                            <p className="mt-1 text-xs text-neutral-500">
+                              {snap?.event?.proposed_dates?.length
+                                ? `Event window: ${snap.event.proposed_dates.join(" → ")}`
+                                : null}
+                            </p>
                             <p className="mt-1 line-clamp-2 text-sm text-neutral-600">
                               {pkg.rationale}
                             </p>

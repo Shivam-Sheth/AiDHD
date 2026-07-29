@@ -8,6 +8,12 @@ import {
 } from "./web-chat";
 import { lookupPackagesForWhatsApp } from "./whatsapp-packages";
 import {
+  extractReelUrl,
+  isReelMessage,
+  planFromReel,
+  parseReelFollowUp,
+} from "../reel";
+import {
   sendWhatsAppMessage,
   sendWhatsAppTemplate,
 } from "../integrations/whatsapp";
@@ -193,6 +199,7 @@ First: is this a group TRIP or a group OUTING (one night)?
 Reply:
 • TRIP — flights + hotels (optional activities in the city)
 • OUTING or PLAN — tickets + dinner
+• Or paste an Instagram/TikTok reel link — I'll decode it and find tickets
 
 I'll then ask for what I need, starting with budget.`;
 
@@ -410,12 +417,87 @@ export async function handleWhatsAppInbound(input: {
     !midCollect &&
     !explicitOuting &&
     !explicitTrip &&
-    !contact.collector_checkpoint
+    !contact.collector_checkpoint &&
+    !contact.pending_reel
   ) {
     replies.push(OPENER);
     await replyOnce(phone, replies);
     await flushDurableNow();
     return { replies, user_id: contact.user_id, event_id: eventId };
+  }
+
+  // —— Reel link / follow-up (Gemini decode + Ticketmaster) ——
+  if (!midCollect && (isReelMessage(text) || contact.pending_reel)) {
+    const url = extractReelUrl(text) || contact.pending_reel?.url || null;
+    const follow = contact.pending_reel
+      ? parseReelFollowUp(text, contact.pending_reel.brief)
+      : {};
+    const party_size =
+      follow.party_size ?? contact.pending_reel?.party_size;
+    const selected_date =
+      follow.selected_date ?? contact.pending_reel?.selected_date;
+    const selected_time =
+      follow.selected_time ?? contact.pending_reel?.selected_time;
+    const budget_cap =
+      follow.budget_cap ?? contact.pending_reel?.budget_cap;
+    const origin_city =
+      follow.origin_city ?? contact.pending_reel?.origin_city;
+
+    if (url || contact.pending_reel || /^(reel|reels)\b/i.test(lower)) {
+      if (!url && !contact.pending_reel) {
+        replies.push(
+          "Paste an Instagram or TikTok reel link (or a caption/transcript after REEL).",
+        );
+        await replyOnce(phone, replies);
+        return { replies, user_id: contact.user_id, event_id: eventId };
+      }
+      await replyOnce(phone, [
+        url && !contact.pending_reel
+          ? "Decoding that reel with Gemini — pulling events + Ticketmaster times…"
+          : "Updating your reel plan…",
+      ]);
+      const transcript =
+        !url && /^reel\b/i.test(lower)
+          ? text.replace(/^(reel|reels)\s*/i, "").trim()
+          : undefined;
+      const plan = await planFromReel({
+        url,
+        transcript:
+          transcript ||
+          (!url ? contact.pending_reel?.brief.transcript_or_caption : undefined),
+        party_size,
+        selected_date,
+        selected_time,
+        budget_cap,
+        origin_city,
+      });
+      contact.pending_reel = {
+        url: url ?? contact.pending_reel?.url,
+        brief: plan.brief,
+        party_size,
+        selected_date,
+        selected_time,
+        budget_cap,
+        origin_city,
+      };
+      if (/^approve\b/i.test(lower) && plan.tickets.length) {
+        const idx =
+          Number(lower.match(/^approve\s*([1-5])\b/)?.[1] ?? "1") - 1;
+        const pick = plan.tickets[idx] ?? plan.tickets[0]!;
+        contact.pending_reel = undefined;
+        replies.push(
+          `Locked: ${pick.event_name} @ ${pick.venue} · ${pick.date} · ~$${Math.round(pick.price)}.\n` +
+            `Next: Prava ticket mandate on https://aidhd-omega.vercel.app`,
+        );
+        await replyOnce(phone, replies);
+        await flushDurableNow();
+        return { replies, user_id: contact.user_id, event_id: eventId };
+      }
+      replies.push(plan.whatsapp_message);
+      await replyOnce(phone, [plan.whatsapp_message]);
+      await flushDurableNow();
+      return { replies, user_id: contact.user_id, event_id: eventId };
+    }
   }
 
   // Mode switch: only explicit short commands, or Gemini when NOT mid-collect

@@ -1,6 +1,10 @@
 import { randomUUID } from "crypto";
 import { getUser } from "../demo-users";
 import {
+  airportCodeForPlace,
+  displayCityForPlace,
+} from "../geo/airports";
+import {
   addResponse,
   clearCollector,
   getCollector,
@@ -10,10 +14,7 @@ import {
   upsertEvent,
 } from "../store";
 import type { Channel, ChatMessage, CollectorSession, Response } from "../types";
-import {
-  parseWhatsAppTurnWithGemini,
-  type GeminiTurnParse,
-} from "./gemini-parse";
+import { parseWhatsAppTurnWithGemini, type GeminiTurnParse } from "./gemini-parse";
 
 function msg(role: "assistant" | "user", content: string): ChatMessage {
   return { id: randomUUID(), role, content, ts: new Date().toISOString() };
@@ -234,27 +235,13 @@ export function parseAvailability(text: string): string[] {
   return [];
 }
 
-function airportForPlace(place: string): string {
-  const p = place.toLowerCase();
-  if (/new york|nyc|jfk|lga|ewr/.test(p)) return "JFK";
-  if (/miami|mia/.test(p)) return "MIA";
-  if (/chicago|ord/.test(p)) return "ORD";
-  if (/los angeles|la\b|lax/.test(p)) return "LAX";
-  if (/boston|bos/.test(p)) return "BOS";
-  if (/atlanta|atl/.test(p)) return "ATL";
-  if (/dallas|dfw/.test(p)) return "DFW";
-  if (/seattle|sea/.test(p)) return "SEA";
-  if (/austin|aus/.test(p)) return "AUS";
-  if (/denver|den/.test(p)) return "DEN";
-  return "JFK";
+function destCityForPlace(place: string): string {
+  return displayCityForPlace(place);
 }
 
-function destCityForPlace(place: string): string {
-  const p = place.toLowerCase();
-  if (/miami/.test(p)) return "Miami";
-  if (/new york|nyc/.test(p)) return "New York";
-  if (/chicago/.test(p)) return "Chicago";
-  return place.replace(/\b\w/g, (c) => c.toUpperCase());
+/** Resolve IATA or null — never invent JFK. */
+function resolveAirportOrNull(place: string): string | null {
+  return airportCodeForPlace(place);
 }
 
 const DATE_PROMPT =
@@ -363,6 +350,11 @@ function tripConfirmPrompt(session: CollectorSession): string {
     `$${session.draft.budget_cap} · ${dates}\n` +
     `· From: ${prefs.origin_city ?? "?"} (${prefs.origin_country ?? "?"})\n` +
     `· To: ${prefs.destination ?? "?"}\n` +
+    `· Route: ${
+      prefs.structured_tags.find((t) => t.startsWith("origin:"))?.slice(7) ?? "?"
+    }→${
+      prefs.structured_tags.find((t) => t.startsWith("dest:"))?.slice(5) ?? "?"
+    }\n` +
     `· Activities: ${activity}\n` +
     `Reply YES`
   );
@@ -456,6 +448,7 @@ export async function handleCollectorMessage(
         free_text: "",
         structured_tags: [],
       };
+      const originIata = resolveAirportOrNull(gemini.origin_city);
       session.draft.preferences = {
         ...prefs,
         origin_city: gemini.origin_city,
@@ -463,7 +456,7 @@ export async function handleCollectorMessage(
         structured_tags: [
           ...new Set([
             ...prefs.structured_tags,
-            `origin:${airportForPlace(gemini.origin_city)}`,
+            ...(originIata ? [`origin:${originIata}`] : []),
             `origin_city:${gemini.origin_city}`,
           ]),
         ],
@@ -494,19 +487,30 @@ export async function handleCollectorMessage(
       setCollector(session);
       return { session, allIn: false };
     }
+    const originIata = resolveAirportOrNull(city);
+    if (!originIata) {
+      session.messages.push(
+        msg(
+          "assistant",
+          `Couldn't map "${city}" to an airport. Try a major city (e.g. Chicago, New York, Miami) or an IATA code like ORD.`,
+        ),
+      );
+      setCollector(session);
+      return { session, allIn: false };
+    }
     const prefs = session.draft.preferences ?? {
       free_text: "",
       structured_tags: [],
     };
     session.draft.preferences = {
       ...prefs,
-      origin_city: city,
+      origin_city: displayCityForPlace(city),
       origin_country: country,
       structured_tags: [
         ...new Set([
           ...prefs.structured_tags,
-          `origin:${airportForPlace(city)}`,
-          `origin_city:${city}`,
+          `origin:${originIata}`,
+          `origin_city:${displayCityForPlace(city)}`,
         ]),
       ],
       destination: gemini?.destination || prefs.destination,
@@ -519,7 +523,7 @@ export async function handleCollectorMessage(
         session.messages.push(
           msg(
             "assistant",
-            `Flying from ${city}, ${country} → ${session.draft.preferences.destination}. Dates locked. ${TRIP_ACTIVITY_PROMPT}`,
+            `Flying from ${displayCityForPlace(city)} (${originIata}), ${country} → ${session.draft.preferences.destination}. Dates locked. ${TRIP_ACTIVITY_PROMPT}`,
           ),
         );
       } else {
@@ -527,7 +531,7 @@ export async function handleCollectorMessage(
         session.messages.push(
           msg(
             "assistant",
-            `Flying from ${city}, ${country} → ${session.draft.preferences.destination}. ${DATE_PROMPT}`,
+            `Flying from ${displayCityForPlace(city)} (${originIata}), ${country} → ${session.draft.preferences.destination}. ${DATE_PROMPT}`,
           ),
         );
       }
@@ -536,7 +540,7 @@ export async function handleCollectorMessage(
       session.messages.push(
         msg(
           "assistant",
-          `Got it — departing ${city}, ${country}. Where do you want to go? (e.g. Miami)`,
+          `Got it — departing ${displayCityForPlace(city)} (${originIata}), ${country}. Where do you want to go? (e.g. New York)`,
         ),
       );
     }
@@ -548,7 +552,18 @@ export async function handleCollectorMessage(
     const dest = (gemini?.destination || text.trim()).trim();
     if (dest.length < 2) {
       session.messages.push(
-        msg("assistant", gemini?.ask || "Destination? e.g. Miami"),
+        msg("assistant", gemini?.ask || "Destination? e.g. New York"),
+      );
+      setCollector(session);
+      return { session, allIn: false };
+    }
+    const destIata = resolveAirportOrNull(dest);
+    if (!destIata) {
+      session.messages.push(
+        msg(
+          "assistant",
+          `Couldn't map "${dest}" to an airport. Try New York, Miami, Chicago, or an IATA code like JFK.`,
+        ),
       );
       setCollector(session);
       return { session, allIn: false };
@@ -558,13 +573,26 @@ export async function handleCollectorMessage(
       structured_tags: [],
     };
     const city = destCityForPlace(dest);
+    const originIata = prefs.structured_tags
+      .find((t) => t.startsWith("origin:"))
+      ?.slice("origin:".length);
+    if (originIata && originIata === destIata) {
+      session.messages.push(
+        msg(
+          "assistant",
+          `That's the same as your origin (${originIata}). Pick a different destination city.`,
+        ),
+      );
+      setCollector(session);
+      return { session, allIn: false };
+    }
     session.draft.preferences = {
       ...prefs,
       destination: city,
       structured_tags: [
         ...new Set([
           ...prefs.structured_tags,
-          `dest:${airportForPlace(dest)}`,
+          `dest:${destIata}`,
           `destination:${city}`,
         ]),
       ],
@@ -576,13 +604,16 @@ export async function handleCollectorMessage(
       session.messages.push(
         msg(
           "assistant",
-          `Destination ${city}. Dates locked. ${TRIP_ACTIVITY_PROMPT}`,
+          `Destination ${city} (${destIata}). Dates locked. ${TRIP_ACTIVITY_PROMPT}`,
         ),
       );
     } else {
       session.step = "availability";
       session.messages.push(
-        msg("assistant", `Destination ${city}. ${DATE_PROMPT}`),
+        msg(
+          "assistant",
+          `Destination ${city} (${destIata}). ${DATE_PROMPT}`,
+        ),
       );
     }
     setCollector(session);

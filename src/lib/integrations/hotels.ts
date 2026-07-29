@@ -4,25 +4,59 @@ import {
   type HotelOffer,
   type ItineraryDayOffer,
 } from "../merchants/fixtures";
+import { coordsForCity, displayCityForPlace } from "../geo/airports";
 import { hasDuffel } from "./config";
 
+function rewriteHotelFixtures(input: {
+  city: string;
+  checkIn: string;
+  checkOut: string;
+  max_total?: number;
+}): HotelOffer[] {
+  const city = displayCityForPlace(input.city);
+  const nights = Math.max(
+    1,
+    Math.round(
+      (new Date(`${input.checkOut}T12:00:00Z`).getTime() -
+        new Date(`${input.checkIn}T12:00:00Z`).getTime()) /
+        86_400_000,
+    ),
+  );
+  const offers: HotelOffer[] = HOTEL_INVENTORY.map((h, i) => ({
+    ...h,
+    id: `${h.id}_${city.replace(/\s+/g, "_").toLowerCase()}`,
+    name: h.name.replace(/Miami( Beach)?/gi, city).replace(/South Beach/gi, city),
+    neighborhood: i === 0 ? "Downtown" : i === 1 ? "Center" : "Upscale",
+    check_in: input.checkIn,
+    check_out: input.checkOut,
+    nights,
+    tags: [...h.tags.filter((t) => t !== "beach"), "rewritten-city", city.toLowerCase()],
+  }));
+  if (input.max_total == null) return offers;
+  const capped = offers.filter((o) => o.price_total <= input.max_total!);
+  return capped.length ? capped : offers.sort((a, b) => a.price_total - b.price_total);
+}
+
 /**
- * Hotel / stays search — Duffel Stays when keyed (Amadeus self-service is dead).
- * Docs: https://duffel.com/docs/guides/getting-started-with-stays
- * Reserve stays mock for hackathon disclosure.
+ * Hotel / stays search — Duffel Stays when keyed.
+ * City coords come from geo lookup — never assume Miami/NYC for unknown places.
  */
 export async function searchHotels(input: {
   city?: string;
+  check_in?: string;
+  check_out?: string;
   max_total?: number;
 }): Promise<{ offers: HotelOffer[]; source: "duffel" | "fixture" }> {
-  if (hasDuffel()) {
-    try {
-      // Miami Beach coords for NYC→Miami demo; generic city fallback later.
-      const coords =
-        input.city?.toLowerCase().includes("miami") || !input.city
-          ? { latitude: 25.7907, longitude: -80.13 }
-          : { latitude: 40.758, longitude: -73.9855 };
+  const city = (input.city || "").trim();
+  if (!city) {
+    throw new Error("searchHotels requires a destination city");
+  }
+  const checkIn = input.check_in || "2026-08-14";
+  const checkOut = input.check_out || "2026-08-16";
+  const coords = coordsForCity(city);
 
+  if (hasDuffel() && coords) {
+    try {
       const res = await fetch("https://api.duffel.com/stays/search", {
         method: "POST",
         headers: {
@@ -35,8 +69,8 @@ export async function searchHotels(input: {
           data: {
             rooms: 1,
             adults: 2,
-            check_in_date: "2026-08-14",
-            check_out_date: "2026-08-16",
+            check_in_date: checkIn,
+            check_out_date: checkOut,
             location: {
               radius: 8,
               geographic_coordinates: coords,
@@ -66,12 +100,17 @@ export async function searchHotels(input: {
             vendor: "Duffel Stays",
             name: r.accommodation?.name || "Hotel",
             neighborhood:
-              r.accommodation?.location?.address?.city_name ||
-              input.city ||
-              "Miami",
-            check_in: "2026-08-14",
-            check_out: "2026-08-16",
-            nights: 2,
+              r.accommodation?.location?.address?.city_name || city,
+            check_in: checkIn,
+            check_out: checkOut,
+            nights: Math.max(
+              1,
+              Math.round(
+                (new Date(`${checkOut}T12:00:00Z`).getTime() -
+                  new Date(`${checkIn}T12:00:00Z`).getTime()) /
+                  86_400_000,
+              ),
+            ),
             price_total: Number(r.cheapest_rate_total_amount || 400),
             currency: r.cheapest_rate_currency || "USD",
             tags: ["live", "duffel", "stays"],
@@ -83,11 +122,15 @@ export async function searchHotels(input: {
     }
   }
 
-  let offers = [...HOTEL_INVENTORY];
-  if (input.max_total != null) {
-    offers = offers.filter((o) => o.price_total <= input.max_total!);
-  }
-  return { offers: offers.length ? offers : HOTEL_INVENTORY, source: "fixture" };
+  return {
+    offers: rewriteHotelFixtures({
+      city,
+      checkIn,
+      checkOut,
+      max_total: input.max_total,
+    }),
+    source: "fixture",
+  };
 }
 
 export async function searchItineraryDays(): Promise<ItineraryDayOffer[]> {
@@ -99,12 +142,12 @@ export async function reserveHotel(offerId: string, fail = false) {
     return {
       ok: false as const,
       confirmation_id: undefined,
-      failure_reason: "Hotel rate expired — re-mandate hotel only",
+      failure_reason: "Stay inventory flickered — re-mandate hotel only",
     };
   }
   return {
     ok: true as const,
     confirmation_id: `MOCK-HOTEL-${offerId}-${Date.now()}`,
-    mode: hasDuffel() ? ("duffel-stays-hold-mock" as const) : ("fixture" as const),
+    mode: hasDuffel() ? ("duffel-hold-mock" as const) : ("fixture" as const),
   };
 }

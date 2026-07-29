@@ -19,6 +19,16 @@ export interface WhatsAppContact {
   pending_date_exception?: string;
   /** Asked to raise budget toward group middle-ground */
   pending_budget_target?: number;
+  /** Active reel-plan session (link/transcript decode) */
+  pending_reel?: {
+    url?: string;
+    brief: import("../reel/types").ReelBrief;
+    party_size?: number;
+    selected_date?: string;
+    selected_time?: string;
+    budget_cap?: number;
+    origin_city?: string;
+  };
   /**
    * Mid-collect checkpoint — survives serverless hops when durable blob is wired.
    * Used to restore collector if in-memory session is missing.

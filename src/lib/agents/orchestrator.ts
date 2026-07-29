@@ -10,6 +10,11 @@ import { pushAgentLog } from "../store";
 import type { Event, Package, PackageComponent, Response } from "../types";
 import type { AgentId, AgentRunResult } from "./types";
 import { planDatesLabel } from "../agent/plan-dates";
+import {
+  resolveDepartDate,
+  resolveReturnDate,
+  resolveTripRoute,
+} from "../agent/trip-route";
 
 function holdExpiry(hours = 2) {
   return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
@@ -285,32 +290,31 @@ async function runTripAgents(
       : "Trip mode — flights + hotels",
   );
 
-  const originTag = tags.find((t) => t.startsWith("origin:"));
-  const destTag = tags.find((t) => t.startsWith("dest:"));
-  const destCityTag = tags.find((t) => t.startsWith("destination:"));
-  const originCode = originTag?.split(":")[1] || "JFK";
-  const destCode = destTag?.split(":")[1] || "MIA";
-  const hotelCity =
-    responses
-      .map((r) => r.preferences.destination)
-      .find(Boolean) ||
-    destCityTag?.split(":")[1] ||
-    "Miami";
+  const route = resolveTripRoute(responses, event);
+  const departDate = resolveDepartDate(responses, event);
+  const returnDate = resolveReturnDate(responses, event, departDate);
+  const { originCode, destCode, destCity: hotelCity } = route;
 
   const [flights, hotels, tickets] = await Promise.all([
     searchFlights({
       origin: originCode,
       destination: destCode,
+      depart_date: departDate,
       max_price: maxCap,
     }).then((r) => {
       logAgent(
         event.id,
         "flights",
-        `source=${r.source} offers=${r.offers.length} ${originCode}→${destCode}`,
+        `source=${r.source} offers=${r.offers.length} ${originCode}→${destCode} on ${departDate}`,
       );
       return r;
     }),
-    searchHotels({ city: hotelCity, max_total: envelope * 0.7 }).then((r) => {
+    searchHotels({
+      city: hotelCity,
+      check_in: departDate,
+      check_out: returnDate,
+      max_total: envelope * 0.7,
+    }).then((r) => {
       logAgent(
         event.id,
         "hotels",
@@ -408,7 +412,7 @@ async function runTripAgents(
       id: randomUUID(),
       event_id: event.id,
       label: tier.label,
-      rationale: `Dates: ${datesLabel}. ${originCode}→${destCode} · flights + hotel${tier.t ? ` + ${hotelCity} activity` : ""} vs group envelope $${envelope}. ${conflicts[0] ?? "Caps compatible."}`,
+      rationale: `Dates: ${datesLabel}. ${route.originCity} (${originCode})→${route.destCity} (${destCode}) · flights + hotel${tier.t ? ` + ${hotelCity} activity` : ""} vs group envelope $${envelope}. ${conflicts[0] ?? "Caps compatible."}`,
       components: comps,
       total_cost: total,
       cost_per_person: Math.round((total / party) * 100) / 100,

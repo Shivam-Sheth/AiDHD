@@ -41,6 +41,12 @@ Copy this into a build prompt. These are real failure modes we hit building What
 - Ticketmaster/Duffel can return empty or over-budget filters can wipe fixtures → **never crash on `offer.vendor`**; fall back to cheapest inventory.
 - Low budgets ($60) that filter out all dining/tickets must still return something (cheapest options) or a clear “no inventory” error.
 - Amadeus self-service is dead — hotels via **Duffel Stays**, not Amadeus.
+- **Never default flights to JFK→MIA.** Resolve origin/destination from user prefs (`origin_city` / `destination` + IATA tags). Fixtures must be rewritten to the asked route. Hotels use city coords — not Miami-unless-said-so.
+
+### 4b. Reel share (app + WhatsApp)
+- Accept Instagram/TikTok reel URL (or pasted transcript). Gemini decodes caption/transcript → city, dates, events, budget hints.
+- Ask only what’s missing: party size, date pick (if multiple), time, budget, origin (if trip).
+- Show Ticketmaster matches + itinerary sketch; `APPROVE N` to lock. Frontend: `POST /api/reel/plan`.
 
 ### 5. Serverless state (Vercel)
 - In-memory store is **per instance**. Packages/responses/votes vanish between requests → `VOTE 2` said “no packages yet” after packages were just shown; mid-collect can reset to “Hey I'm AiDHD”.

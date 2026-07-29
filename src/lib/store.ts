@@ -70,12 +70,12 @@ export function seedDemoEvent(): Event {
 
   store.events.set(event.id, event);
 
-  // Travel demo twin — same group, multi-day Miami trip
+  // Travel demo twin — destination filled from collector, not assumed Miami
   const trip: Event = {
     id: "evt_demo_miami",
     type: "trip",
     title: "Group trip",
-    destination_or_venue: "Miami Beach",
+    destination_or_venue: "TBD",
     proposed_dates: ["2026-08-14", "2026-08-15", "2026-08-16"],
     organizer_id: DEMO_USERS[0].id,
     invitee_ids: DEMO_USERS.map((u) => u.id),

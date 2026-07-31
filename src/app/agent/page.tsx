@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function AgentPage() {
-  return <ConciergeAgent />;
+  return <ConciergeAgent googleMapsApiKey={process.env.GOOGLE_MAPS_API || null} />;
 }

@@ -19,6 +19,8 @@ type Props = {
   apiKey: string | null;
   places: MapPlace[];
   hoveredId: string | null;
+  /** DemoApp is light-themed, the live concierge page is dark — pick the matching chrome. */
+  variant?: "light" | "dark";
 };
 
 const DEFAULT_CENTER = { lat: 40.7128, lng: -74.006 };
@@ -44,7 +46,7 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
 }
 
 /** Single shared map — recommended places accumulate as packages come in; hovering a place card grows its pin. */
-export function PlacesMap({ apiKey, places, hoveredId }: Props) {
+export function PlacesMap({ apiKey, places, hoveredId, variant = "light" }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const geocoderRef = useRef<any>(null);
@@ -97,7 +99,13 @@ export function PlacesMap({ apiKey, places, hoveredId }: Props) {
 
   if (!apiKey) {
     return (
-      <div className="flex h-72 w-full items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 text-center text-xs text-neutral-500">
+      <div
+        className={
+          variant === "dark"
+            ? "flex h-72 w-full items-center justify-center rounded-3xl border border-dashed border-white/15 bg-white/[0.03] px-4 text-center text-xs text-white/40"
+            : "flex h-72 w-full items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 text-center text-xs text-neutral-500"
+        }
+      >
         Add GOOGLE_MAPS_API to .env.local to show recommended places on a map.
       </div>
     );
@@ -106,7 +114,11 @@ export function PlacesMap({ apiKey, places, hoveredId }: Props) {
   return (
     <div
       ref={containerRef}
-      className="h-72 w-full rounded-2xl border border-neutral-200 bg-neutral-100"
+      className={
+        variant === "dark"
+          ? "h-72 w-full rounded-3xl border border-white/10"
+          : "h-72 w-full rounded-2xl border border-neutral-200 bg-neutral-100"
+      }
     />
   );
 }

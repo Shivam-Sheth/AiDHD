@@ -1,12 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   ConversationProvider,
   useConversation,
   useConversationClientTool,
 } from "@elevenlabs/react";
+import { PlacesMap, type MapPlace } from "@/components/PlacesMap";
 
 type FlightCard = {
   id: string;
@@ -242,15 +251,27 @@ function MediaCard({
   meta,
   price,
   priceSuffix,
+  onMouseEnter,
+  onMouseLeave,
+  highlighted,
 }: {
   photo?: string | null;
   title: string;
   meta: string;
   price: number;
   priceSuffix?: string;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  highlighted?: boolean;
 }) {
   return (
-    <article className="flex overflow-hidden rounded-2xl border border-white/10 bg-[#12181f]/90 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)]">
+    <article
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`flex overflow-hidden rounded-2xl border bg-[#12181f]/90 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)] transition ${
+        highlighted ? "border-amber-300/60" : "border-white/10"
+      }`}
+    >
       {photo && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={photo} alt="" className="h-28 w-28 shrink-0 object-cover" />
@@ -271,7 +292,11 @@ function MediaCard({
   );
 }
 
-function ConciergeInner() {
+function ConciergeInner({
+  googleMapsApiKey,
+}: {
+  googleMapsApiKey: string | null;
+}) {
   const reactId = useId();
   const sessionRef = useRef(
     `sess_${reactId.replace(/:/g, "")}_${Date.now().toString(36)}`,
@@ -292,6 +317,50 @@ function ConciergeInner() {
     (UiCard & { kind: "receipt" }) | null
   >(null);
   const [completing, setCompleting] = useState(false);
+  const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
+
+  /** Flights are a route, not a point on a map — every other card kind has a place to geocode. */
+  const recommendedPlaces = useMemo<MapPlace[]>(() => {
+    const byId = new Map<string, MapPlace>();
+    for (const c of cards) {
+      if (c.kind === "hotels") {
+        const city = c.payload.label || "";
+        for (const h of c.payload.offers) {
+          const id = `hotels-${h.id}`;
+          byId.set(id, { id, label: h.name, query: `${h.name}, ${h.neighborhood}, ${city}` });
+        }
+      } else if (c.kind === "dining") {
+        const city = c.payload.label || "";
+        for (const d of c.payload.offers) {
+          const id = `dining-${d.id}`;
+          byId.set(id, { id, label: d.name, query: `${d.name}, ${d.neighborhood}, ${city}` });
+        }
+      } else if (c.kind === "clubs") {
+        const city = c.payload.label || "";
+        for (const cl of c.payload.offers) {
+          const id = `clubs-${cl.id}`;
+          byId.set(id, { id, label: cl.name, query: `${cl.name}, ${cl.neighborhood}, ${city}` });
+        }
+      } else if (c.kind === "movies") {
+        const city = c.payload.label || "";
+        for (const m of c.payload.offers) {
+          const id = `movies-${m.id}`;
+          byId.set(id, {
+            id,
+            label: m.theater,
+            query: `${m.theater}, ${m.neighborhood}, ${city}`,
+          });
+        }
+      } else if (c.kind === "tickets") {
+        const city = (c.payload.label || "").split(" · ").pop() || "";
+        for (const t of c.payload.offers) {
+          const id = `tickets-${t.id}`;
+          byId.set(id, { id, label: t.venue, query: `${t.venue}, ${city}` });
+        }
+      }
+    }
+    return [...byId.values()];
+  }, [cards]);
 
   const pushUi = useCallback((ui: UiCard | UiCard[] | undefined | null) => {
     if (!ui) return;
@@ -748,6 +817,17 @@ function ConciergeInner() {
             </p>
           </div>
 
+          {recommendedPlaces.length > 0 && (
+            <div className="mb-5">
+              <PlacesMap
+                apiKey={googleMapsApiKey}
+                places={recommendedPlaces}
+                hoveredId={hoveredPlaceId}
+                variant="dark"
+              />
+            </div>
+          )}
+
           {cards.length === 0 && (
             <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.03] px-5 py-10 text-center">
               <p className="font-display text-sm font-medium text-white/55">
@@ -822,7 +902,17 @@ function ConciergeInner() {
                     {c.payload.offers.slice(0, 4).map((h) => (
                       <article
                         key={h.id}
-                        className="overflow-hidden rounded-2xl border border-white/10 bg-[#12181f]/90"
+                        onMouseEnter={() => setHoveredPlaceId(`hotels-${h.id}`)}
+                        onMouseLeave={() =>
+                          setHoveredPlaceId((id) =>
+                            id === `hotels-${h.id}` ? null : id,
+                          )
+                        }
+                        className={`overflow-hidden rounded-2xl border bg-[#12181f]/90 transition ${
+                          hoveredPlaceId === `hotels-${h.id}`
+                            ? "border-amber-300/60"
+                            : "border-white/10"
+                        }`}
                       >
                         {h.photo_url && (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -878,6 +968,13 @@ function ConciergeInner() {
                         title={t.event_name}
                         meta={`${t.venue} · ${t.date}`}
                         price={t.price}
+                        onMouseEnter={() => setHoveredPlaceId(`tickets-${t.id}`)}
+                        onMouseLeave={() =>
+                          setHoveredPlaceId((id) =>
+                            id === `tickets-${t.id}` ? null : id,
+                          )
+                        }
+                        highlighted={hoveredPlaceId === `tickets-${t.id}`}
                       />
                     ))}
                   </div>
@@ -903,6 +1000,13 @@ function ConciergeInner() {
                         meta={`${d.cuisine} · ${d.neighborhood} · ${fmtTime(d.time)}`}
                         price={d.price_per_person}
                         priceSuffix="/pp"
+                        onMouseEnter={() => setHoveredPlaceId(`dining-${d.id}`)}
+                        onMouseLeave={() =>
+                          setHoveredPlaceId((id) =>
+                            id === `dining-${d.id}` ? null : id,
+                          )
+                        }
+                        highlighted={hoveredPlaceId === `dining-${d.id}`}
                       />
                     ))}
                   </div>
@@ -928,6 +1032,13 @@ function ConciergeInner() {
                         meta={`${cl.vibe} · ${cl.neighborhood} · until ${cl.open_until}`}
                         price={cl.cover}
                         priceSuffix=" cover"
+                        onMouseEnter={() => setHoveredPlaceId(`clubs-${cl.id}`)}
+                        onMouseLeave={() =>
+                          setHoveredPlaceId((id) =>
+                            id === `clubs-${cl.id}` ? null : id,
+                          )
+                        }
+                        highlighted={hoveredPlaceId === `clubs-${cl.id}`}
                       />
                     ))}
                   </div>
@@ -952,6 +1063,13 @@ function ConciergeInner() {
                         title={m.title}
                         meta={`${m.rating} · ${m.theater} · ${m.showtimes.join(" · ")}`}
                         price={m.price}
+                        onMouseEnter={() => setHoveredPlaceId(`movies-${m.id}`)}
+                        onMouseLeave={() =>
+                          setHoveredPlaceId((id) =>
+                            id === `movies-${m.id}` ? null : id,
+                          )
+                        }
+                        highlighted={hoveredPlaceId === `movies-${m.id}`}
                       />
                     ))}
                   </div>
@@ -976,7 +1094,11 @@ function ConciergeInner() {
   );
 }
 
-export function ConciergeAgent() {
+export function ConciergeAgent({
+  googleMapsApiKey,
+}: {
+  googleMapsApiKey: string | null;
+}) {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#070b10] text-white">
       <div
@@ -1007,7 +1129,7 @@ export function ConciergeAgent() {
         </div>
       </header>
       <ConversationProvider>
-        <ConciergeInner />
+        <ConciergeInner googleMapsApiKey={googleMapsApiKey} />
       </ConversationProvider>
     </div>
   );

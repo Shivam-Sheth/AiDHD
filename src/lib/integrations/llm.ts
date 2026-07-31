@@ -50,36 +50,46 @@ async function completeWithGemini(input: {
   user: string;
 }): Promise<{ text: string; provider: "gemini" } | null> {
   const apiKey = process.env.GEMINI_API_KEY!;
-  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const preferred = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const models = [
+    preferred,
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-flash-latest",
+  ].filter((m, i, arr) => arr.indexOf(m) === i);
   const prompt = `${input.system}\n\n${input.user}`;
 
   // Newer Google GenAI SDK (preferred for AI Studio auth keys).
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
-    const text = response.text;
-    if (text?.trim()) return { text, provider: "gemini" };
-  } catch {
-    // try legacy SDK
+  for (const model of models) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+      const text = response.text;
+      if (text?.trim()) return { text, provider: "gemini" };
+    } catch {
+      // try next model / SDK
+    }
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const legacy = genAI.getGenerativeModel({
-      model,
-      generationConfig: { responseMimeType: "application/json" },
-    });
-    const result = await legacy.generateContent(prompt);
-    const text = result.response.text();
-    if (text?.trim()) return { text, provider: "gemini" };
-  } catch {
-    return null;
+  for (const model of models) {
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const legacy = genAI.getGenerativeModel({
+        model,
+        generationConfig: { responseMimeType: "application/json" },
+      });
+      const result = await legacy.generateContent(prompt);
+      const text = result.response.text();
+      if (text?.trim()) return { text, provider: "gemini" };
+    } catch {
+      // try next
+    }
   }
 
   return null;

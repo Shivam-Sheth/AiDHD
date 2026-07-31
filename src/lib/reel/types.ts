@@ -23,8 +23,14 @@ export type ReelBrief = {
   transcript_or_caption: string;
   city?: string | null;
   origin_city?: string | null;
-  /** Estimated budget per person if mentioned */
+  /** Estimated budget per person (same currency as budget_currency) */
   budget_cap?: number | null;
+  /** ISO 4217 — INR, USD, etc. */
+  budget_currency?: string | null;
+  /** Total group budget if caption says "X for N people" */
+  budget_total?: number | null;
+  /** How we derived pp from the reel, e.g. "₹50,000 for 2 → ₹25,000/pp" */
+  budget_note?: string | null;
   /** Trip length in days if mentioned */
   days?: number | null;
   /** Concrete dates from the reel (fair weekend, single show night, etc.) */
@@ -42,6 +48,7 @@ export type ReelBrief = {
 export type ReelClarifyField =
   | "party_size"
   | "date_pick"
+  | "date_range"
   | "time_pick"
   | "budget"
   | "origin"
@@ -70,11 +77,47 @@ export type ReelItineraryDay = {
   items: string[];
 };
 
+export type ReelFlightOption = {
+  id: string;
+  airline: string;
+  airline_iata?: string | null;
+  airline_logo_url?: string | null;
+  from: string;
+  to: string;
+  depart: string;
+  arrive: string;
+  cabin: string;
+  price_per_person: number;
+  currency: string;
+  source: "duffel" | "fixture";
+};
+
+export type ReelHotelOption = {
+  id: string;
+  name: string;
+  neighborhood: string;
+  check_in: string;
+  check_out: string;
+  nights: number;
+  price_total: number;
+  currency: string;
+  source: "duffel" | "fixture";
+  /** Guest review score 0–10 */
+  rating?: number | null;
+  review_count?: number | null;
+  /** 1 = best reviewed in this result set */
+  review_rank?: number | null;
+};
+
 export type ReelPlanResult = {
   brief: ReelBrief;
   asks: ReelClarifyAsk[];
   tickets: ReelTicketOption[];
+  flights: ReelFlightOption[];
+  hotels: ReelHotelOption[];
   itinerary: ReelItineraryDay[];
   ready_to_book: boolean;
   whatsapp_message: string;
+  /** Raw caption so the client can finalize prefs without re-fetching the reel */
+  cached_caption?: string;
 };

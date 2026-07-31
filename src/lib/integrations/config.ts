@@ -15,6 +15,7 @@ export function hasSenso() {
 }
 
 export function hasLinq() {
+  // API key alone enables Linq mode; sends need LINQ_PHONE_NUMBER too
   return Boolean(process.env.LINQ_API_KEY);
 }
 

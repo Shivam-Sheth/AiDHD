@@ -7,6 +7,22 @@
 import type { CollectorSession, Package, Response } from "./types";
 import type { WhatsAppContact } from "./integrations/whatsapp-phonebook";
 
+/** Linq iMessage collector — survives Vercel cold starts. */
+export type LinqDurableSession = {
+  phase: "chat" | "awaiting_pay" | "done";
+  vibe?: string;
+  origin?: string;
+  destination?: string;
+  city?: string;
+  budget?: number;
+  dates?: string;
+  last_session_id?: string;
+  last_merchant?: string;
+  last_amount?: number;
+  opted_out?: boolean;
+  updated_at?: string;
+};
+
 export type DurablePayload = {
   v: 1;
   updated_at: string;
@@ -15,6 +31,8 @@ export type DurablePayload = {
   responses: Response[];
   packages: Package[];
   processed_message_ids: string[];
+  linq_sessions?: Record<string, LinqDurableSession>;
+  linq_processed_ids?: string[];
 };
 
 const EMPTY: DurablePayload = {
@@ -25,6 +43,8 @@ const EMPTY: DurablePayload = {
   responses: [],
   packages: [],
   processed_message_ids: [],
+  linq_sessions: {},
+  linq_processed_ids: [],
 };
 
 function blobUrl(): string | null {
@@ -94,6 +114,8 @@ export async function saveDurable(payload: DurablePayload): Promise<void> {
     updated_at: new Date().toISOString(),
     collectors: payload.collectors.map(slimCollector),
     processed_message_ids: payload.processed_message_ids.slice(-400),
+    linq_sessions: payload.linq_sessions || {},
+    linq_processed_ids: (payload.linq_processed_ids || []).slice(-400),
   };
 
   writeChain = writeChain

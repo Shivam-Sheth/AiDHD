@@ -7,6 +7,15 @@ import {
 import { coordsForCity, displayCityForPlace } from "../geo/airports";
 import { hasDuffel } from "./config";
 
+function sortByReviews(offers: HotelOffer[]): HotelOffer[] {
+  return [...offers].sort((a, b) => {
+    const ra = a.rating ?? 0;
+    const rb = b.rating ?? 0;
+    if (rb !== ra) return rb - ra;
+    return (b.review_count ?? 0) - (a.review_count ?? 0);
+  });
+}
+
 function rewriteHotelFixtures(input: {
   city: string;
   checkIn: string;
@@ -22,24 +31,40 @@ function rewriteHotelFixtures(input: {
         86_400_000,
     ),
   );
+  const neighborhoods = [
+    "Downtown",
+    "Center",
+    "Upscale",
+    city === "Bali" ? "Ubud" : "Old Town",
+    city === "Bali" ? "Canggu" : "Waterfront",
+  ];
   const offers: HotelOffer[] = HOTEL_INVENTORY.map((h, i) => ({
     ...h,
     id: `${h.id}_${city.replace(/\s+/g, "_").toLowerCase()}`,
-    name: h.name.replace(/Miami( Beach)?/gi, city).replace(/South Beach/gi, city),
-    neighborhood: i === 0 ? "Downtown" : i === 1 ? "Center" : "Upscale",
+    name: h.name
+      .replace(/Miami( Beach)?/gi, city)
+      .replace(/South Beach/gi, city),
+    neighborhood: neighborhoods[i] || h.neighborhood,
     check_in: input.checkIn,
     check_out: input.checkOut,
     nights,
-    tags: [...h.tags.filter((t) => t !== "beach"), "rewritten-city", city.toLowerCase()],
+    tags: [
+      ...h.tags.filter((t) => t !== "beach"),
+      "rewritten-city",
+      city.toLowerCase(),
+    ],
   }));
-  if (input.max_total == null) return offers;
-  const capped = offers.filter((o) => o.price_total <= input.max_total!);
-  return capped.length ? capped : offers.sort((a, b) => a.price_total - b.price_total);
+  let ranked = sortByReviews(offers);
+  if (input.max_total != null) {
+    const capped = ranked.filter((o) => o.price_total <= input.max_total!);
+    ranked = capped.length ? sortByReviews(capped) : ranked;
+  }
+  return ranked;
 }
 
 /**
  * Hotel / stays search — Duffel Stays when keyed.
- * City coords come from geo lookup — never assume Miami/NYC for unknown places.
+ * Results are ranked by guest review score (then review count).
  */
 export async function searchHotels(input: {
   city?: string;
@@ -86,6 +111,9 @@ export async function searchHotels(input: {
               id: string;
               accommodation?: {
                 name?: string;
+                rating?: number;
+                review_score?: number;
+                review_count?: number;
                 location?: { address?: { city_name?: string } };
               };
               cheapest_rate_total_amount?: string;
@@ -93,9 +121,12 @@ export async function searchHotels(input: {
             }>;
           };
         };
-        const offers: HotelOffer[] = (json.data?.results ?? [])
-          .slice(0, 5)
-          .map((r) => ({
+        const offers: HotelOffer[] = (json.data?.results ?? []).map((r) => {
+          const rating =
+            r.accommodation?.review_score ??
+            r.accommodation?.rating ??
+            undefined;
+          return {
             id: r.id,
             vendor: "Duffel Stays",
             name: r.accommodation?.name || "Hotel",
@@ -114,8 +145,13 @@ export async function searchHotels(input: {
             price_total: Number(r.cheapest_rate_total_amount || 400),
             currency: r.cheapest_rate_currency || "USD",
             tags: ["live", "duffel", "stays"],
-          }));
-        if (offers.length) return { offers, source: "duffel" };
+            rating: rating != null ? Number(rating) : undefined,
+            review_count: r.accommodation?.review_count,
+          };
+        });
+        if (offers.length) {
+          return { offers: sortByReviews(offers).slice(0, 6), source: "duffel" };
+        }
       }
     } catch {
       // fall through to fixtures
@@ -128,7 +164,7 @@ export async function searchHotels(input: {
       checkIn,
       checkOut,
       max_total: input.max_total,
-    }),
+    }).slice(0, 6),
     source: "fixture",
   };
 }

@@ -15,7 +15,12 @@ import {
   useConversation,
   useConversationClientTool,
 } from "@elevenlabs/react";
-import { PlacesMap, type MapPlace } from "@/components/PlacesMap";
+import {
+  PlacesMap,
+  type MapPlace,
+  type PlaceReview,
+  type RouteInfoPayload,
+} from "@/components/PlacesMap";
 
 type FlightCard = {
   id: string;
@@ -148,6 +153,22 @@ type UiCard =
       };
     }
   | { kind: "vendor"; payload: unknown }
+  | {
+      kind: "weather";
+      payload: {
+        mode: "forecast" | "current";
+        place: string;
+        date: string;
+        condition: string;
+        icon_url: string | null;
+        temp_high?: number;
+        temp_low?: number;
+        temperature?: number;
+        unit: string;
+        extreme: boolean;
+        source: string;
+      };
+    }
   | { kind: "message"; payload: { text?: string } };
 
 type ChatLine = { role: "user" | "assistant"; text: string };
@@ -245,6 +266,24 @@ function FlightRow({ f }: { f: FlightCard }) {
   );
 }
 
+function ReviewsBlock({ reviews }: { reviews?: PlaceReview[] }) {
+  if (!reviews?.length) return null;
+  return (
+    <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
+        Google reviews
+      </p>
+      {reviews.slice(0, 2).map((r, i) => (
+        <p key={i} className="text-xs leading-relaxed text-white/55">
+          <span className="font-semibold text-white/70">{r.author}</span>
+          {r.rating != null && <span className="text-amber-200"> · ★{r.rating}</span>}
+          {r.text && <span> — {r.text}</span>}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function MediaCard({
   photo,
   title,
@@ -254,6 +293,7 @@ function MediaCard({
   onMouseEnter,
   onMouseLeave,
   highlighted,
+  reviews,
 }: {
   photo?: string | null;
   title: string;
@@ -263,6 +303,7 @@ function MediaCard({
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   highlighted?: boolean;
+  reviews?: PlaceReview[];
 }) {
   return (
     <article
@@ -287,8 +328,84 @@ function MediaCard({
             </span>
           )}
         </p>
+        <ReviewsBlock reviews={reviews} />
       </div>
     </article>
+  );
+}
+
+function RouteRow({
+  icon,
+  subtext,
+  href,
+}: {
+  icon: string;
+  subtext: string;
+  href?: string;
+}) {
+  const body = (
+    <div className="flex flex-col items-center gap-1.5 py-3">
+      <span className="text-3xl leading-none">{icon}</span>
+      <span className="text-center text-xs font-medium text-neutral-500">{subtext}</span>
+    </div>
+  );
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="block rounded-2xl transition hover:bg-neutral-200/70"
+      >
+        {body}
+      </a>
+    );
+  }
+  return body;
+}
+
+/** Slides in from the right edge once a route to a hovered place is ready. */
+function RoutePanel({ info }: { info: RouteInfoPayload | null }) {
+  const fast = (info?.drive_minutes ?? 999) < 30;
+  return (
+    <div
+      className={`fixed top-1/2 right-0 z-40 w-72 max-w-[85vw] -translate-y-1/2 rounded-l-3xl bg-neutral-100 px-5 py-6 text-[#12181f] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${
+        info ? "translate-x-0" : "pointer-events-none translate-x-full"
+      }`}
+    >
+      {info && (
+        <div className="divide-y divide-neutral-200">
+          <p className="pb-3 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            Hotel → {info.place}
+          </p>
+          <div className="flex flex-col items-center gap-1 py-4">
+            <p
+              className={`font-display text-5xl font-bold ${fast ? "text-green-600" : "text-orange-500"}`}
+            >
+              {info.drive_minutes ?? "—"}
+            </p>
+            <p className="text-xs font-medium text-neutral-500">minutes</p>
+          </div>
+          <RouteRow
+            icon="🚶"
+            subtext={info.walk_minutes != null ? `${info.walk_minutes} min walk` : "Not available"}
+          />
+          <RouteRow
+            icon="🚴"
+            subtext={info.bike_minutes != null ? `${info.bike_minutes} min bike` : "Not available"}
+          />
+          <RouteRow
+            icon="🚗"
+            subtext={info.drive_minutes != null ? `${info.drive_minutes} min drive` : "Not available"}
+          />
+          <RouteRow
+            icon="🚆"
+            subtext={info.transit_minutes != null ? `${info.transit_minutes} min train` : "Not available"}
+          />
+          <RouteRow icon="🔗" subtext="Check info on maps" href={info.maps_url} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -319,15 +436,26 @@ function ConciergeInner({
   const [completing, setCompleting] = useState(false);
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
 
-  /** Flights are a route, not a point on a map — every other card kind has a place to geocode. */
+  /**
+   * Flights are a route, not a point on a map — every other card kind has a place to geocode.
+   * `cards` is newest-first, so the first hotels card we see is the most recent search; its
+   * top-ranked (by reviews) offer becomes the map's anchor hotel — there's no explicit
+   * "pick a room" action in this UI yet, so the best-ranked stay stands in for "chosen."
+   */
   const recommendedPlaces = useMemo<MapPlace[]>(() => {
     const byId = new Map<string, MapPlace>();
+    let anchorId: string | null = null;
     for (const c of cards) {
       if (c.kind === "hotels") {
         const city = c.payload.label || "";
         for (const h of c.payload.offers) {
           const id = `hotels-${h.id}`;
           byId.set(id, { id, label: h.name, query: `${h.name}, ${h.neighborhood}, ${city}` });
+        }
+        if (!anchorId && c.payload.offers.length) {
+          const top =
+            c.payload.offers.find((h) => h.review_rank === 1) || c.payload.offers[0];
+          anchorId = `hotels-${top.id}`;
         }
       } else if (c.kind === "dining") {
         const city = c.payload.label || "";
@@ -359,8 +487,14 @@ function ConciergeInner({
         }
       }
     }
+    if (anchorId && byId.has(anchorId)) {
+      byId.set(anchorId, { ...byId.get(anchorId)!, isAnchor: true });
+    }
     return [...byId.values()];
   }, [cards]);
+
+  const [placeReviews, setPlaceReviews] = useState<Record<string, PlaceReview[]>>({});
+  const [routeInfo, setRouteInfo] = useState<RouteInfoPayload | null>(null);
 
   const pushUi = useCallback((ui: UiCard | UiCard[] | undefined | null) => {
     if (!ui) return;
@@ -466,6 +600,9 @@ function ConciergeInner({
   );
   useConversationClientTool("lookup_vendor", async (params) =>
     runTool("lookup_vendor", params as Record<string, unknown>),
+  );
+  useConversationClientTool("get_weather", async (params) =>
+    runTool("get_weather", params as Record<string, unknown>),
   );
   useConversationClientTool("create_payment", async (params) =>
     runTool("create_payment", params as Record<string, unknown>),
@@ -824,6 +961,10 @@ function ConciergeInner({
                 places={recommendedPlaces}
                 hoveredId={hoveredPlaceId}
                 variant="dark"
+                onResolved={(id, info) =>
+                  setPlaceReviews((prev) => ({ ...prev, [id]: info.reviews }))
+                }
+                onRouteInfo={setRouteInfo}
               />
             </div>
           )}
@@ -943,6 +1084,7 @@ function ConciergeInner({
                             {" · "}
                             {h.neighborhood} · {h.nights}n
                           </p>
+                          <ReviewsBlock reviews={placeReviews[`hotels-${h.id}`]} />
                         </div>
                       </article>
                     ))}
@@ -975,6 +1117,7 @@ function ConciergeInner({
                           )
                         }
                         highlighted={hoveredPlaceId === `tickets-${t.id}`}
+                        reviews={placeReviews[`tickets-${t.id}`]}
                       />
                     ))}
                   </div>
@@ -1007,6 +1150,7 @@ function ConciergeInner({
                           )
                         }
                         highlighted={hoveredPlaceId === `dining-${d.id}`}
+                        reviews={placeReviews[`dining-${d.id}`]}
                       />
                     ))}
                   </div>
@@ -1039,6 +1183,7 @@ function ConciergeInner({
                           )
                         }
                         highlighted={hoveredPlaceId === `clubs-${cl.id}`}
+                        reviews={placeReviews[`clubs-${cl.id}`]}
                       />
                     ))}
                   </div>
@@ -1070,8 +1215,56 @@ function ConciergeInner({
                           )
                         }
                         highlighted={hoveredPlaceId === `movies-${m.id}`}
+                        reviews={placeReviews[`movies-${m.id}`]}
                       />
                     ))}
+                  </div>
+                );
+              }
+              if (c.kind === "weather") {
+                const w = c.payload;
+                return (
+                  <div
+                    key={`w-${idx}`}
+                    className="animate-[slide-in-left_0.5s_ease] overflow-hidden rounded-2xl border border-white/10 bg-[#12181f]/90 p-4 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {w.icon_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={w.icon_url} alt="" className="h-10 w-10" />
+                        )}
+                        <div>
+                          <p className="font-display text-sm font-semibold text-white">
+                            {w.place}
+                          </p>
+                          <p className="text-xs text-white/50">
+                            {w.mode === "forecast" ? "Forecast" : "Current"} ·{" "}
+                            {new Date(`${w.date}T00:00:00`).toLocaleDateString(
+                              "en-US",
+                              { weekday: "short", month: "short", day: "numeric" },
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="font-display text-lg font-bold text-amber-300">
+                        {w.mode === "forecast"
+                          ? `${Math.round(w.temp_high ?? 0)}°/${Math.round(w.temp_low ?? 0)}°`
+                          : `${Math.round(w.temperature ?? 0)}°F`}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-sm text-white/70">{w.condition}</p>
+                    <p
+                      className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold ${
+                        w.extreme
+                          ? "bg-orange-500 text-white"
+                          : "bg-green-600 text-white"
+                      }`}
+                    >
+                      {w.extreme
+                        ? "Observe caution - Extreme weather forecasted"
+                        : "Weather forecast looks good"}
+                    </p>
                   </div>
                 );
               }
@@ -1090,6 +1283,8 @@ function ConciergeInner({
           </Link>
         </p>
       </aside>
+
+      <RoutePanel info={routeInfo} />
     </div>
   );
 }

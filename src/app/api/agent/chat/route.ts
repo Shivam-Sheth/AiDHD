@@ -83,6 +83,18 @@ export async function POST(req: Request) {
     } else if (/pay|book|mandate|prava/.test(lower)) {
       name = "create_payment";
       params = { merchant: "AiDHD trip", amount: 500, category: "trip" };
+    } else if (/weather|forecast/.test(lower)) {
+      name = "get_weather";
+      params = {
+        city: /chicago/i.test(lower)
+          ? "Chicago"
+          : /bali/i.test(lower)
+            ? "Bali"
+            : /miami/i.test(lower)
+              ? "Miami"
+              : "New York",
+        date: new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10),
+      };
     } else if (/hotel|stay|villa|airbnb/.test(lower)) {
       const city =
         lower.match(/\bin\s+([a-z\s]+?)(?:\s+for|\s+ranked|$)/i)?.[1]?.trim() ||
@@ -115,7 +127,8 @@ ${history}
 User: ${userMessage}
 
 You may call tools by returning ONLY JSON:
-{"tool":"search_flights"|"search_hotels"|"search_tickets"|"search_dining"|"search_clubs"|"search_movies"|"lookup_vendor"|"create_payment","parameters":{...}}
+{"tool":"search_flights"|"search_hotels"|"search_tickets"|"search_dining"|"search_clubs"|"search_movies"|"lookup_vendor"|"get_weather"|"create_payment","parameters":{...}}
+Once a destination city + first travel date are known, call get_weather(city, date) before replying.
 Or answer with ONLY JSON:
 {"reply":"your spoken answer to the user"}
 `;
@@ -197,6 +210,12 @@ Or answer with ONLY JSON:
     } else if (/pay|book|mandate|prava/.test(lower)) {
       name = "create_payment";
       params = { merchant: "AiDHD trip", amount: 500, category: "trip" };
+    } else if (/weather|forecast/.test(lower)) {
+      name = "get_weather";
+      params = {
+        city: /bali/i.test(lower) ? "Bali" : "New York",
+        date: new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10),
+      };
     } else if (/hotel|stay|villa|airbnb/.test(lower)) {
       const city =
         lower.match(/\bin\s+([a-z\s]+?)(?:\s+for|\s+ranked|$)/i)?.[1]?.trim() ||

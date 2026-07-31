@@ -13,6 +13,7 @@ import {
 } from "../integrations/dining";
 import { createPravaSession } from "../integrations/prava";
 import { lookupVendorTrust } from "../integrations/senso";
+import { getWeatherForTravel } from "../integrations/weather";
 import { airportCodeForPlace } from "../geo/airports";
 import { airlineIataFromName, airlineLogoUrl } from "../geo/airlines";
 import { googleFlightsUrl } from "../integrations/linq";
@@ -26,6 +27,7 @@ export type AgentToolName =
   | "search_movies"
   | "lookup_vendor"
   | "create_payment"
+  | "get_weather"
   | "show_results";
 
 export type AgentToolResult = {
@@ -43,6 +45,7 @@ export type AgentToolResult = {
       | "movies"
       | "payment"
       | "vendor"
+      | "weather"
       | "message";
     payload: unknown;
   };
@@ -426,6 +429,38 @@ export async function executeAgentTool(
         };
       }
 
+      case "get_weather": {
+        const city = str(parameters.city || parameters.destination);
+        const date = str(
+          parameters.date || parameters.depart_date || parameters.check_in,
+        );
+        if (!city || !date) {
+          return {
+            ok: false,
+            summary:
+              "Need a destination city and a first travel date (YYYY-MM-DD) for weather.",
+          };
+        }
+        const w = await getWeatherForTravel(city, date);
+        const tempText =
+          w.mode === "forecast"
+            ? `high ${Math.round(w.temp_high ?? 0)}°F / low ${Math.round(w.temp_low ?? 0)}°F`
+            : `currently ${Math.round(w.temperature ?? 0)}°F`;
+        const caution = w.extreme
+          ? "Caution: extreme weather forecasted — flag it to the traveler."
+          : "Looks fine.";
+        const headline =
+          w.mode === "forecast"
+            ? `Forecast for ${w.place} on ${w.date}`
+            : `${w.place} travel date is more than 10 days out — showing current conditions instead of a forecast`;
+        return {
+          ok: true,
+          summary: `${headline}: ${w.condition}, ${tempText}. ${caution} Card is on screen.`,
+          data: w,
+          ui: { kind: "weather", payload: w },
+        };
+      }
+
       case "create_payment": {
         const merchant = str(parameters.merchant) || "AiDHD booking";
         const amount = num(parameters.amount);
@@ -492,7 +527,7 @@ export async function executeAgentTool(
       default:
         return {
           ok: false,
-          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, lookup_vendor, or create_payment.`,
+          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, lookup_vendor, get_weather, or create_payment.`,
         };
     }
   } catch (e) {
@@ -516,14 +551,18 @@ IDENTITY
 CAPABILITIES
 - Flights (round-trip: ALWAYS pass return_date YYYY-MM-DD in the same search_flights call)
 - Hotels, tickets, dinner, clubs, movies
+- get_weather(city, date) → call this right after a destination city + first travel date is established
+  (e.g., right after search_flights or search_hotels). Mention the outlook briefly and clearly flag
+  any extreme weather caution shown on the card.
 - create_payment → opens Prava on screen (do not read long URLs aloud)
 - iMessage users may also be chatting via Linq — keep answers short; confirmations land in-thread
 
 FLOW
 1) Intent: outing vs trip, cities, dates, budget, party size
 2) Tool search immediately
-3) On pick: confirm total → create_payment
-4) If vault missing for ticketing, still show offers; say booking finalizes after vault + Prava
+3) Once destination + first travel date are known: call get_weather
+4) On pick: confirm total → create_payment
+5) If vault missing for ticketing, still show offers; say booking finalizes after vault + Prava
 
 EDGE CASES
 - Ambiguous city → ask once, then search
@@ -591,6 +630,15 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
     client("lookup_vendor", "Look up vendor trust / reputation score.", {
       vendor: prop("Merchant or venue name"),
     }, ["vendor"]),
+    client(
+      "get_weather",
+      "Get weather for the destination's first travel date — forecast if within 10 days, else current conditions. Call once city + first travel date are known.",
+      {
+        city: prop("Destination city"),
+        date: prop("First day of travel (arrival/departure date), YYYY-MM-DD"),
+      },
+      ["city", "date"],
+    ),
     client("create_payment", "Start Prava payment and open on-screen checkout.", {
       merchant: prop("What they are paying for"),
       amount: prop("USD total amount", "number"),

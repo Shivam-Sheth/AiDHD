@@ -107,6 +107,7 @@ export async function GET() {
       "search_clubs",
       "search_movies",
       "lookup_vendor",
+      "get_weather",
       "create_payment",
       "show_results",
     ],

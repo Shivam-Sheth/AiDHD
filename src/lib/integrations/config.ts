@@ -60,6 +60,10 @@ export function hasTwilio() {
   );
 }
 
+export function hasGoogleMaps() {
+  return Boolean(process.env.GOOGLE_MAPS_API);
+}
+
 export function integrationStatus() {
   const llm = hasGemini() ? "gemini" : hasOpenAI() ? "openai" : "mock";
   return {
@@ -76,6 +80,7 @@ export function integrationStatus() {
     elevenlabs: hasElevenLabs() ? "live" : "mock",
     eleven_agents: hasElevenAgentsOutbound() ? "live" : "standby",
     twilio: hasTwilio() ? "live" : "mock",
+    google_maps: hasGoogleMaps() ? "live" : "standby",
     agents: "subnet",
     nanda: "registered",
   } as const;

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { PackageData, Snapshot } from "@/lib/types-client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { PlacesMap } from "@/components/PlacesMap";
+import type { PackageComponent, PackageData, Snapshot } from "@/lib/types-client";
 
 const EVENT_ID = "evt_demo_friday";
 const TRIP_EVENT_ID = "evt_demo_miami";
@@ -29,7 +30,44 @@ function phaseFrom(snap: Snapshot | null): Phase {
   return "idle";
 }
 
-export function DemoApp() {
+type RecommendedPlace = {
+  id: string;
+  label: string;
+  query: string;
+  type: string;
+  cost: number;
+  currency: string;
+  packages: string[];
+};
+
+/** Package component `details` strings are always " · "-joined (see agents/orchestrator.ts) — pull the place name out. */
+function placeFromComponent(
+  c: PackageComponent,
+  destination: string,
+): { label: string; query: string } | null {
+  const parts = c.details.split(" · ").map((s) => s.trim());
+  if (c.type === "ticket") {
+    const venue = parts[2] || c.details;
+    return { label: venue, query: `${venue}, ${destination}` };
+  }
+  if (c.type === "dining") {
+    const neighborhood = parts[2] || destination;
+    return { label: c.vendor, query: `${c.vendor}, ${neighborhood}` };
+  }
+  if (c.type === "hotel") {
+    const name = parts[0] || c.vendor;
+    const neighborhood = parts[1] || destination;
+    return { label: name, query: `${name}, ${neighborhood}` };
+  }
+  // Flights are a route, not a point on a map — skip.
+  return null;
+}
+
+export function DemoApp({
+  googleMapsApiKey,
+}: {
+  googleMapsApiKey: string | null;
+}) {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [integrations, setIntegrations] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -41,6 +79,7 @@ export function DemoApp() {
   const [waNote, setWaNote] = useState<string | null>(null);
   const [eventId, setEventId] = useState(EVENT_ID);
   const [voiceClip, setVoiceClip] = useState<string | null>(null);
+  const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await j<Snapshot>(`/api/events/${eventId}`);
@@ -200,6 +239,35 @@ export function DemoApp() {
     snap?.packages.find(
       (p) => p.id === selected || p.id === snap.event.selected_package_id,
     ) ?? null;
+
+  const recommendedPlaces = useMemo<RecommendedPlace[]>(() => {
+    const destination = snap?.event.destination_or_venue ?? "";
+    const byId = new Map<string, RecommendedPlace>();
+    for (const pkg of snap?.packages ?? []) {
+      for (const c of pkg.components) {
+        const derived = placeFromComponent(c, destination);
+        if (!derived) continue;
+        const id = `${c.type}:${derived.label}`.toLowerCase();
+        const existing = byId.get(id);
+        if (existing) {
+          if (!existing.packages.includes(pkg.label)) {
+            existing.packages.push(pkg.label);
+          }
+          continue;
+        }
+        byId.set(id, {
+          id,
+          label: derived.label,
+          query: derived.query,
+          type: c.type,
+          cost: c.cost,
+          currency: c.currency,
+          packages: [pkg.label],
+        });
+      }
+    }
+    return [...byId.values()];
+  }, [snap?.packages, snap?.event.destination_or_venue]);
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -409,7 +477,8 @@ export function DemoApp() {
 
       {/* Demo */}
       <section id="demo" className="border-t border-neutral-200 bg-white py-20 lg:py-28">
-        <div className="mx-auto max-w-3xl px-6 lg:px-10">
+        <div className="mx-auto max-w-6xl px-6 lg:px-10">
+        <div className="mx-auto max-w-3xl">
           <h2 className="font-display text-center text-3xl font-bold text-neutral-900 sm:text-4xl">
             Live demo
           </h2>
@@ -584,8 +653,10 @@ export function DemoApp() {
               )}
             </div>
           )}
+        </div>
 
-          <div className="mt-10 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl shadow-neutral-200/50">
+        <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl shadow-neutral-200/50">
             <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50/80 px-4 py-3">
               <div className="h-2 w-2 rounded-full bg-red-400" />
               <div className="h-2 w-2 rounded-full bg-amber-400" />
@@ -788,6 +859,51 @@ export function DemoApp() {
               )}
             </div>
           </div>
+
+          {recommendedPlaces.length > 0 && (
+            <div className="flex flex-col gap-6">
+              <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-xl shadow-neutral-200/50">
+                <p className="mb-3 text-xs font-medium tracking-wider text-neutral-500 uppercase">
+                  Recommended places
+                </p>
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {recommendedPlaces.map((p) => (
+                    <div
+                      key={p.id}
+                      onMouseEnter={() => setHoveredPlaceId(p.id)}
+                      onMouseLeave={() =>
+                        setHoveredPlaceId((id) => (id === p.id ? null : id))
+                      }
+                      className={`cursor-default rounded-xl border px-3 py-2 transition ${
+                        hoveredPlaceId === p.id
+                          ? "border-[var(--accent)] bg-teal-50"
+                          : "border-neutral-200 bg-neutral-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-neutral-900">
+                          {p.label}
+                        </span>
+                        <span className="text-xs font-semibold text-[var(--accent)]">
+                          ${p.cost}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-neutral-500">
+                        <span className="capitalize">{p.type}</span> ·{" "}
+                        {p.packages.join(", ")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <PlacesMap
+                apiKey={googleMapsApiKey}
+                places={recommendedPlaces}
+                hoveredId={hoveredPlaceId}
+              />
+            </div>
+          )}
+        </div>
         </div>
       </section>
 

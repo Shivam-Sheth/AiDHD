@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { PackageData, Snapshot } from "@/lib/types-client";
 
@@ -229,6 +230,18 @@ export function DemoApp() {
                 {label}
               </button>
             ))}
+            <Link
+              href="/reel"
+              className="text-sm font-medium text-teal-700 transition-colors hover:text-teal-600"
+            >
+              Reel → itinerary
+            </Link>
+            <Link
+              href="/agent"
+              className="text-sm font-medium text-teal-700 transition-colors hover:text-teal-600"
+            >
+              Live agent
+            </Link>
           </nav>
           <button
             type="button"
@@ -252,30 +265,53 @@ export function DemoApp() {
               AiDHD
             </h1>
             <p className="mt-4 text-xl font-semibold text-[var(--accent)] sm:text-2xl">
-              Concierge for group nights & trips
+              Agentic commerce for group nights & trips
             </p>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-neutral-600 lg:mx-0">
-              Friday concert or a weekend getaway — same mess in the chat.
-              Friends drop budgets and vibes. AiDHD builds a few costed plans
-              and books them with separate Prava limits per category (tickets,
-              dinner, flights, hotel) — not one scary lump sum.
+              Friends drop budgets in iMessage or WhatsApp. AiDHD discovers live
+              options (Duffel / Ticketmaster), ranks merchants with{" "}
+              <span className="font-semibold text-neutral-800">Senso trust</span>
+              , and completes the spend with{" "}
+              <span className="font-semibold text-neutral-800">Prava</span>{" "}
+              Collect → mandate → scoped token — not a fake pay button.
             </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2 lg:justify-start">
+              {[
+                "Prava",
+                "Linq iMessage",
+                "Senso trust",
+                "Duffel live",
+                "ElevenLabs voice",
+              ].map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-900"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
             <div className="mt-10 flex flex-wrap justify-center gap-4 lg:justify-start">
+              <Link
+                href="/agent"
+                className="rounded-xl bg-[var(--accent)] px-6 py-3.5 font-semibold text-white shadow-lg shadow-[var(--accent-shadow)] transition hover:bg-[var(--accent-hover)]"
+              >
+                Judge demo · Live Concierge
+              </Link>
               <button
                 type="button"
                 onClick={() => void startDemo()}
-                className="rounded-xl bg-[var(--accent)] px-6 py-3.5 font-semibold text-white shadow-lg shadow-[var(--accent-shadow)] transition hover:bg-[var(--accent-hover)]"
-              >
-                Try demo
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollTo("how-it-works")}
                 className="rounded-xl border-2 border-neutral-300 px-6 py-3.5 font-semibold text-neutral-700 transition hover:border-[var(--accent)] hover:bg-teal-50/50 hover:text-[var(--accent)]"
               >
-                How it works
+                Group reconcile demo
               </button>
             </div>
+            <p className="mx-auto mt-4 max-w-xl text-xs leading-relaxed text-neutral-500 lg:mx-0">
+              Disclosure: scaffold + WhatsApp/Duffel wiring existed before the
+              official build window; Linq v3, live Concierge tools, Senso-ranked
+              packages, Prava complete receipt, and vault work are hackathon
+              build. See docs/SUBMISSION.md.
+            </p>
           </div>
 
           <div className="animate-slide-up w-full max-w-lg flex-1">

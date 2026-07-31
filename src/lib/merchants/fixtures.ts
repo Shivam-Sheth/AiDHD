@@ -22,6 +22,29 @@ export interface DiningOffer {
   party_size: number;
 }
 
+export interface ClubOffer {
+  id: string;
+  name: string;
+  neighborhood: string;
+  vibe: string;
+  cover: number;
+  currency: string;
+  open_until: string;
+  tags: string[];
+}
+
+export interface MovieOffer {
+  id: string;
+  title: string;
+  theater: string;
+  neighborhood: string;
+  showtimes: string[];
+  price: number;
+  currency: string;
+  rating: string;
+  tags: string[];
+}
+
 export const TICKET_INVENTORY: TicketOffer[] = [
   {
     id: "tix_brooklyn_steel_ga",
@@ -105,10 +128,102 @@ export const DINING_INVENTORY: DiningOffer[] = [
   },
 ];
 
+export const CLUB_INVENTORY: ClubOffer[] = [
+  {
+    id: "club_output",
+    name: "Output Room",
+    neighborhood: "Williamsburg",
+    vibe: "Techno · late",
+    cover: 40,
+    currency: "USD",
+    open_until: "4:00 AM",
+    tags: ["techno", "brooklyn", "dance", "late"],
+  },
+  {
+    id: "club_somewhere",
+    name: "Somewhere Nowhere",
+    neighborhood: "Meatpacking",
+    vibe: "House · rooftop energy",
+    cover: 55,
+    currency: "USD",
+    open_until: "4:00 AM",
+    tags: ["house", "manhattan", "splashy", "bottle"],
+  },
+  {
+    id: "club_nowadays",
+    name: "Nowadays",
+    neighborhood: "Ridgewood",
+    vibe: "Disco · outdoor",
+    cover: 25,
+    currency: "USD",
+    open_until: "3:00 AM",
+    tags: ["disco", "brooklyn", "chill", "budget"],
+  },
+  {
+    id: "club_public_records",
+    name: "Public Records",
+    neighborhood: "Gowanus",
+    vibe: "Hi-fi lounge · dancefloor",
+    cover: 20,
+    currency: "USD",
+    open_until: "2:00 AM",
+    tags: ["hi-fi", "brooklyn", "cocktails", "intimate"],
+  },
+];
+
+export const MOVIE_INVENTORY: MovieOffer[] = [
+  {
+    id: "mov_dune",
+    title: "Dune: Part Three",
+    theater: "AMC Lincoln Square IMAX",
+    neighborhood: "Upper West Side",
+    showtimes: ["4:10 PM", "7:40 PM", "10:55 PM"],
+    price: 22,
+    currency: "USD",
+    rating: "PG-13",
+    tags: ["imax", "sci-fi", "manhattan", "blockbuster"],
+  },
+  {
+    id: "mov_indie",
+    title: "After the Soft Rain",
+    theater: "Film Forum",
+    neighborhood: "West Village",
+    showtimes: ["5:30 PM", "8:00 PM"],
+    price: 16,
+    currency: "USD",
+    rating: "R",
+    tags: ["indie", "drama", "manhattan", "quiet"],
+  },
+  {
+    id: "mov_comedy",
+    title: "Wrong Turn at Brunch",
+    theater: "Alamo Drafthouse Downtown Brooklyn",
+    neighborhood: "Downtown Brooklyn",
+    showtimes: ["6:15 PM", "9:00 PM"],
+    price: 18,
+    currency: "USD",
+    rating: "R",
+    tags: ["comedy", "brooklyn", "food", "casual"],
+  },
+  {
+    id: "mov_action",
+    title: "Night Courier",
+    theater: "Regal UA Court Street",
+    neighborhood: "Brooklyn Heights",
+    showtimes: ["5:45 PM", "8:20 PM", "11:05 PM"],
+    price: 17,
+    currency: "USD",
+    rating: "PG-13",
+    tags: ["action", "brooklyn", "late"],
+  },
+];
+
 export interface FlightOffer {
   id: string;
   vendor: string;
   airline: string;
+  /** IATA airline code for logos */
+  airline_iata?: string;
   from: string;
   to: string;
   depart: string;
@@ -130,6 +245,9 @@ export interface HotelOffer {
   price_total: number;
   currency: string;
   tags: string[];
+  /** Guest review score 0–10 (Booking-style) */
+  rating?: number;
+  review_count?: number;
 }
 
 export interface ItineraryDayOffer {
@@ -146,7 +264,7 @@ export interface ItineraryDayOffer {
 export const FLIGHT_INVENTORY: FlightOffer[] = [
   {
     id: "flt_budget_b6",
-    vendor: "Duffel / JetBlue",
+    vendor: "Fixture / JetBlue",
     airline: "JetBlue",
     from: "JFK",
     to: "MIA",
@@ -159,7 +277,7 @@ export const FLIGHT_INVENTORY: FlightOffer[] = [
   },
   {
     id: "flt_match_aa",
-    vendor: "Duffel / American",
+    vendor: "Fixture / American",
     airline: "American",
     from: "LGA",
     to: "MIA",
@@ -172,7 +290,7 @@ export const FLIGHT_INVENTORY: FlightOffer[] = [
   },
   {
     id: "flt_splurge_dl",
-    vendor: "Duffel / Delta",
+    vendor: "Fixture / Delta",
     airline: "Delta",
     from: "JFK",
     to: "MIA",
@@ -197,6 +315,8 @@ export const HOTEL_INVENTORY: HotelOffer[] = [
     price_total: 280,
     currency: "USD",
     tags: ["budget", "social", "pool"],
+    rating: 8.2,
+    review_count: 2140,
   },
   {
     id: "htl_match_1hotel",
@@ -209,6 +329,8 @@ export const HOTEL_INVENTORY: HotelOffer[] = [
     price_total: 520,
     currency: "USD",
     tags: ["beach", "match", "walkable"],
+    rating: 9.1,
+    review_count: 1860,
   },
   {
     id: "htl_splurge_faena",
@@ -221,6 +343,36 @@ export const HOTEL_INVENTORY: HotelOffer[] = [
     price_total: 890,
     currency: "USD",
     tags: ["splurge", "design", "cabana"],
+    rating: 9.4,
+    review_count: 980,
+  },
+  {
+    id: "htl_villa_ubud",
+    vendor: "Airbnb",
+    name: "Private Pool Villa",
+    neighborhood: "Ubud",
+    check_in: "2026-08-14",
+    check_out: "2026-08-16",
+    nights: 2,
+    price_total: 340,
+    currency: "USD",
+    tags: ["villa", "pool", "reel-match"],
+    rating: 9.6,
+    review_count: 412,
+  },
+  {
+    id: "htl_canggu_surf",
+    vendor: "Booking.com",
+    name: "Canggu Surf Lodge",
+    neighborhood: "Canggu",
+    check_in: "2026-08-14",
+    check_out: "2026-08-16",
+    nights: 2,
+    price_total: 310,
+    currency: "USD",
+    tags: ["surf", "budget", "cafe"],
+    rating: 8.7,
+    review_count: 1530,
   },
 ];
 

@@ -52,31 +52,19 @@ npm run dev
 | Key | Link |
 |---|---|
 | `META_WHATSAPP_TOKEN` + `META_WHATSAPP_PHONE_NUMBER_ID` | https://developers.facebook.com/apps/ → Use cases → WhatsApp |
-| `LINQ_API_KEY` | https://www.linqapp.com/ (iMessage track) |
+| `LINQ_API_KEY` + `LINQ_PHONE_NUMBER` | https://linqapp.com/hackathon → sandbox signup (Hackathon). E.164 number from dashboard. Webhook: `POST /api/channels/linq/subscribe` |
+| `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` + `AIDHD_VAULT_KEY` | Supabase project + run `supabase/traveler_profiles.sql`. Vault key encrypts passports; agent only sees refs. |
 
-### Voice / dual-agent calls (ElevenAgents)
+### Voice / live Concierge (ElevenLabs)
 | Key | Notes |
 |---|---|
 | `ELEVENLABS_API_KEY` | https://elevenlabs.io → API keys |
-| `ELEVENLABS_HOTEL_AGENT_ID` | Agents → Templates → **Hotel Reservation** → Use template → copy agent id |
-| `ELEVENLABS_RESEARCH_AGENT_ID` | New agent: “venue research caller” (asks height limits, policies…) |
-| `ELEVENLABS_AGENT_ID` | Confirm / concierge agent (Jarvis booking confirm) |
-| `ELEVENLABS_AGENT_PHONE_NUMBER_ID` | Agents → Phone numbers (import Twilio/Exotel or plan number) |
-| `VOICE_CONFIRM_PHONE` | Your +1… for confirm calls / research replies |
+| `ELEVENLABS_AGENT_ID` | Conversational agent used on **/agent** (real-time lookups + Prava) |
+| Sync tools | After deploy: `curl -X POST https://aidhd-omega.vercel.app/api/agent/sync` |
 
-**Cool demo pattern:** you’re on a call with the concierge agent → ask “what’s the go-kart height limit?” → AiDHD spins the **research agent** to call the track in the background → answer texts back on WhatsApp.
+**Preferred demo:** open https://aidhd-omega.vercel.app/agent → Start voice (or type) → “flights Chicago to Bali” → “pay $780 for United” → Prava panel.
 
-```bash
-# WhatsApp
-RESEARCH Miami Go-Karts | +13055550100 | What's the height limit?
-
-# or API
-curl -X POST https://aidhd-omega.vercel.app/api/agents/research-call \
-  -H 'content-type: application/json' \
-  -d '{"question":"height limit?","venue_name":"Miami Go-Karts","venue_phone":"+13055550100","reply_to_phone":"+17735411355"}'
-```
-
-Twilio is **optional** if ElevenAgents has a phone number linked (often still Twilio under the hood, but you don’t write Twilio code).
+Outbound phone templates (`ELEVENLABS_HOTEL_AGENT_ID` / research) are optional legacy.
 
 ### Optional
 | Key | Link |

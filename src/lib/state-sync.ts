@@ -7,6 +7,7 @@ import {
   saveDurable,
   type DurablePayload,
 } from "./durable-state";
+import { mergeLinqIntoPayload } from "./collector/linq-sessions";
 import {
   listProcessedMessageIds,
   listWhatsAppContacts,
@@ -100,7 +101,7 @@ export async function flushDurableNow(): Promise<void> {
   }
   ensureSeeded();
   if (!hydrated) await hydrateAidhdState();
-  const payload = snapshot();
+  const payload = await mergeLinqIntoPayload(snapshot());
   if (
     !payload.contacts.length &&
     !payload.collectors.length &&

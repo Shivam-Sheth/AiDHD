@@ -34,6 +34,15 @@ const KNOWN: Array<{
   { match: /\b(washington|d\.?c\.?|iad|dca)\b/i, iata: "IAD", city: "Washington", lat: 38.9531, lng: -77.4565 },
   { match: /\b(orlando|mco)\b/i, iata: "MCO", city: "Orlando", lat: 28.4312, lng: -81.3081 },
   { match: /\b(nashville|bna)\b/i, iata: "BNA", city: "Nashville", lat: 36.1263, lng: -86.6774 },
+  { match: /\b(bali|denpasar|dps|ubud|canggu|uluwatu)\b/i, iata: "DPS", city: "Bali", lat: -8.7482, lng: 115.1672 },
+  { match: /\b(tokyo|hnd|nrt)\b/i, iata: "HND", city: "Tokyo", lat: 35.5494, lng: 139.7798 },
+  { match: /\b(paris|cdg)\b/i, iata: "CDG", city: "Paris", lat: 49.0097, lng: 2.5479 },
+  { match: /\b(london|lhr|lgw)\b/i, iata: "LHR", city: "London", lat: 51.47, lng: -0.4543 },
+  { match: /\b(bangkok|bkk)\b/i, iata: "BKK", city: "Bangkok", lat: 13.69, lng: 100.7501 },
+  { match: /\b(singapore|sin)\b/i, iata: "SIN", city: "Singapore", lat: 1.3644, lng: 103.9915 },
+  { match: /\b(dubai|dxb)\b/i, iata: "DXB", city: "Dubai", lat: 25.2532, lng: 55.3657 },
+  { match: /\b(delhi|new delhi|del)\b/i, iata: "DEL", city: "Delhi", lat: 28.5562, lng: 77.100 },
+  { match: /\b(mumbai|bom)\b/i, iata: "BOM", city: "Mumbai", lat: 19.0896, lng: 72.8656 },
 ];
 
 const IATA_RE = /\b([A-Z]{3})\b/;

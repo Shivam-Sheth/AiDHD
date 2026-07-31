@@ -10,6 +10,8 @@
     "whatsapp:keepalive": "bash scripts/whatsapp-keepalive.sh"
   },
   "dependencies": {
+    "@elevenlabs/client": "^1.16.0",
+    "@elevenlabs/react": "^1.11.0",
     "@google/genai": "^2.13.0",
     "@google/generative-ai": "^0.24.1",
     "next": "16.2.12",

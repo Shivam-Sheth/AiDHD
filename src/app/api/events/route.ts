@@ -42,16 +42,23 @@ export async function POST(req: Request) {
     }
   }
 
+  const rawInvitees = body.invitee_ids?.length
+    ? body.invitee_ids
+    : body.friend_ids?.length
+      ? [organizer_id, ...friendIds]
+      : DEMO_USERS.map((u) => u.id);
+
   const invitee_ids = [
-    ...new Set([
-      organizer_id,
-      ...(body.invitee_ids?.length
-        ? body.invitee_ids
-        : body.friend_ids?.length
-          ? [organizer_id, ...friendIds]
-          : DEMO_USERS.map((u) => u.id)),
-    ]),
+    ...new Set(
+      [organizer_id, ...rawInvitees].filter((id) => Boolean(getUserById(id))),
+    ),
   ];
+  if (invitee_ids.length === 0) {
+    return NextResponse.json(
+      { error: "No valid invitees — add friends first" },
+      { status: 400 },
+    );
+  }
 
   const event = {
     id: randomUUID(),

@@ -156,13 +156,22 @@ export function createUser(input: {
   channel?: Channel;
 }): AppUser {
   ensureSocialSeeded();
-  const handle = (input.handle || slugHandle(input.name)).replace(/^@/, "");
+  const handle = slugHandle(input.handle || input.name);
   const existing = findUserByHandleOrName(handle);
-  if (existing && existing.name.toLowerCase() === input.name.trim().toLowerCase()) {
+  if (existing) {
+    // Reuse by handle; refresh display name if caller provided one
+    if (
+      input.name.trim() &&
+      existing.name.toLowerCase() !== input.name.trim().toLowerCase() &&
+      existing.handle === handle
+    ) {
+      return existing;
+    }
     return existing;
   }
-  if (getSocialStore().users.has(`user_${handle}`)) {
-    const id = `user_${handle}_${randomUUID().slice(0, 4)}`;
+  const baseId = `user_${handle}`;
+  if (getSocialStore().users.has(baseId)) {
+    const id = `${baseId}_${randomUUID().slice(0, 4)}`;
     return upsertUser({
       id,
       name: input.name.trim(),
@@ -173,7 +182,7 @@ export function createUser(input: {
     });
   }
   return upsertUser({
-    id: `user_${handle}`,
+    id: baseId,
     name: input.name.trim(),
     email: input.email?.trim(),
     handle,

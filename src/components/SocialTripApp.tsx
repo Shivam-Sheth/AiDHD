@@ -426,6 +426,38 @@ export function SocialTripApp() {
     );
   }
 
+  async function inviteSelectedToActive() {
+    if (!me || !activeId || selectedFriends.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const data = await j<{ event: EventRow; added: string[] }>(
+        `/api/events/${activeId}/members`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            user_id: me.id,
+            friend_ids: selectedFriends,
+          }),
+        },
+      );
+      setSelectedFriends([]);
+      const evs = await loadEvents(me.id);
+      setEvents(evs);
+      await loadMessages(activeId);
+      await loadSplits(activeId);
+      setNotice(
+        data.added.length
+          ? `Added ${data.added.length} friend(s) to the group`
+          : "Those friends were already in the group",
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Invite failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
       <div
@@ -643,7 +675,7 @@ export function SocialTripApp() {
                             checked={selectedFriends.includes(f.id)}
                             onChange={() => toggleFriend(f.id)}
                           />
-                          Invite to next group
+                          Select
                         </label>
                       </li>
                     ))}
@@ -653,6 +685,16 @@ export function SocialTripApp() {
                       </li>
                     )}
                   </ul>
+                  {active && selectedFriends.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="btn-primary mt-4 text-sm"
+                      onClick={() => void inviteSelectedToActive()}
+                    >
+                      Add selected to “{active.title}”
+                    </button>
+                  )}
                 </div>
               )}
 

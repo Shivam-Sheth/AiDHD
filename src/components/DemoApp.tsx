@@ -340,12 +340,15 @@ export function DemoApp({
               AiDHD
             </h1>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-[var(--inksoft)]">
-              Friends, group chat, Instagram reels → trips, bookings, and
-              Splitwise-style settle-up — one loop from plan to paid.
+              Real accounts, group chat with an in-chat AI agent, encrypted
+              traveler vault, and Splitwise-style settle-up — plan to booked.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/app" className="btn-primary">
-                Open groups app
+              <Link href="/login" className="btn-primary">
+                Sign in to app
+              </Link>
+              <Link href="/app" className="btn-ghost">
+                Open groups
               </Link>
               <Link href="/agent" className="btn-ghost">
                 Live Concierge

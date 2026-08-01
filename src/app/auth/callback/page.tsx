@@ -16,6 +16,8 @@ export default function AuthCallbackPage() {
         return;
       }
 
+      // Exchange code / hydrate session from URL hash if present
+      await supabase.auth.getSession();
       const { data, error } = await supabase.auth.getSession();
       if (cancelled) return;
       if (error || !data.session) {
@@ -25,10 +27,14 @@ export default function AuthCallbackPage() {
 
       await fetch("/api/auth/profile", {
         method: "POST",
-        headers: { Authorization: `Bearer ${data.session.access_token}` },
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
       }).catch(() => {});
 
-      if (!cancelled) router.replace("/agent");
+      if (!cancelled) router.replace("/app");
     }
 
     void finish();

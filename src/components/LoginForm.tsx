@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/ThemeProvider";
-import { setStoredUserId } from "@/lib/session-client";
 import { supabase } from "@/lib/supabase/client";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,6 +19,7 @@ const fieldClass =
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -30,9 +30,29 @@ export function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
 
+  async function syncProfile(accessToken: string) {
+    await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: name.trim() || undefined,
+        phone: phone.trim() || undefined,
+      }),
+    }).catch(() => {});
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
+    if (!supabase) {
+      setError(
+        "Supabase Auth is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY.",
+      );
+      return;
+    }
+    if (mode === "signup" && !name.trim()) {
       setError("Enter your name.");
       return;
     }
@@ -40,29 +60,52 @@ export function LoginForm() {
       setError("Enter a valid email address.");
       return;
     }
-    if (!password) {
-      setError("Enter your password.");
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
       return;
     }
+
     setError(null);
     setSubmitting(true);
+
     try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
+      if (mode === "signup") {
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
-          handle: email.trim().split("@")[0],
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.user?.id) {
-        setStoredUserId(data.user.id);
+          password,
+          options: {
+            data: {
+              full_name: name.trim(),
+              phone: phone.trim() || undefined,
+            },
+          },
+        });
+        if (signUpError) throw signUpError;
+        if (!data.session) {
+          setError(
+            "Check your email to confirm your account, then sign in.",
+          );
+          setMode("signin");
+          setSubmitting(false);
+          return;
+        }
+        await syncProfile(data.session.access_token);
+        router.push("/app");
+        return;
       }
+
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+      if (signInError) throw signInError;
+      if (!data.session) throw new Error("No session returned");
+      await syncProfile(data.session.access_token);
       router.push("/app");
-    } catch {
-      router.push("/app");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign-in failed");
+      setSubmitting(false);
     }
   }
 
@@ -111,28 +154,55 @@ export function LoginForm() {
       <main className="mx-auto flex max-w-3xl justify-center px-5 pb-24 pt-14 sm:px-6">
         <div className="w-full max-w-sm animate-fade-in">
           <h1 className="font-display text-4xl font-semibold tracking-tight text-[var(--ink)]">
-            Sign in
+            {mode === "signin" ? "Sign in" : "Create account"}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
-            Name and email are required — phone is optional. Continues into
-            groups, friends, chat, splits, and Instagram reels.
+            Real Supabase accounts. Your profile, friends, groups, chat, and
+            encrypted passport vault sync to your user.
           </p>
 
-          <form onSubmit={handleSubmit} className="animate-slide-up mt-10 space-y-4">
-            <label className="block">
-              <span className="mb-1.5 block text-sm text-[var(--inksoft)]">
-                Name
-              </span>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Jordan Lee"
-                className={fieldClass}
-                autoComplete="name"
-                autoFocus
-              />
-            </label>
+          <div className="mt-6 flex gap-2 text-sm">
+            <button
+              type="button"
+              onClick={() => setMode("signin")}
+              className={`px-3 py-1.5 ${
+                mode === "signin"
+                  ? "bg-[var(--ink)] text-[var(--void)]"
+                  : "btn-ghost"
+              }`}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("signup")}
+              className={`px-3 py-1.5 ${
+                mode === "signup"
+                  ? "bg-[var(--ink)] text-[var(--void)]"
+                  : "btn-ghost"
+              }`}
+            >
+              Sign up
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="animate-slide-up mt-8 space-y-4">
+            {mode === "signup" && (
+              <label className="block">
+                <span className="mb-1.5 block text-sm text-[var(--inksoft)]">
+                  Name
+                </span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Jordan Lee"
+                  className={fieldClass}
+                  autoComplete="name"
+                  autoFocus
+                />
+              </label>
+            )}
 
             <label className="block">
               <span className="mb-1.5 block text-sm text-[var(--inksoft)]">
@@ -148,20 +218,22 @@ export function LoginForm() {
               />
             </label>
 
-            <label className="block">
-              <span className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-sm text-[var(--inksoft)]">Phone</span>
-                <span className="text-xs text-[var(--inkmute)]">Optional</span>
-              </span>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 (555) 123-4567"
-                className={fieldClass}
-                autoComplete="tel"
-              />
-            </label>
+            {mode === "signup" && (
+              <label className="block">
+                <span className="mb-1.5 flex items-baseline justify-between">
+                  <span className="text-sm text-[var(--inksoft)]">Phone</span>
+                  <span className="text-xs text-[var(--inkmute)]">Optional</span>
+                </span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 (555) 123-4567"
+                  className={fieldClass}
+                  autoComplete="tel"
+                />
+              </label>
+            )}
 
             <label className="block">
               <span className="mb-1.5 block text-sm text-[var(--inksoft)]">
@@ -173,7 +245,9 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className={fieldClass}
-                autoComplete="current-password"
+                autoComplete={
+                  mode === "signup" ? "new-password" : "current-password"
+                }
               />
             </label>
 
@@ -188,7 +262,11 @@ export function LoginForm() {
               disabled={submitting}
               className="btn-primary w-full disabled:cursor-wait disabled:opacity-60"
             >
-              {submitting ? "Signing in…" : "Sign in"}
+              {submitting
+                ? "Working…"
+                : mode === "signup"
+                  ? "Create account"
+                  : "Sign in"}
             </button>
           </form>
 

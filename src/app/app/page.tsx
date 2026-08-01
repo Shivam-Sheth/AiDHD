@@ -1,5 +1,5 @@
-import { SocialTripApp } from "@/components/SocialTripApp";
+import { GroupsApp } from "@/components/GroupsApp";
 
 export default function AppPage() {
-  return <SocialTripApp />;
+  return <GroupsApp />;
 }

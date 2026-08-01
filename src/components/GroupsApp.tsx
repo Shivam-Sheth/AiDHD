@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ThemeToggle } from "@/components/ThemeProvider";
+import { SiteShell } from "@/components/site/SiteShell";
 import { authFetch, getAccessToken, signOut } from "@/lib/auth-client";
 import { supabase } from "@/lib/supabase/client";
 
@@ -414,49 +414,40 @@ export function GroupsApp() {
 
   if (booting) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[var(--void)] text-[var(--inkmute)]">
-        Loading your groups…
-      </main>
+      <SiteShell showJoin={false} compact>
+        <main className="flex min-h-screen items-center justify-center font-mono text-sm tracking-[0.14em] text-[var(--inkmute)] uppercase">
+          Loading your groups…
+        </main>
+      </SiteShell>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10 site-atmosphere"
-        aria-hidden
-      />
-
-      <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 pt-6 sm:px-6">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="font-display text-lg font-semibold">
-            AiDHD
-          </Link>
-          <span className="text-sm text-[var(--inkmute)]">
+    <SiteShell
+      compact
+      showJoin={false}
+      links={[
+        { href: "/agent", label: "Agent" },
+        { href: "/reel", label: "Reel" },
+      ]}
+      trailing={
+        <>
+          <span className="hidden font-mono text-[10px] tracking-[0.14em] text-[var(--inkmute)] uppercase sm:inline">
             {me?.name || me?.email}
           </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wide text-[var(--inkmute)]">
-            store:{storage}
-          </span>
-          <ThemeToggle />
-          <Link href="/agent" className="btn-ghost text-sm">
-            Concierge
-          </Link>
           <button
             type="button"
-            className="btn-ghost text-sm"
+            className="btn-join !border-[var(--edge)] !text-[var(--inksoft)] hover:!border-[var(--coral)] hover:!text-[var(--coral)]"
             onClick={() => {
               void signOut().then(() => router.push("/login"));
             }}
           >
-            Sign out
+            sign out
           </button>
-        </div>
-      </header>
-
-      <main className="mx-auto grid max-w-6xl gap-6 px-5 py-8 lg:grid-cols-[260px_1fr] sm:px-6">
+        </>
+      }
+    >
+      <main className="mx-auto grid max-w-6xl gap-6 px-5 py-8 pt-24 lg:grid-cols-[260px_1fr] sm:px-6">
         <aside className="space-y-5">
           <section className="border border-[var(--edge)] bg-[var(--panel)] p-4">
             <h2 className="font-display text-sm font-semibold">Your groups</h2>
@@ -844,6 +835,6 @@ export function GroupsApp() {
           )}
         </section>
       </main>
-    </div>
+    </SiteShell>
   );
 }

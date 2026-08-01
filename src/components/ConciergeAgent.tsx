@@ -22,7 +22,7 @@ import {
   type PlaceReview,
   type RouteInfoPayload,
 } from "@/components/PlacesMap";
-import { ThemeToggle } from "@/components/ThemeProvider";
+import { SiteShell } from "@/components/site/SiteShell";
 import {
   FlightOfferCard,
   PlaceOfferCard,
@@ -1230,34 +1230,24 @@ export function ConciergeAgent({
   pravaPublishableKey: string | null;
 }) {
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10 site-atmosphere"
-        aria-hidden
-      />
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 pt-8 sm:px-6">
-        <Link
-          href="/"
-          className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
-        >
-          AiDHD
-        </Link>
-        <div className="flex items-center gap-4 text-sm text-[var(--inkmute)]">
-          <ThemeToggle />
-          <Link href="/reel" className="transition hover:text-[var(--ink)]">
-            Reel → plan
-          </Link>
-          <Link href="/" className="transition hover:text-[var(--ink)]">
-            Demo
-          </Link>
-        </div>
-      </header>
-      <ConversationProvider>
-        <ConciergeInner
-          googleMapsApiKey={googleMapsApiKey}
-          pravaPublishableKey={pravaPublishableKey}
-        />
-      </ConversationProvider>
-    </div>
+    <SiteShell
+      compact
+      links={[
+        { href: "/reel", label: "Reel" },
+        { href: "/app", label: "App" },
+        { href: "/#demo", label: "Demo" },
+      ]}
+      joinHref="/login"
+      joinLabel="Join us"
+    >
+      <div className="pt-16">
+        <ConversationProvider>
+          <ConciergeInner
+            googleMapsApiKey={googleMapsApiKey}
+            pravaPublishableKey={pravaPublishableKey}
+          />
+        </ConversationProvider>
+      </div>
+    </SiteShell>
   );
 }

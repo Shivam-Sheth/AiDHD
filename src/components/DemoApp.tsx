@@ -1,15 +1,26 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlacesMap } from "@/components/PlacesMap";
-import {
-  PixelObjectPicker,
-  PixelSceneStage,
-  usePixelObject,
-} from "@/components/pixel/PixelHero";
-import { ThemeToggle } from "@/components/ThemeProvider";
+import { ServicesRail } from "@/components/site/ServicesRail";
+import { SiteShell } from "@/components/site/SiteShell";
 import type { PackageComponent, PackageData, Snapshot } from "@/lib/types-client";
+
+const ParticleOrb = dynamic(
+  () => import("@/components/site/ParticleOrb").then((m) => m.ParticleOrb),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center">
+        <p className="font-mono text-xs tracking-[0.18em] text-[var(--inkmute)] uppercase">
+          Loading…
+        </p>
+      </div>
+    ),
+  },
+);
 
 const EVENT_ID = "evt_demo_friday";
 const TRIP_EVENT_ID = "evt_demo_miami";
@@ -86,7 +97,6 @@ export function DemoApp({
   const [eventId, setEventId] = useState(EVENT_ID);
   const [voiceClip, setVoiceClip] = useState<string | null>(null);
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
-  const { active: pixelActive, setActive: setPixelActive } = usePixelObject(true);
 
   const refresh = useCallback(async () => {
     const data = await j<Snapshot>(`/api/events/${eventId}`);
@@ -276,199 +286,111 @@ export function DemoApp({
   }, [snap?.packages, snap?.event.destination_or_venue]);
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
-      <div
-        className="pointer-events-none fixed inset-0 -z-10 site-atmosphere"
-        aria-hidden
-      />
-
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--edge)] bg-[var(--void)]/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 lg:px-8">
-          <button
-            type="button"
-            onClick={() => scrollTo("top")}
-            className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
-          >
-            AiDHD
-          </button>
-          <nav className="hidden items-center gap-7 md:flex">
-            {[
-              ["problem", "Problem"],
-              ["use-cases", "Plans"],
-              ["how-it-works", "How it works"],
-              ["demo", "Demo"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => scrollTo(id)}
-                className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
-              >
-                {label}
-              </button>
-            ))}
-            <Link
-              href="/agent"
-              className="text-sm text-[var(--inksoft)] transition-colors hover:text-[var(--ink)]"
-            >
-              Live agent
-            </Link>
-          </nav>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link
-              href="/login"
-              className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/app"
-              className="btn-primary !py-2 !px-3.5 text-sm"
-            >
-              Open app
-            </Link>
+    <SiteShell
+      links={[
+        { href: "/#about", label: "About" },
+        { href: "/#how-it-works", label: "Flow" },
+        { href: "/#demo", label: "Demo" },
+        { href: "/agent", label: "Agent" },
+      ]}
+    >
+      <main id="top" className="relative z-10 w-full">
+        {/* Landing pin format: brand + one line + one CTA + full-bleed 3D */}
+        <section className="relative min-h-[100svh] overflow-hidden">
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-full lg:w-[62%]">
+            <ParticleOrb className="h-full w-full opacity-90" />
           </div>
-        </div>
-      </header>
 
-      <main id="top" className="relative z-10 mx-auto w-full max-w-6xl px-5 lg:px-8">
-        <section className="grid min-h-[92vh] items-center gap-10 pt-24 pb-16 lg:grid-cols-[0.95fr_1.15fr] lg:gap-10">
-          <div className="animate-fade-in order-2 lg:order-1">
-            <p className="section-kicker mb-4">Group nights & trips</p>
-            <h1 className="font-display text-5xl font-semibold tracking-tight text-[var(--ink)] sm:text-6xl lg:text-7xl">
-              AiDHD
-            </h1>
-            <p className="mt-5 max-w-md text-lg leading-relaxed text-[var(--inksoft)]">
-              Real accounts, group chat with an in-chat AI agent, encrypted
-              traveler vault, and Splitwise-style settle-up — plan to booked.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/login" className="btn-primary">
-                Sign in to app
-              </Link>
-              <Link href="/app" className="btn-ghost">
-                Open groups
-              </Link>
-              <Link href="/agent" className="btn-ghost">
-                Live Concierge
-              </Link>
-              <Link href="/reel" className="btn-ghost">
-                Reel → plan
-              </Link>
-            </div>
-            <div className="mt-12">
-              <PixelObjectPicker
-                active={pixelActive}
-                onSelect={setPixelActive}
-              />
+          <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pt-20 pb-16 lg:px-10">
+            <div className="animate-fade-in max-w-xl">
+              <p className="font-display text-5xl font-extrabold tracking-[0.06em] text-[var(--ink)] uppercase sm:text-6xl lg:text-7xl">
+                AiDHD
+              </p>
+              <h1 className="font-display mt-5 text-4xl font-bold leading-[0.95] tracking-tight text-[var(--ink)] uppercase sm:text-5xl lg:text-6xl">
+                Plan the
+                <br />
+                whole night
+              </h1>
+              <p className="mt-6 max-w-md text-base leading-relaxed text-[var(--inksoft)] sm:text-lg">
+                We build{" "}
+                <strong className="font-semibold text-[var(--ink)]">
+                  group trips
+                </strong>{" "}
+                at the intersection of{" "}
+                <strong className="font-semibold text-[var(--ink)]">chat</strong>{" "}
+                and{" "}
+                <strong className="font-semibold text-[var(--ink)]">
+                  booking
+                </strong>
+                — from vibe to paid.
+              </p>
+              <div className="mt-9 flex flex-wrap gap-3">
+                <Link href="/login" className="btn-join !px-5 !py-3 !text-xs">
+                  join us
+                  <span aria-hidden>→</span>
+                </Link>
+                <Link href="/agent" className="btn-ghost font-mono text-xs tracking-[0.14em] uppercase">
+                  Live agent
+                </Link>
+              </div>
             </div>
           </div>
 
-          <div className="animate-slide-up order-1 w-full lg:order-2">
-            <PixelSceneStage activeKey={pixelActive} journey />
+          <div className="pointer-events-none absolute bottom-8 left-5 font-mono text-[10px] tracking-[0.2em] text-[var(--inkmute)] uppercase lg:left-10">
+            Scroll · About
           </div>
         </section>
 
-        <section
-          id="problem"
-          className="border-t border-[var(--edge)] py-20 md:py-28"
-        >
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
-              Group chat is where plans go to die
-            </h2>
-            <p className="mt-5 text-base leading-relaxed text-[var(--inksoft)]">
-              Three budgets. Two vibes. Zero bookings. AiDHD finishes the loop —
-              search, cards, pay, confirm — for nights out and weekend trips.
-            </p>
-          </div>
-        </section>
-
-        <section
-          id="use-cases"
-          className="border-t border-[var(--edge)] py-20 md:py-28"
-        >
-          <div className="mb-12 max-w-xl">
-            <h2 className="font-display text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
-              Same product. Two kinds of plans.
-            </h2>
-            <p className="mt-4 text-[var(--inksoft)]">
-              Collect → package → pay per category → book.
-            </p>
-          </div>
-          <div className="grid gap-10 md:grid-cols-2 md:gap-16">
-            <div>
-              <p className="text-xs font-medium tracking-[0.14em] text-[var(--inkmute)] uppercase">
-                Night out
-              </p>
-              <h3 className="font-display mt-3 text-2xl font-medium text-[var(--ink)]">
-                Concert + dinner
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
-                Tickets, timing, and a pre-show table that fit everyone&apos;s
-                budget — with separate Prava mandates for ticket and dining.
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium tracking-[0.14em] text-[var(--inkmute)] uppercase">
-                Travel
-              </p>
-              <h3 className="font-display mt-3 text-2xl font-medium text-[var(--ink)]">
-                Weekend / multi-day trip
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
-                Flights, hotel, itinerary, and dinner — same agent, same
-                per-category Prava flow.
-              </p>
-            </div>
-          </div>
-        </section>
+        <ServicesRail />
 
         <section
           id="how-it-works"
           className="border-t border-[var(--edge)] py-20 md:py-28"
         >
-          <h2 className="font-display text-center text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
-            How it works
-          </h2>
-          <p className="mx-auto mt-4 max-w-lg text-center text-[var(--inksoft)]">
-            Three steps from messy group chat to a booked night — or trip.
-          </p>
-          <div className="mt-14 grid gap-10 md:grid-cols-3">
-            {[
-              {
-                n: "01",
-                t: "Share budget + vibe",
-                d: "Web, WhatsApp, or iMessage — dates, caps, and prefs.",
-              },
-              {
-                n: "02",
-                t: "Get 2–3 real plans",
-                d: "Tickets + dinner, or flights + hotel + itinerary — trust-checked.",
-              },
-              {
-                n: "03",
-                t: "Pick. Pay. Book.",
-                d: "Separate Prava limits per category. Failures re-ask only that leg.",
-              },
-            ].map((s) => (
-              <div key={s.n}>
-                <p className="font-display text-sm text-[var(--inkmute)]">{s.n}</p>
-                <h3 className="mt-3 font-display text-xl font-medium text-[var(--ink)]">
-                  {s.t}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--inksoft)]">
-                  {s.d}
-                </p>
-              </div>
-            ))}
+          <div className="mx-auto max-w-7xl px-5 lg:px-10">
+            <h2 className="font-display text-center text-3xl font-bold tracking-tight text-[var(--ink)] uppercase sm:text-4xl">
+              How it works
+            </h2>
+            <p className="mx-auto mt-4 max-w-lg text-center text-[var(--inksoft)]">
+              Three steps from messy group chat to a booked night — or trip.
+            </p>
+            <div className="mt-14 grid gap-10 md:grid-cols-3">
+              {[
+                {
+                  n: "01",
+                  t: "Share budget + vibe",
+                  d: "Web, WhatsApp, or iMessage — dates, caps, and prefs.",
+                },
+                {
+                  n: "02",
+                  t: "Get 2–3 real plans",
+                  d: "Tickets + dinner, or flights + hotel + itinerary — trust-checked.",
+                },
+                {
+                  n: "03",
+                  t: "Pick. Pay. Book.",
+                  d: "Separate Prava limits per category. Failures re-ask only that leg.",
+                },
+              ].map((s) => (
+                <div key={s.n}>
+                  <p className="font-mono text-sm tracking-[0.16em] text-[var(--coral)]">
+                    {s.n}
+                  </p>
+                  <h3 className="mt-3 font-display text-xl font-semibold text-[var(--ink)] uppercase">
+                    {s.t}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--inksoft)]">
+                    {s.d}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
         <section id="demo" className="border-t border-[var(--edge)] py-20 md:py-28">
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="font-display text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
+          <div className="mx-auto max-w-3xl px-5 text-center lg:px-10">
+            <h2 className="font-display text-3xl font-bold tracking-tight text-[var(--ink)] uppercase sm:text-4xl">
               Live demo
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-[var(--inksoft)]">
@@ -513,7 +435,7 @@ export function DemoApp({
           </div>
 
           {integrations.whatsapp === "live" && (
-            <div className="surface mx-auto mt-8 max-w-3xl px-5 py-5">
+            <div className="surface mx-auto mt-8 max-w-3xl px-5 py-5 lg:px-8">
               <p className="text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
                 WhatsApp sandbox
               </p>
@@ -624,7 +546,7 @@ export function DemoApp({
             </div>
           )}
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="mx-auto mt-10 grid max-w-6xl gap-6 px-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-10">
             <div className="surface overflow-hidden">
               <div className="flex items-center justify-between border-b border-[var(--edge)] px-4 py-3">
                 <span className="text-sm text-[var(--inkmute)]">
@@ -880,12 +802,12 @@ export function DemoApp({
         </section>
 
         <footer className="border-t border-[var(--edge)] py-10">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 md:flex-row md:items-center md:justify-between lg:px-10">
             <div>
-              <p className="font-display text-base font-semibold text-[var(--ink)]">
+              <p className="font-display text-base font-bold tracking-[0.08em] text-[var(--ink)] uppercase">
                 AiDHD
               </p>
-              <p className="mt-1 text-sm text-[var(--inkmute)]">
+              <p className="mt-1 font-mono text-[11px] tracking-[0.12em] text-[var(--inkmute)] uppercase">
                 Built for Prava&apos;s Agentic Commerce Hackathon
               </p>
             </div>
@@ -893,7 +815,7 @@ export function DemoApp({
               {Object.entries(integrations).map(([k, v]) => (
                 <span
                   key={k}
-                  className={`border px-2.5 py-1 text-[10px] tracking-wide uppercase ${
+                  className={`border px-2.5 py-1 font-mono text-[10px] tracking-wide uppercase ${
                     v === "live" || v === "registered"
                       ? "border-white/25 text-[var(--inksoft)]"
                       : "border-[var(--edge)] text-[var(--inkmute)]"
@@ -906,7 +828,7 @@ export function DemoApp({
           </div>
         </footer>
       </main>
-    </div>
+    </SiteShell>
   );
 }
 

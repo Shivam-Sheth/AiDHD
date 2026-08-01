@@ -1,18 +1,24 @@
 import type { Metadata } from "next";
-import { DM_Sans, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Outfit, Syne } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
+const syne = Syne({
   variable: "--font-display-face",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+});
+
+const outfit = Outfit({
+  variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-body",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-mono-face",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -27,7 +33,7 @@ const themeInitScript = `
     var stored = localStorage.getItem('aidhd-theme');
     var theme = stored === 'light' || stored === 'dark'
       ? stored
-      : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      : 'dark';
     document.documentElement.classList.toggle('dark', theme === 'dark');
     document.documentElement.classList.toggle('light', theme === 'light');
     document.documentElement.style.colorScheme = theme;
@@ -43,7 +49,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${dmSans.variable} h-full dark`}
+      className={`${syne.variable} ${outfit.variable} ${plexMono.variable} h-full dark`}
       suppressHydrationWarning
     >
       <head>

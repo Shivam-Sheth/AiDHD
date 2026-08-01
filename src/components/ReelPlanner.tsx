@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import {
   FlightOfferCard,
   StayOfferCard,
 } from "@/components/booking/OfferCards";
-import { ThemeToggle } from "@/components/ThemeProvider";
+import { SiteShell } from "@/components/site/SiteShell";
 import type { ReelClarifyAsk, ReelPlanResult } from "@/lib/reel/types";
 
 type Draft = {
@@ -187,39 +186,17 @@ export function ReelPlanner() {
       : "border-[var(--edge)] text-[var(--inksoft)] hover:border-[var(--edgehot)]";
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10 site-atmosphere"
-        aria-hidden
-      />
-
-      <header className="mx-auto flex max-w-3xl items-center justify-between px-5 pt-8 sm:px-6">
-        <Link
-          href="/"
-          className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
-        >
-          AiDHD
-        </Link>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <Link
-            href="/"
-            className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
-          >
-            Home
-          </Link>
-          <Link
-            href="/agent"
-            className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
-          >
-            Live agent
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-5 pb-24 pt-14 sm:px-6">
+    <SiteShell
+      compact
+      links={[
+        { href: "/agent", label: "Agent" },
+        { href: "/app", label: "App" },
+        { href: "/#about", label: "About" },
+      ]}
+    >
+      <main className="mx-auto max-w-3xl px-5 pb-24 pt-24 sm:px-6">
         <section className="animate-fade-in">
-          <p className="text-xs font-medium tracking-[0.14em] text-[var(--inkmute)] uppercase">
+          <p className="section-kicker">
             Reel → plan
           </p>
           <h1 className="font-display mt-3 text-4xl font-semibold leading-[1.1] tracking-tight text-[var(--ink)] sm:text-5xl">
@@ -570,6 +547,6 @@ export function ReelPlanner() {
           </div>
         )}
       </main>
-    </div>
+    </SiteShell>
   );
 }

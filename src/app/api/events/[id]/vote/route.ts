@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { syncExpensesFromBookings } from "@/lib/splits";
 import {
   getEvent,
   getPackage,
@@ -42,6 +43,7 @@ export async function POST(
       status: "paying",
       selected_package_id: winner.id,
     });
+    syncExpensesFromBookings(id);
   }
 
   return NextResponse.json({ packages: listPackages(id), selected: getEvent(id)?.selected_package_id });

@@ -1,17 +1,24 @@
 import type { Metadata } from "next";
-import { DM_Sans, Outfit } from "next/font/google";
+import { IBM_Plex_Mono, Outfit, Syne } from "next/font/google";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
+const syne = Syne({
+  variable: "--font-display-face",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+});
+
 const outfit = Outfit({
-  variable: "--font-outfit",
+  variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-mono-face",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -20,15 +27,36 @@ export const metadata: Metadata = {
     "Group nights out and weekend trips from the same chat. AiDHD builds costed plans and books with scoped Prava payments per category.",
 };
 
+const themeInitScript = `
+(function(){
+  try {
+    var stored = localStorage.getItem('aidhd-theme');
+    var theme = stored === 'light' || stored === 'dark'
+      ? stored
+      : 'dark';
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.documentElement.classList.toggle('light', theme === 'light');
+    document.documentElement.style.colorScheme = theme;
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${dmSans.variable} h-full`}>
+    <html
+      lang="en"
+      className={`${syne.variable} ${outfit.variable} ${plexMono.variable} h-full dark`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full antialiased" suppressHydrationWarning>
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

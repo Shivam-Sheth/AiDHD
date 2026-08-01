@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { DEMO_USERS } from "./demo-users";
+import { ensureSocialSeeded, getUserById } from "./social-store";
 import type {
   AgentRunLog,
   Booking,
@@ -226,11 +227,27 @@ export function getAgentLogs(eventId: string): AgentRunLog[] {
 
 export function snapshot(eventId: string) {
   ensureSeeded();
+  ensureSocialSeeded();
   const event = getEvent(eventId);
   if (!event) return null;
+  const users = event.invitee_ids.map((id) => {
+    const u = getUserById(id);
+    const demo = DEMO_USERS.find((d) => d.id === id);
+    return {
+      id,
+      name: u?.name ?? demo?.name ?? id,
+      role: (id === event.organizer_id ? "organizer" : "invitee") as
+        | "organizer"
+        | "invitee",
+      channel: (u?.channel ?? demo?.channel ?? "web") as
+        | "web"
+        | "whatsapp"
+        | "imessage",
+    };
+  });
   return {
     event,
-    users: DEMO_USERS,
+    users,
     responses: listResponses(eventId),
     packages: listPackages(eventId),
     mandates: listMandates(eventId),

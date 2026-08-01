@@ -26,7 +26,7 @@ export type TravelerProfile = {
 
 function supabaseConfigured() {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) &&
       process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 }
@@ -35,7 +35,7 @@ async function sb(
   path: string,
   init?: RequestInit,
 ): Promise<{ ok: boolean; data: unknown; status: number }> {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL)!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(`${base}/rest/v1/${path}`, {
     ...init,

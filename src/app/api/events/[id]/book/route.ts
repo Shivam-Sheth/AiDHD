@@ -3,6 +3,7 @@ import {
   executeBookings,
   rerequestFailedMandate,
 } from "@/lib/agent/book";
+import { syncExpensesFromBookings } from "@/lib/splits";
 import { getEvent, listBookings } from "@/lib/store";
 
 export async function GET(
@@ -38,6 +39,7 @@ export async function POST(
   const results = await executeBookings(id, {
     failTicket: Boolean(body.fail_ticket),
   });
+  syncExpensesFromBookings(id);
   return NextResponse.json({
     results,
     bookings: listBookings(id),

@@ -215,9 +215,13 @@ function sourceBadge(source?: string) {
 
 function FlightRow({ f }: { f: FlightCard }) {
   return (
-    <article className="agent-card group relative overflow-hidden rounded-2xl border border-white/10 bg-[#12181f]/90 p-4 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)] backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-amber-400/30">
+    <article className="pixel-panel group relative overflow-hidden p-4 transition duration-300 hover:-translate-y-0.5 hover:border-[var(--cyan)]/40">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="h-1.5 w-1.5 bg-[var(--cyan)]" />
+        <span className="label text-[var(--cyan)]">Flight</span>
+      </div>
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-[var(--edge)] bg-white">
           {f.airline_logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -226,41 +230,41 @@ function FlightRow({ f }: { f: FlightCard }) {
               className="h-8 w-8 object-contain"
             />
           ) : (
-            <span className="font-display text-xs font-bold text-[#0b3d38]">
+            <span className="font-display text-[0.45rem] text-[#0b3d38]">
               {f.airline.slice(0, 2).toUpperCase()}
             </span>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate font-display text-sm font-semibold text-white">
+            <p className="truncate font-display text-[0.62rem] text-[var(--ink)]">
               {f.airline}
             </p>
-            <p className="font-display text-lg font-bold tabular-nums text-amber-300">
+            <p className="font-display text-[0.85rem] tabular-nums text-[var(--amber)]">
               ${Math.round(f.price_per_person)}
-              <span className="ml-0.5 text-[10px] font-medium text-white/45">
+              <span className="ml-0.5 text-[10px] font-medium text-[var(--inkmute)]">
                 /pp
               </span>
             </p>
           </div>
           <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <div>
-              <p className="font-display text-xl font-bold tracking-tight text-white">
+              <p className="font-display text-[1rem] tracking-tight text-[var(--ink)]">
                 {f.from}
               </p>
-              <p className="text-xs text-white/55">{fmtTime(f.depart)}</p>
+              <p className="text-xs text-[var(--inkmute)]">{fmtTime(f.depart)}</p>
             </div>
             <div className="flex flex-col items-center px-1">
-              <div className="h-px w-10 bg-gradient-to-r from-transparent via-amber-300/70 to-transparent" />
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-white/40">
+              <div className="h-px w-10 bg-gradient-to-r from-transparent via-[var(--cyan)]/70 to-transparent" />
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--inkmute)]">
                 {f.cabin}
               </p>
             </div>
             <div className="text-right">
-              <p className="font-display text-xl font-bold tracking-tight text-white">
+              <p className="font-display text-[1rem] tracking-tight text-[var(--ink)]">
                 {f.to}
               </p>
-              <p className="text-xs text-white/55">{fmtTime(f.arrive)}</p>
+              <p className="text-xs text-[var(--inkmute)]">{fmtTime(f.arrive)}</p>
             </div>
           </div>
         </div>
@@ -312,8 +316,8 @@ function MediaCard({
     <article
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`flex overflow-hidden rounded-2xl border bg-[#12181f]/90 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)] transition ${
-        highlighted ? "border-amber-300/60" : "border-white/10"
+      className={`flex overflow-hidden border bg-[var(--panel)]/90 transition ${
+        highlighted ? "border-[var(--amber)]/60" : "border-[var(--edge)]"
       }`}
     >
       {photo && (
@@ -321,12 +325,12 @@ function MediaCard({
         <img src={photo} alt="" className="h-28 w-28 shrink-0 object-cover" />
       )}
       <div className="flex flex-1 flex-col justify-center p-3">
-        <p className="font-display text-sm font-semibold text-white">{title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-white/50">{meta}</p>
-        <p className="mt-2 font-display text-lg font-bold text-amber-300">
+        <p className="font-display text-[0.62rem] text-[var(--ink)]">{title}</p>
+        <p className="mt-1 text-xs leading-relaxed text-[var(--inkmute)]">{meta}</p>
+        <p className="mt-2 font-display text-[0.85rem] text-[var(--amber)]">
           ${Math.round(price)}
           {priceSuffix && (
-            <span className="ml-0.5 text-[10px] font-medium text-white/45">
+            <span className="ml-0.5 text-[10px] font-medium text-[var(--inkmute)]">
               {priceSuffix}
             </span>
           )}
@@ -1343,30 +1347,24 @@ export function ConciergeAgent({
   pravaPublishableKey: string | null;
 }) {
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#070b10] text-white">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 90% 55% at 8% -5%, rgba(45, 212, 191, 0.18) 0%, transparent 55%), radial-gradient(ellipse 70% 45% at 95% 5%, rgba(251, 191, 36, 0.14) 0%, transparent 50%), radial-gradient(ellipse 50% 40% at 50% 100%, rgba(56, 189, 248, 0.08) 0%, transparent 55%), linear-gradient(180deg, #070b10 0%, #0c1219 48%, #0a0e14 100%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.35] bg-grid-pattern"
-        style={{ maskImage: "linear-gradient(180deg, black, transparent 85%)" }}
-      />
+    <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
+        <div className="absolute inset-0 site-atmosphere" />
+        <div className="absolute inset-[-12%] site-stars" />
+        <div className="absolute inset-x-0 bottom-0 h-[40vh] site-grid-floor" />
+      </div>
       <header className="mx-auto flex max-w-6xl items-baseline justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
-          className="font-display text-2xl font-bold tracking-tight text-white"
+          className="font-display text-[0.7rem] tracking-widest text-[var(--ink)] transition-colors hover:text-[var(--cyan)]"
         >
-          AiDHD
+          AiDHD<span className="text-[var(--cyan)]">.APP</span>
         </Link>
-        <div className="flex gap-5 text-sm text-white/45">
-          <Link href="/reel" className="transition hover:text-amber-200">
+        <div className="flex gap-5 text-sm text-[var(--inkmute)]">
+          <Link href="/reel" className="transition hover:text-[var(--cyan)]">
             Reel → plan
           </Link>
-          <Link href="/" className="transition hover:text-amber-200">
+          <Link href="/" className="transition hover:text-[var(--cyan)]">
             Demo
           </Link>
         </div>

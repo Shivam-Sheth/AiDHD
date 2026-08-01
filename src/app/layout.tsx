@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { DM_Sans, Outfit } from "next/font/google";
+import { JetBrains_Mono, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const pressStart = Press_Start_2P({
+  variable: "--font-press",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400",
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm",
+const jetbrains = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -26,7 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${dmSans.variable} h-full`}>
+    <html
+      lang="en"
+      className={`${pressStart.variable} ${jetbrains.variable} h-full`}
+    >
       <body className="min-h-full antialiased" suppressHydrationWarning>
         {children}
       </body>

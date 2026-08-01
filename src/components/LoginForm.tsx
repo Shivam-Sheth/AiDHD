@@ -12,6 +12,9 @@ const OAUTH_ERRORS: Record<string, string> = {
   google_not_configured: "Google sign-in isn't set up yet.",
 };
 
+const fieldClass =
+  "w-full border border-[var(--edge)] bg-[var(--void)] px-4 py-3 text-[var(--ink)] outline-none transition placeholder:text-[var(--inkmute)] focus:border-[var(--cyan)]";
+
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -59,98 +62,85 @@ export function LoginForm() {
       setError(OAUTH_ERRORS.google_oauth_failed);
       setGoogleBusy(false);
     }
-    // On success the SDK redirects the browser to Google — nothing left to do here.
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 10% -10%, #99f6e4 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 100% 0%, #a5f3fc 0%, transparent 50%), linear-gradient(180deg, #f0fdfa 0%, #fafafa 42%, #fafafa 100%)",
-        }}
-      />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-pattern opacity-40" />
+    <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
+        <div className="absolute inset-0 site-atmosphere" />
+        <div className="absolute inset-[-12%] site-stars" />
+      </div>
 
       <header className="mx-auto flex max-w-3xl items-baseline justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
-          className="font-display text-2xl font-bold tracking-tight text-neutral-900 transition-opacity hover:opacity-70"
+          className="font-display text-[0.7rem] tracking-widest text-[var(--ink)] transition-colors hover:text-[var(--cyan)]"
         >
-          AiDHD
+          AiDHD<span className="text-[var(--cyan)]">.APP</span>
         </Link>
         <Link
           href="/"
-          className="text-sm text-neutral-500 transition-colors hover:text-teal-700"
+          className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--cyan)]"
         >
           Back home
         </Link>
       </header>
 
       <main className="mx-auto flex max-w-3xl justify-center px-5 pb-24 pt-14 sm:px-6">
-        <div className="w-full max-w-sm animate-fade-in">
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-teal-700">
-            Welcome back
+        <div className="pixel-panel w-full max-w-sm animate-fade-in p-6">
+          <p className="label text-[var(--cyan)]">
+            <span className="blink">▮</span> Welcome back
           </p>
-          <h1 className="font-display mt-3 text-4xl font-bold leading-[1.1] tracking-tight text-neutral-900">
+          <h1 className="font-display mt-4 text-[1.1rem] leading-snug tracking-wide text-[var(--ink)]">
             Sign in
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-neutral-600">
+          <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
             Name and email are required — phone number is optional.
           </p>
 
-          <form onSubmit={handleSubmit} className="animate-slide-up mt-10 space-y-4">
+          <form onSubmit={handleSubmit} className="animate-slide-up mt-8 space-y-4">
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
-                Name
-              </span>
+              <span className="label mb-1.5 block text-[var(--inkmute)]">Name</span>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jordan Lee"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className={fieldClass}
                 autoComplete="name"
                 autoFocus
               />
             </label>
 
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
-                Email
-              </span>
+              <span className="label mb-1.5 block text-[var(--inkmute)]">Email</span>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className={fieldClass}
                 autoComplete="email"
               />
             </label>
 
             <label className="block">
               <span className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-sm font-medium text-neutral-700">
-                  Phone number
-                </span>
-                <span className="text-xs font-medium text-neutral-400">
-                  Optional
-                </span>
+                <span className="label text-[var(--inkmute)]">Phone</span>
+                <span className="text-[10px] text-[var(--inkmute)]">Optional</span>
               </span>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 (555) 123-4567"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className={fieldClass}
                 autoComplete="tel"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
+              <span className="label mb-1.5 block text-[var(--inkmute)]">
                 Password
               </span>
               <input
@@ -158,13 +148,13 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className={fieldClass}
                 autoComplete="current-password"
               />
             </label>
 
             {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="border border-[var(--rose)]/40 bg-[var(--rose)]/10 px-3 py-2 text-sm text-[var(--rose)]">
                 {error}
               </p>
             )}
@@ -172,27 +162,25 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex w-full items-center justify-center rounded-xl bg-teal-700 px-6 py-3 font-display text-base font-semibold text-white shadow-md transition hover:bg-teal-600 disabled:cursor-wait disabled:opacity-60"
+              className="pixel-btn pixel-btn-fill w-full disabled:cursor-wait disabled:opacity-60"
             >
               {submitting ? "Signing in…" : "Sign in"}
             </button>
           </form>
 
           <div className="mt-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-neutral-200" />
-            <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-              or
-            </span>
-            <div className="h-px flex-1 bg-neutral-200" />
+            <div className="h-px flex-1 bg-[var(--edge)]" />
+            <span className="label text-[var(--inkmute)]">or</span>
+            <div className="h-px flex-1 bg-[var(--edge)]" />
           </div>
 
           <button
             type="button"
             onClick={() => void handleGoogleSignIn()}
             disabled={googleBusy}
-            className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-white px-6 py-3 font-display text-base font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:cursor-wait disabled:opacity-60"
+            className="pixel-btn mt-6 w-full gap-3 text-[var(--inksoft)] disabled:cursor-wait disabled:opacity-60"
           >
-            <svg viewBox="0 0 18 18" className="h-5 w-5" aria-hidden>
+            <svg viewBox="0 0 18 18" className="h-4 w-4" aria-hidden>
               <path
                 fill="#4285F4"
                 d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.91c1.7-1.57 2.69-3.88 2.69-6.64z"

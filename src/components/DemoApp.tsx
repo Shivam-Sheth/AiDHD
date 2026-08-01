@@ -322,13 +322,12 @@ export function DemoApp({
             >
               Sign in
             </Link>
-            <button
-              type="button"
-              onClick={() => void startDemo()}
+            <Link
+              href="/app"
               className="btn-primary !py-2 !px-3.5 text-sm"
             >
-              Try demo
-            </button>
+              Open app
+            </Link>
           </div>
         </div>
       </header>
@@ -341,20 +340,16 @@ export function DemoApp({
               AiDHD
             </h1>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-[var(--inksoft)]">
-              From chat to booked — fly, stay, experience, dine. One agent that
-              finishes the loop with real inventory and scoped payments.
+              Friends, group chat, Instagram reels → trips, bookings, and
+              Splitwise-style settle-up — one loop from plan to paid.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/agent" className="btn-primary">
+              <Link href="/app" className="btn-primary">
+                Open groups app
+              </Link>
+              <Link href="/agent" className="btn-ghost">
                 Live Concierge
               </Link>
-              <button
-                type="button"
-                onClick={() => void startDemo()}
-                className="btn-ghost"
-              >
-                Group demo
-              </button>
               <Link href="/reel" className="btn-ghost">
                 Reel → plan
               </Link>

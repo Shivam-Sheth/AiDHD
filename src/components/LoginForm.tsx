@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/ThemeProvider";
+import { setStoredUserId } from "@/lib/session-client";
 import { supabase } from "@/lib/supabase/client";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,7 +30,7 @@ export function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       setError("Enter your name.");
@@ -45,7 +46,24 @@ export function LoginForm() {
     }
     setError(null);
     setSubmitting(true);
-    router.push("/agent");
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          handle: email.trim().split("@")[0],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.user?.id) {
+        setStoredUserId(data.user.id);
+      }
+      router.push("/app");
+    } catch {
+      router.push("/app");
+    }
   }
 
   async function handleGoogleSignIn() {
@@ -96,7 +114,8 @@ export function LoginForm() {
             Sign in
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
-            Name and email are required — phone number is optional.
+            Name and email are required — phone is optional. Continues into
+            groups, friends, chat, splits, and Instagram reels.
           </p>
 
           <form onSubmit={handleSubmit} className="animate-slide-up mt-10 space-y-4">

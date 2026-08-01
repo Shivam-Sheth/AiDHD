@@ -297,8 +297,9 @@ export function DemoApp({
       <main id="top" className="relative z-10 w-full">
         {/* Landing pin format: brand + one line + one CTA + full-bleed 3D */}
         <section className="relative min-h-[100svh] overflow-hidden">
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-full lg:w-[62%]">
-            <ParticleOrb className="h-full w-full opacity-90" />
+          <div className="pointer-events-none absolute inset-y-0 right-[-8%] w-full lg:w-[68%]">
+            <div className="absolute inset-[12%] rounded-full bg-[radial-gradient(circle,rgba(212,160,72,0.16),rgba(126,200,232,0.08)_45%,transparent_70%)] blur-2xl" />
+            <ParticleOrb className="relative h-full w-full" />
           </div>
 
           <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pt-20 pb-16 lg:px-10">
@@ -337,7 +338,7 @@ export function DemoApp({
           </div>
 
           <div className="pointer-events-none absolute bottom-8 left-5 font-mono text-[10px] tracking-[0.2em] text-[var(--inkmute)] uppercase lg:left-10">
-            Scroll · About
+            Scroll · about
           </div>
         </section>
 

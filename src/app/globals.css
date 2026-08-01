@@ -256,8 +256,7 @@ body {
 }
 
 .animate-slide-up {
-  animation: slide-up 0.65s ease-out 0.1s forwards;
-  opacity: 0;
+  animation: slide-up 0.65s ease-out both;
 }
 
 .animate-pulse-ring {

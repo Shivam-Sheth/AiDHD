@@ -130,6 +130,21 @@ export async function createPravaSession(input: {
   };
 }
 
+/**
+ * SIMULATION ONLY, below this line — kept for the older /  (DemoApp) stepper
+ * flow, which pre-dates checking the real docs. Per docs.prava.space there is
+ * no "mandate" REST resource to register and no endpoint that mints a token —
+ * "mandate" is Prava's name for the session + passkey approval together, not
+ * something a caller creates separately. These two functions never call
+ * Prava at all, live or mock — they just fabricate IDs locally.
+ *
+ * The real flow (used by the /agent Concierge payment path — see
+ * getPaymentResult / reportPaymentStatus below) is:
+ *   1. POST /v1/sessions                          (createPravaSession, above)
+ *   2. @prava-sdk/core collectPAN() in the browser (mounts the real iframe)
+ *   3. GET  /v1/sessions/:id/payment-result        (getPaymentResult)
+ *   4. POST /v1/sessions/:id/report-status         (reportPaymentStatus)
+ */
 export async function registerMandate(input: {
   session_id: string;
   merchant: string;
@@ -139,12 +154,6 @@ export async function registerMandate(input: {
   category: string;
   iframe_url?: string;
 }): Promise<PravaMandateResult> {
-  /**
-   * Passkey / mandate approval happens inside Prava Collect (iframe).
-   * After the user completes Collect, we bind a mandate record to that session
-   * for the agent to invoke a single-use scoped credential.
-   * Live session IDs are preserved so judges can verify against the dashboard.
-   */
   const live = hasPrava() && !input.session_id.startsWith("sess_mock");
   return {
     mandate_id: live
@@ -223,4 +232,87 @@ export async function completePravaCheckout(input: {
       ? `Prava Collect session ${input.session_id} → mandate ${mandate.mandate_id} → scoped token ${token.token_ref} for $${input.amount.toFixed(2)} at ${input.merchant}. Confirmation ${confirmation_id}.`
       : `Mock checkout ${confirmation_id} for $${input.amount.toFixed(2)} at ${input.merchant} (set PRAVA_SECRET_KEY for live Collect).`,
   };
+}
+
+/* ------------------------- Real Prava API, from here ------------------------- */
+
+export interface PravaPaymentResult {
+  /** awaiting_result | completed | failed (per docs.prava.space/concepts/payments) */
+  status: string;
+  /** One-time virtual card number — single-use, merchant- and amount-locked, short-lived. */
+  token?: string;
+  dynamic_cvv?: string;
+  expiry?: string;
+  mode: "live" | "mock";
+}
+
+/**
+ * GET /v1/sessions/:id/payment-result — call after the browser SDK's
+ * collectPAN() succeeds. May still read "awaiting_result" for a moment while
+ * Prava finishes processing; poll a few times before giving up.
+ */
+export async function getPaymentResult(sessionId: string): Promise<PravaPaymentResult> {
+  if (!hasPrava() || sessionId.startsWith("sess_mock") || sessionId.startsWith("sess_err")) {
+    return {
+      status: "completed",
+      token: `4242${randomUUID().replace(/-/g, "").slice(0, 8)}`,
+      dynamic_cvv: "***",
+      expiry: "12/29",
+      mode: "mock",
+    };
+  }
+  try {
+    const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
+    const res = await fetch(
+      `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/payment-result`,
+      { headers: { Authorization: `Bearer ${secret}` } },
+    );
+    if (!res.ok) return { status: "failed", mode: "live" };
+    const data = (await res.json()) as {
+      status?: string;
+      token?: string;
+      dynamic_cvv?: string;
+      expiry?: string;
+    };
+    return {
+      status: data.status || "awaiting_result",
+      token: data.token,
+      dynamic_cvv: data.dynamic_cvv,
+      expiry: data.expiry,
+      mode: "live",
+    };
+  } catch {
+    return { status: "failed", mode: "live" };
+  }
+}
+
+/**
+ * POST /v1/sessions/:id/report-status — mandatory per docs.prava.space:
+ * closes the payment lifecycle regardless of whether the downstream merchant
+ * charge itself succeeded.
+ */
+export async function reportPaymentStatus(
+  sessionId: string,
+  status: "APPROVED" | "DECLINED",
+): Promise<{ ok: boolean }> {
+  if (!hasPrava() || sessionId.startsWith("sess_mock") || sessionId.startsWith("sess_err")) {
+    return { ok: true };
+  }
+  try {
+    const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
+    const res = await fetch(
+      `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/report-status`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${secret}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      },
+    );
+    return { ok: res.ok };
+  } catch {
+    return { ok: false };
+  }
 }

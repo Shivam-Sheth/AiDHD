@@ -502,6 +502,7 @@ export async function executeAgentTool(
             kind: "payment",
             payload: {
               session_id: session.session_id,
+              session_token: session.session_token || undefined,
               iframe_url: session.iframe_url || payUrl,
               pay_url: payUrl,
               amount,

@@ -15,6 +15,7 @@ import {
   useConversation,
   useConversationClientTool,
 } from "@elevenlabs/react";
+import { PravaSDK } from "@prava-sdk/core";
 import {
   PlacesMap,
   type MapPlace,
@@ -131,6 +132,8 @@ type UiCard =
       kind: "payment";
       payload: {
         session_id: string;
+        /** Required by @prava-sdk/core's collectPAN() — not present in mock mode. */
+        session_token?: string;
         iframe_url?: string;
         pay_url?: string | null;
         amount: number;
@@ -411,8 +414,10 @@ function RoutePanel({ info }: { info: RouteInfoPayload | null }) {
 
 function ConciergeInner({
   googleMapsApiKey,
+  pravaPublishableKey,
 }: {
   googleMapsApiKey: string | null;
+  pravaPublishableKey: string | null;
 }) {
   const reactId = useId();
   const sessionRef = useRef(
@@ -420,6 +425,8 @@ function ConciergeInner({
   );
   const sinceRef = useRef(0);
   const seenKeys = useRef(new Set<string>());
+  const cardContainerRef = useRef<HTMLDivElement | null>(null);
+  const collectedSessionRef = useRef<string | null>(null);
 
   const [cards, setCards] = useState<UiCard[]>([]);
   const [lines, setLines] = useState<ChatLine[]>([]);
@@ -506,6 +513,7 @@ function ConciergeInner({
     }
   }, []);
 
+  /** Fires once @prava-sdk/core's collectPAN() resolves — polls payment-result + reports status server-side. */
   async function completePayment() {
     if (!payment) return;
     setCompleting(true);
@@ -518,19 +526,17 @@ function ConciergeInner({
           merchant: payment.payload.merchant,
           amount: payment.payload.amount,
           category: payment.payload.category || "trip",
-          iframe_url: payment.payload.iframe_url,
         }),
       });
       const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setVoiceError(data.error || "Prava couldn't confirm this payment.");
+        return;
+      }
       if (data.ui) pushUi(data.ui as UiCard);
       setLines((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          text:
-            data.summary ||
-            `Confirmed ${data.confirmation_id}. Mandate ${data.mandate?.mandate_id}.`,
-        },
+        { role: "assistant", text: data.summary || `Confirmed ${data.confirmation_id}.` },
       ]);
     } catch (e) {
       setVoiceError(
@@ -540,6 +546,33 @@ function ConciergeInner({
       setCompleting(false);
     }
   }
+
+  /** Mounts the real Prava card-collection iframe via the SDK — a bare <iframe src> isn't a supported integration. */
+  useEffect(() => {
+    if (
+      !payment?.payload.session_token ||
+      !payment.payload.iframe_url ||
+      !pravaPublishableKey ||
+      !cardContainerRef.current
+    ) {
+      return;
+    }
+    if (collectedSessionRef.current === payment.payload.session_id) return;
+    collectedSessionRef.current = payment.payload.session_id;
+
+    const sdk = new PravaSDK({ publishableKey: pravaPublishableKey });
+    void sdk.collectPAN({
+      sessionToken: payment.payload.session_token,
+      iframeUrl: payment.payload.iframe_url,
+      container: cardContainerRef.current,
+      onSuccess: () => void completePayment(),
+      onError: (err) =>
+        setVoiceError(`Card entry failed: ${err.message || err.code}`),
+    });
+
+    return () => sdk.destroy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payment?.payload.session_id, pravaPublishableKey]);
 
   const runTool = useCallback(
     async (name: string, parameters: Record<string, unknown>) => {
@@ -887,40 +920,53 @@ function ConciergeInner({
                 {payment.payload.mode}
               </span>
             </div>
-            {payment.payload.iframe_url ? (
-              <iframe
-                title="Prava collect"
-                src={payment.payload.iframe_url}
-                className="mt-3 h-72 w-full rounded-2xl border border-white/10 bg-white"
-              />
-            ) : payment.payload.pay_url ? (
-              <a
-                href={payment.payload.pay_url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex rounded-xl bg-amber-300 px-3 py-2 text-sm font-semibold text-[#142019]"
-              >
-                Open Prava
-              </a>
+            {payment.payload.session_token &&
+            payment.payload.iframe_url &&
+            pravaPublishableKey ? (
+              <>
+                <div
+                  ref={cardContainerRef}
+                  className="mt-3 min-h-[220px] w-full overflow-hidden rounded-2xl bg-white"
+                />
+                <p className="mt-2 text-[11px] text-white/45">
+                  {completing
+                    ? "Finalizing…"
+                    : "Enter your card above — booking completes automatically once approved (passkey may be requested)."}
+                </p>
+              </>
             ) : (
-              <p className="mt-2 text-xs text-white/55">
-                Session {payment.payload.session_id}
-              </p>
+              <>
+                {payment.payload.pay_url ? (
+                  <a
+                    href={payment.payload.pay_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex rounded-xl bg-amber-300 px-3 py-2 text-sm font-semibold text-[#142019]"
+                  >
+                    Open Prava
+                  </a>
+                ) : (
+                  <p className="mt-2 text-xs text-white/55">
+                    Session {payment.payload.session_id}
+                  </p>
+                )}
+                <p className="mt-2 text-[11px] text-white/45">
+                  {pravaPublishableKey
+                    ? "Approve passkey / card here — the agent can't finish that by voice alone."
+                    : "Add PRAVA_PUBLISHABLE_KEY to collect a real card — this session is running mock/demo checkout."}
+                </p>
+                <button
+                  type="button"
+                  disabled={completing}
+                  onClick={() => void completePayment()}
+                  className="mt-3 w-full rounded-xl bg-amber-300 px-3 py-2.5 font-display text-sm font-semibold text-[#142019] disabled:opacity-50"
+                >
+                  {completing
+                    ? "Finalizing…"
+                    : "I approved Collect — complete booking"}
+                </button>
+              </>
             )}
-            <p className="mt-2 text-[11px] text-white/45">
-              Approve passkey / card here — the agent can&apos;t finish that by
-              voice alone.
-            </p>
-            <button
-              type="button"
-              disabled={completing}
-              onClick={() => void completePayment()}
-              className="mt-3 w-full rounded-xl bg-amber-300 px-3 py-2.5 font-display text-sm font-semibold text-[#142019] disabled:opacity-50"
-            >
-              {completing
-                ? "Finalizing…"
-                : "I approved Collect — complete booking"}
-            </button>
           </div>
         )}
 
@@ -1291,8 +1337,10 @@ function ConciergeInner({
 
 export function ConciergeAgent({
   googleMapsApiKey,
+  pravaPublishableKey,
 }: {
   googleMapsApiKey: string | null;
+  pravaPublishableKey: string | null;
 }) {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#070b10] text-white">
@@ -1324,7 +1372,10 @@ export function ConciergeAgent({
         </div>
       </header>
       <ConversationProvider>
-        <ConciergeInner googleMapsApiKey={googleMapsApiKey} />
+        <ConciergeInner
+          googleMapsApiKey={googleMapsApiKey}
+          pravaPublishableKey={pravaPublishableKey}
+        />
       </ConversationProvider>
     </div>
   );

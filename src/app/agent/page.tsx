@@ -8,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function AgentPage() {
-  return <ConciergeAgent googleMapsApiKey={process.env.GOOGLE_MAPS_API || null} />;
+  return (
+    <ConciergeAgent
+      googleMapsApiKey={process.env.GOOGLE_MAPS_API || null}
+      pravaPublishableKey={process.env.PRAVA_PUBLISHABLE_KEY || null}
+    />
+  );
 }

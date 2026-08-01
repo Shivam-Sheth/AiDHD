@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import {
+  FlightOfferCard,
+  StayOfferCard,
+} from "@/components/booking/OfferCards";
+import { ThemeToggle } from "@/components/ThemeProvider";
 import type { ReelClarifyAsk, ReelPlanResult } from "@/lib/reel/types";
 
 type Draft = {
@@ -89,7 +94,6 @@ export function ReelPlanner() {
         setPreview(plan);
         setCachedCaption(plan.cached_caption || "");
         setPhase("preview");
-        // Prefill from reel hints
         setDraft({
           party_size: plan.brief.party_size_hint
             ? String(plan.brief.party_size_hint)
@@ -177,58 +181,68 @@ export function ReelPlanner() {
 
   const showPackage = phase === "final" && result;
 
-  return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 10% -10%, #99f6e4 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 100% 0%, #a5f3fc 0%, transparent 50%), linear-gradient(180deg, #f0fdfa 0%, #fafafa 42%, #fafafa 100%)",
-        }}
-      />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-pattern opacity-40" />
+  const chip = (on: boolean) =>
+    on
+      ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--btn-fg)]"
+      : "border-[var(--edge)] text-[var(--inksoft)] hover:border-[var(--edgehot)]";
 
-      <header className="mx-auto flex max-w-3xl items-baseline justify-between px-5 pt-8 sm:px-6">
+  return (
+    <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 site-atmosphere"
+        aria-hidden
+      />
+
+      <header className="mx-auto flex max-w-3xl items-center justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
-          className="font-display text-2xl font-bold tracking-tight text-neutral-900 transition-opacity hover:opacity-70"
+          className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
         >
           AiDHD
         </Link>
-        <Link
-          href="/"
-          className="text-sm text-neutral-500 transition-colors hover:text-teal-700"
-        >
-          Demo home
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link
+            href="/"
+            className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
+          >
+            Home
+          </Link>
+          <Link
+            href="/agent"
+            className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
+          >
+            Live agent
+          </Link>
+        </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-5 pb-24 pt-14 sm:px-6">
         <section className="animate-fade-in">
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-teal-700">
+          <p className="text-xs font-medium tracking-[0.14em] text-[var(--inkmute)] uppercase">
             Reel → plan
           </p>
-          <h1 className="font-display mt-3 text-4xl font-bold leading-[1.1] tracking-tight text-neutral-900 sm:text-5xl">
+          <h1 className="font-display mt-3 text-4xl font-semibold leading-[1.1] tracking-tight text-[var(--ink)] sm:text-5xl">
             Paste the link.
             <br />
             Prefs once. Full plan.
           </h1>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-neutral-600 sm:text-lg">
-            We read the reel once, you fill dates and origin, then we build
-            days + flights + stays in one shot.
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--inksoft)]">
+            We read the reel once, you fill dates and origin, then we build days
+            + flights + stays in one shot.
           </p>
         </section>
 
         <form onSubmit={readReel} className="animate-slide-up mt-10 space-y-4">
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-neutral-700">
+            <span className="mb-1.5 block text-sm text-[var(--inksoft)]">
               Reel link
             </span>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://www.instagram.com/reel/…"
-              className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+              className="field"
               autoComplete="off"
               spellCheck={false}
               autoFocus
@@ -236,7 +250,7 @@ export function ReelPlanner() {
           </label>
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-700 dark:text-red-200">
               {error}
             </p>
           )}
@@ -244,7 +258,7 @@ export function ReelPlanner() {
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex items-center justify-center rounded-xl bg-teal-700 px-6 py-3 font-display text-base font-semibold text-white shadow-md transition hover:bg-teal-600 disabled:cursor-wait disabled:opacity-60"
+            className="btn-primary disabled:cursor-wait disabled:opacity-60"
           >
             {pending && phase === "idle"
               ? "Reading reel…"
@@ -257,14 +271,14 @@ export function ReelPlanner() {
         {active && (
           <div className="mt-14 space-y-10 animate-fade-in">
             <div>
-              <p className="text-sm font-medium uppercase tracking-wide text-teal-700">
+              <p className="text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
                 From the reel
               </p>
-              <h2 className="font-display mt-1 text-2xl font-bold text-neutral-900">
+              <h2 className="font-display mt-2 text-2xl font-semibold text-[var(--ink)]">
                 {active.brief.title}
               </h2>
-              <p className="mt-2 text-neutral-600">{active.brief.summary}</p>
-              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-500">
+              <p className="mt-2 text-[var(--inksoft)]">{active.brief.summary}</p>
+              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--inkmute)]">
                 {active.brief.city && <span>City · {active.brief.city}</span>}
                 {active.brief.mode && <span>Mode · {active.brief.mode}</span>}
                 {budgetLabel && <span>Budget · {budgetLabel}</span>}
@@ -273,22 +287,19 @@ export function ReelPlanner() {
                 )}
               </div>
               {active.brief.places.length > 0 && (
-                <p className="mt-3 text-sm text-neutral-600">
-                  <span className="font-medium text-neutral-800">Places: </span>
+                <p className="mt-3 text-sm text-[var(--inksoft)]">
+                  <span className="font-medium text-[var(--ink)]">Places: </span>
                   {active.brief.places.slice(0, 12).join(" · ")}
                 </p>
               )}
             </div>
 
             {asks.length > 0 && phase !== "final" && (
-              <form
-                onSubmit={buildFullPlan}
-                className="rounded-2xl border border-teal-200 bg-teal-50/80 p-5"
-              >
-                <h3 className="font-display text-lg font-bold text-teal-900">
+              <form onSubmit={buildFullPlan} className="surface p-5">
+                <h3 className="font-display text-lg font-semibold text-[var(--ink)]">
                   Your preferences
                 </h3>
-                <p className="mt-1 text-sm text-teal-800/80">
+                <p className="mt-1 text-sm text-[var(--inksoft)]">
                   Fill everything below, then submit once — we won&apos;t re-read
                   the reel.
                 </p>
@@ -296,7 +307,7 @@ export function ReelPlanner() {
                 <div className="mt-4 space-y-5">
                   {asks.map((ask) => (
                     <div key={ask.field}>
-                      <p className="text-sm font-medium text-neutral-800">
+                      <p className="text-sm font-medium text-[var(--ink)]">
                         {ask.prompt}
                       </p>
                       {ask.field === "party_size" && ask.options?.length ? (
@@ -306,11 +317,7 @@ export function ReelPlanner() {
                               key={opt}
                               type="button"
                               onClick={() => setAskOption(ask, opt)}
-                              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-                                draft.party_size === opt
-                                  ? "border-teal-700 bg-teal-700 text-white"
-                                  : "border-teal-300 bg-white text-teal-900 hover:bg-teal-100"
-                              }`}
+                              className={`border px-3 py-1.5 text-sm transition ${chip(draft.party_size === opt)}`}
                             >
                               {opt}
                             </button>
@@ -323,11 +330,7 @@ export function ReelPlanner() {
                               key={opt}
                               type="button"
                               onClick={() => setAskOption(ask, opt)}
-                              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-                                draft.selected_date === opt
-                                  ? "border-teal-700 bg-teal-700 text-white"
-                                  : "border-teal-300 bg-white text-teal-900 hover:bg-teal-100"
-                              }`}
+                              className={`border px-3 py-1.5 text-sm transition ${chip(draft.selected_date === opt)}`}
                             >
                               {opt}
                             </button>
@@ -344,7 +347,7 @@ export function ReelPlanner() {
                             }))
                           }
                           placeholder="Sep 20–25"
-                          className="mt-2 w-full rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-600/20"
+                          className="field mt-2"
                         />
                       ) : ask.field === "origin" ? (
                         <input
@@ -356,7 +359,7 @@ export function ReelPlanner() {
                             }))
                           }
                           placeholder="Chicago"
-                          className="mt-2 w-full rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-600/20"
+                          className="field mt-2"
                         />
                       ) : ask.field === "time_pick" && ask.options?.length ? (
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -365,11 +368,7 @@ export function ReelPlanner() {
                               key={opt}
                               type="button"
                               onClick={() => setAskOption(ask, opt)}
-                              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-                                draft.selected_time === opt
-                                  ? "border-teal-700 bg-teal-700 text-white"
-                                  : "border-teal-300 bg-white text-teal-900 hover:bg-teal-100"
-                              }`}
+                              className={`border px-3 py-1.5 text-sm transition ${chip(draft.selected_time === opt)}`}
                             >
                               {opt}
                             </button>
@@ -383,7 +382,7 @@ export function ReelPlanner() {
                 <button
                   type="submit"
                   disabled={pending || missing.length > 0}
-                  className="mt-6 inline-flex items-center justify-center rounded-xl bg-teal-800 px-6 py-3 font-display text-base font-semibold text-white shadow-md transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="btn-primary mt-6 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {pending && phase === "preview"
                     ? "Building plan…"
@@ -396,9 +395,11 @@ export function ReelPlanner() {
 
             {showPackage && (
               <>
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
-                  <p className="font-display font-semibold">Money snapshot</p>
-                  <p className="mt-1 text-amber-900/90">
+                <div className="surface px-4 py-3 text-sm">
+                  <p className="font-display font-semibold text-[var(--ink)]">
+                    Money snapshot
+                  </p>
+                  <p className="mt-1 text-[var(--inksoft)]">
                     {budgetLabel
                       ? `Land budget from reel · ${budgetLabel}`
                       : "Land budget from reel · see day plan"}
@@ -425,104 +426,42 @@ export function ReelPlanner() {
                       </>
                     )}
                   </p>
-                  <p className="mt-1 text-xs text-amber-800/80">
-                    Per-person land budget is calculated from the reel caption
-                    (e.g. ₹50,000 for 2 → ₹25,000/pp). Flight/stay quotes are
-                    separate USD options.
+                  <p className="mt-1 text-xs text-[var(--inkmute)]">
+                    Per-person land budget is calculated from the reel caption.
+                    Flight/stay quotes are separate USD options.
                   </p>
                 </div>
 
                 <div className="space-y-10">
                   <div>
                     <div className="flex items-end justify-between gap-3">
-                      <h3 className="font-display text-xl font-bold text-neutral-900">
+                      <h3 className="font-display text-xl font-semibold text-[var(--ink)]">
                         Flight options
                       </h3>
                       {result.flights.length > 0 && (
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-[var(--inkmute)]">
                           {result.flights[0]!.from} → {result.flights[0]!.to}
                         </p>
                       )}
                     </div>
                     {result.flights.length === 0 ? (
-                      <p className="mt-3 text-sm text-neutral-500">
-                        No flights yet — set origin city (e.g. Chicago) and
-                        rebuild.
+                      <p className="mt-3 text-sm text-[var(--inkmute)]">
+                        No flights yet — set origin city and rebuild.
                       </p>
                     ) : (
-                      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <ul className="mt-4 space-y-3">
                         {result.flights.map((f) => (
-                          <li
-                            key={f.id}
-                            className="group relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-neutral-50 ring-1 ring-neutral-100">
-                                {f.airline_logo_url ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={f.airline_logo_url}
-                                    alt=""
-                                    width={40}
-                                    height={40}
-                                    className="h-9 w-9 object-contain"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <span className="font-display text-sm font-bold text-teal-800">
-                                    {(f.airline_iata || f.airline.slice(0, 2)).toUpperCase()}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-display text-base font-semibold text-neutral-900">
-                                  {f.airline}
-                                </p>
-                                <p className="mt-0.5 text-xs text-neutral-500">
-                                  {f.cabin} · {f.source}
-                                </p>
-                              </div>
-                              <p className="shrink-0 font-display text-lg font-bold text-teal-800">
-                                ${Math.round(f.price_per_person)}
-                                <span className="text-xs font-medium text-neutral-500">
-                                  /pp
-                                </span>
-                              </p>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between gap-2">
-                              <div>
-                                <p className="font-display text-xl font-bold tracking-tight text-neutral-900">
-                                  {f.from}
-                                </p>
-                                <p className="text-xs text-neutral-500">
-                                  {new Date(f.depart).toLocaleString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
-                              </div>
-                              <div className="flex flex-1 flex-col items-center px-2">
-                                <div className="h-px w-full bg-gradient-to-r from-transparent via-teal-400 to-transparent" />
-                                <span className="mt-1 text-[10px] uppercase tracking-wider text-teal-700">
-                                  {f.from}–{f.to}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-display text-xl font-bold tracking-tight text-neutral-900">
-                                  {f.to}
-                                </p>
-                                <p className="text-xs text-neutral-500">
-                                  {new Date(f.arrive).toLocaleString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
-                              </div>
-                            </div>
+                          <li key={f.id}>
+                            <FlightOfferCard
+                              airline={f.airline}
+                              airlineLogo={f.airline_logo_url}
+                              from={f.from}
+                              to={f.to}
+                              depart={f.depart}
+                              arrive={f.arrive}
+                              cabin={f.cabin}
+                              price={f.price_per_person}
+                            />
                           </li>
                         ))}
                       </ul>
@@ -531,71 +470,34 @@ export function ReelPlanner() {
 
                   <div>
                     <div className="flex items-end justify-between gap-3">
-                      <h3 className="font-display text-xl font-bold text-neutral-900">
+                      <h3 className="font-display text-xl font-semibold text-[var(--ink)]">
                         Stays · ranked by reviews
                       </h3>
                       {result.hotels[0]?.rating != null && (
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-[var(--inkmute)]">
                           Top score {result.hotels[0].rating.toFixed(1)}/10
                         </p>
                       )}
                     </div>
                     {result.hotels.length === 0 ? (
-                      <p className="mt-3 text-sm text-neutral-500">
+                      <p className="mt-3 text-sm text-[var(--inkmute)]">
                         No stays returned — check dates and rebuild.
                       </p>
                     ) : (
                       <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                         {result.hotels.map((h) => (
-                          <li
-                            key={h.id}
-                            className="relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3">
-                                <div
-                                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold ${
-                                    h.review_rank === 1
-                                      ? "bg-teal-700 text-white"
-                                      : "bg-teal-50 text-teal-800 ring-1 ring-teal-100"
-                                  }`}
-                                >
-                                  #{h.review_rank ?? "–"}
-                                </div>
-                                <div>
-                                  <p className="font-display text-base font-semibold leading-snug text-neutral-900">
-                                    {h.name}
-                                  </p>
-                                  <p className="mt-0.5 text-xs text-neutral-500">
-                                    {h.neighborhood} · {h.nights} nights
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="shrink-0 font-display text-lg font-bold text-teal-800">
-                                ${Math.round(h.price_total)}
-                              </p>
-                            </div>
-                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                              {h.rating != null && (
-                                <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-100">
-                                  <span aria-hidden>★</span>
-                                  {h.rating.toFixed(1)}
-                                  {h.review_count != null && (
-                                    <span className="font-normal text-amber-800/70">
-                                      · {h.review_count.toLocaleString()} reviews
-                                    </span>
-                                  )}
-                                </span>
-                              )}
-                              {h.review_rank === 1 && (
-                                <span className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-medium text-teal-800 ring-1 ring-teal-100">
-                                  Best reviewed
-                                </span>
-                              )}
-                              <span className="text-xs text-neutral-400">
-                                {h.check_in} → {h.check_out}
-                              </span>
-                            </div>
+                          <li key={h.id}>
+                            <StayOfferCard
+                              name={h.name}
+                              neighborhood={h.neighborhood}
+                              nights={h.nights}
+                              rating={h.rating}
+                              reviewCount={h.review_count}
+                              reviewRank={h.review_rank}
+                              price={h.price_total}
+                              checkIn={h.check_in}
+                              checkOut={h.check_out}
+                            />
                           </li>
                         ))}
                       </ul>
@@ -604,18 +506,18 @@ export function ReelPlanner() {
                 </div>
 
                 <div>
-                  <h3 className="font-display text-xl font-bold text-neutral-900">
+                  <h3 className="font-display text-xl font-semibold text-[var(--ink)]">
                     Itinerary
                   </h3>
                   <ol className="mt-4 space-y-6">
                     {result.itinerary.map((day) => (
                       <li key={day.day_label}>
-                        <p className="font-display text-lg font-semibold text-teal-800">
+                        <p className="font-display text-lg font-semibold text-[var(--ink)]">
                           {day.day_label}
                         </p>
-                        <ul className="mt-2 space-y-1.5 border-l-2 border-teal-200 pl-4">
+                        <ul className="mt-2 space-y-1.5 border-l border-[var(--edge)] pl-4">
                           {day.items.map((item) => (
-                            <li key={item} className="text-neutral-700">
+                            <li key={item} className="text-[var(--inksoft)]">
                               {item}
                             </li>
                           ))}
@@ -627,23 +529,23 @@ export function ReelPlanner() {
 
                 {result.tickets.length > 0 && (
                   <div>
-                    <h3 className="font-display text-xl font-bold text-neutral-900">
+                    <h3 className="font-display text-xl font-semibold text-[var(--ink)]">
                       Ticketmaster matches
                     </h3>
                     <ul className="mt-4 space-y-3">
                       {result.tickets.map((t, i) => (
                         <li
                           key={t.id}
-                          className="flex gap-3 border-b border-neutral-100 pb-3 text-sm last:border-0"
+                          className="flex gap-3 border-b border-[var(--edge)] pb-3 text-sm last:border-0"
                         >
-                          <span className="font-display w-6 shrink-0 font-bold text-teal-700">
+                          <span className="font-display w-6 shrink-0 font-semibold text-[var(--inkmute)]">
                             {i + 1}
                           </span>
                           <div>
-                            <p className="font-medium text-neutral-900">
+                            <p className="font-medium text-[var(--ink)]">
                               {t.event_name}
                             </p>
-                            <p className="text-neutral-500">
+                            <p className="text-[var(--inkmute)]">
                               {t.venue} · ~${Math.round(t.price)}
                             </p>
                           </div>
@@ -656,8 +558,8 @@ export function ReelPlanner() {
             )}
 
             {phase === "preview" && !showPackage && active.itinerary[0] && (
-              <div className="rounded-xl border border-neutral-200 bg-white/50 px-4 py-3 text-sm text-neutral-600">
-                <p className="font-medium text-neutral-800">Reel snapshot</p>
+              <div className="surface px-4 py-3 text-sm text-[var(--inksoft)]">
+                <p className="font-medium text-[var(--ink)]">Reel snapshot</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5">
                   {active.itinerary[0].items.map((item) => (
                     <li key={item}>{item}</li>

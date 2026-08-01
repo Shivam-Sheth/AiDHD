@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlacesMap } from "@/components/PlacesMap";
-import { PixelHero } from "@/components/pixel/PixelHero";
+import {
+  PixelObjectPicker,
+  PixelSceneStage,
+  usePixelObject,
+} from "@/components/pixel/PixelHero";
 import type { PackageComponent, PackageData, Snapshot } from "@/lib/types-client";
 
 const EVENT_ID = "evt_demo_friday";
@@ -82,6 +86,8 @@ export function DemoApp({
   const [eventId, setEventId] = useState(EVENT_ID);
   const [voiceClip, setVoiceClip] = useState<string | null>(null);
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
+  const { active: pixelActive, setActive: setPixelActive, meta: pixelMeta } =
+    usePixelObject(true);
 
   const refresh = useCallback(async () => {
     const data = await j<Snapshot>(`/api/events/${eventId}`);
@@ -388,10 +394,25 @@ export function DemoApp({
                 Group demo
               </button>
             </div>
+            <div className="mt-10">
+              <PixelObjectPicker
+                active={pixelActive}
+                onSelect={setPixelActive}
+              />
+              <p
+                className="mt-3 max-w-md text-sm leading-relaxed text-[var(--inksoft)]"
+                style={{
+                  borderLeft: `2px solid ${pixelMeta.accent}`,
+                  paddingLeft: 12,
+                }}
+              >
+                {pixelMeta.blurb}
+              </p>
+            </div>
           </div>
 
           <div className="animate-slide-up order-1 w-full lg:order-2">
-            <PixelHero />
+            <PixelSceneStage activeKey={pixelActive} />
           </div>
         </section>
       </main>

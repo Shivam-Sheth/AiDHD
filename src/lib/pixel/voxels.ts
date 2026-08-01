@@ -147,26 +147,31 @@ function buildHotel(): VoxelModel {
   const glass = "#5eead4";
   const dark = "#121622";
   return normalize(
-    fill({ x: 8, y: 14, z: 6 }, (x, y, z) => {
+    fill({ x: 9, y: 14, z: 7 }, (x, y, z) => {
       const ax = Math.abs(x);
       const az = Math.abs(z);
-      // base plinth
-      if (y <= -12 && ax <= 7 && az <= 5) return MUTE;
-      // roof cap
-      if (y >= 12 && y <= 13 && ax <= 6 && az <= 4) return roof;
+      // wide base / lobby
+      if (y <= -11 && ax <= 8 && az <= 6) return y === -11 ? MUTE : EDGE;
+      // roof terrace
+      if (y >= 12 && y <= 13 && ax <= 6 && az <= 5) return roof;
+      // sign / crown
+      if (y === 14 && ax <= 3 && az <= 2) return "#f0a0b8";
       // tower body
-      if (y >= -11 && y <= 11 && ax <= 5 && az <= 4) {
-        if (ax === 5 || az === 4) return stone;
-        // window grid
-        if (y % 3 === 0 && x % 2 === 0 && az <= 3 && ax <= 4) {
-          return (x + y) % 4 === 0 ? glass : dark;
+      if (y >= -10 && y <= 11 && ax <= 5 && az <= 4) {
+        const shell = ax === 5 || az === 4;
+        if (shell) {
+          // window grid on facade
+          if (y % 3 === 0 && ((az === 4 && ax <= 4) || (ax === 5 && az <= 3))) {
+            return (x + z + y) % 2 === 0 ? glass : dark;
+          }
+          return stone;
         }
-        if (ax <= 4 && az <= 3) return EDGE;
+        return EDGE;
       }
-      // entrance awning
-      if (y >= -11 && y <= -9 && ax <= 2 && z >= 4 && z <= 5) return roof;
+      // canopy over entrance
+      if (y === -9 && ax <= 2 && z >= 4 && z <= 6) return roof;
       // door
-      if (y >= -11 && y <= -8 && Math.abs(x) <= 1 && z === 4) return dark;
+      if (y >= -10 && y <= -8 && Math.abs(x) <= 1 && z === 4) return dark;
       return null;
     }),
   );
@@ -208,31 +213,36 @@ function buildDining(): VoxelModel {
   const glass = "#5eead4";
   const stem = "#9ad0c4";
   return normalize(
-    fill({ x: 10, y: 10, z: 10 }, (x, y, z) => {
+    fill({ x: 11, y: 9, z: 11 }, (x, y, z) => {
       const r = Math.sqrt(x * x + z * z);
-      // table top
-      if (y === 0 && r <= 9) return r > 8 ? MUTE : wood;
-      // pedestal
-      if (y < 0 && y >= -6 && r <= 1.6) return EDGE;
-      if (y === -7 && r <= 4) return MUTE;
-      // plate
-      if (y === 1 && r <= 4.2) return r > 3.4 ? rim : plate;
-      // food accent
-      if (y === 2 && r <= 1.8) return "#f0a0b8";
-      // wine glass
-      if (x >= 4 && x <= 7) {
-        const gx = x - 5.5;
-        const gz = z;
-        const gr = Math.sqrt(gx * gx + gz * gz);
-        if (y >= 2 && y <= 5 && gr <= 1.6 && gr >= 1) return glass;
-        if (y === 2 && gr <= 1.6) return "#3d8f84";
-        if (y >= 0 && y <= 2 && gr <= 0.6) return stem;
-        if (y === 0 && gr <= 1.4) return stem;
+      // thick table top
+      if ((y === 0 || y === -1) && r <= 9.5) {
+        if (r > 8.6) return MUTE;
+        return y === 0 ? wood : "#a88868";
       }
-      // fork
-      if (z >= -7 && z <= -5 && x >= -3 && x <= 2 && y === 1) {
-        if (x <= -1) return INK;
-        return MUTE;
+      // pedestal + foot
+      if (y <= -2 && y >= -6 && r <= 1.8) return EDGE;
+      if (y === -7 && r <= 4.5) return MUTE;
+      // plate stack
+      if (y === 1 && r <= 4.6) return r > 3.8 ? rim : plate;
+      if (y === 2 && r <= 3.2) return r > 2.6 ? rim : plate;
+      // food
+      if (y === 3 && r <= 1.9) return "#f0a0b8";
+      if (y === 3 && r > 1.9 && r <= 2.6 && z > 0) return "#e8c47a";
+      // wine glass to the side
+      {
+        const gx = x - 6;
+        const gz = z - 1;
+        const gr = Math.sqrt(gx * gx + gz * gz);
+        if (y >= 2 && y <= 6 && gr <= 1.8 && gr >= 1.1) return glass;
+        if (y === 2 && gr <= 1.8) return "#2f7a70";
+        if (y >= 0 && y <= 2 && gr <= 0.55) return stem;
+        if (y === 0 && gr <= 1.5 && gx * gx + gz * gz <= 2.4) return stem;
+      }
+      // fork + knife
+      if (y === 1 && z >= -8 && z <= -6) {
+        if (x >= -4 && x <= 1) return x <= -2 ? INK : MUTE;
+        if (x >= 2 && x <= 5) return MUTE;
       }
       return null;
     }),

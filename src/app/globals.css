@@ -1,21 +1,57 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-dm), system-ui, sans-serif;
-  --font-display: var(--font-outfit), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+
+  /* warm paper neutrals */
+  --color-paper: #fbf3ea;
+  --color-surface: #fffaf3;
+  --color-ink: #1c1017;
+  --color-muted: #6b5d63;
+  --color-faint: #7d6b73;
+  --color-line: #ecdfd6;
+
+  /* dusk / dark surfaces — hero, final CTA, footer */
+  --color-dusk-950: #120a1e;
+  --color-dusk-900: #1c1030;
+  --color-dusk-800: #2a1640;
+  --color-dusk-ink: #fff7ed;
+  --color-dusk-muted: #cdb9db;
+
+  /* sunset brand palette */
+  --color-coral: #ff6b5b;
+  --color-coral-dark: #d23221;
+  --color-gold: #ffb347;
+  --color-violet: #6d4aff;
+  --color-ocean: #163a5e;
+
+  /* semantic status */
+  --color-success: #0c7a70;
+  --color-success-soft: #d9f5ef;
+  --color-danger: #cc2121;
+  --color-danger-soft: #fee2e2;
+  --color-warning: #f59e0b;
+
+  --shadow-warm: 0 20px 60px -20px rgb(255 107 91 / 0.35);
+  --shadow-dusk: 0 25px 70px -20px rgb(10 4 20 / 0.65);
+
+  --radius-stub: 1.25rem;
 }
 
 :root {
-  --ink: #171717;
-  --muted: #525252;
-  --faint: #a3a3a3;
-  --line: #e5e5e5;
-  --bg: #fafafa;
-  --surface: #ffffff;
-  --accent: #0f766e;
-  --accent-hover: #0d9488;
-  --accent-soft: #ccfbf1;
-  --accent-shadow: rgb(15 118 110 / 0.22);
+  --gradient-sunset: linear-gradient(135deg, var(--color-coral) 0%, var(--color-gold) 100%);
+  --gradient-dusk: linear-gradient(
+    180deg,
+    var(--color-violet) 0%,
+    var(--color-dusk-900) 55%,
+    var(--color-dusk-950) 100%
+  );
+  --gradient-hero-wash:
+    radial-gradient(ellipse at 30% 15%, rgb(255 107 91 / 0.35), transparent 60%),
+    radial-gradient(ellipse at 75% 75%, rgb(109 74 255 / 0.35), transparent 55%),
+    linear-gradient(180deg, var(--color-violet) 0%, var(--color-dusk-900) 45%, var(--color-ocean) 100%);
 }
 
 html {
@@ -26,9 +62,10 @@ body {
   margin: 0;
   min-height: 100%;
   font-family: var(--font-sans);
-  color: var(--ink);
-  background: var(--bg);
+  color: var(--color-ink);
+  background: var(--color-paper);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 .font-display {
@@ -37,13 +74,49 @@ body {
 
 .bg-grid-pattern {
   background-image:
-    linear-gradient(to right, rgb(0 0 0 / 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(0 0 0 / 0.03) 1px, transparent 1px);
+    linear-gradient(to right, rgb(28 16 23 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(28 16 23 / 0.04) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
+.bg-noise {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  background-size: 120px 120px;
+  mix-blend-mode: overlay;
+}
+
+.ticket-stub {
+  --notch: 14px;
+  mask-image:
+    radial-gradient(circle var(--notch) at 0 50%, transparent var(--notch), black calc(var(--notch) + 0.5px)),
+    radial-gradient(circle var(--notch) at 100% 50%, transparent var(--notch), black calc(var(--notch) + 0.5px));
+  mask-composite: intersect;
+  -webkit-mask-image:
+    radial-gradient(circle var(--notch) at 0 50%, transparent var(--notch), black calc(var(--notch) + 0.5px)),
+    radial-gradient(circle var(--notch) at 100% 50%, transparent var(--notch), black calc(var(--notch) + 0.5px));
+  -webkit-mask-composite: source-in, source-in;
+}
+
+.tear-line {
+  background-image: linear-gradient(to bottom, var(--color-line) 50%, transparent 50%);
+  background-size: 2px 10px;
+  background-repeat: repeat-y;
+}
+
+/* Explicit focus ring — plain CSS rather than stacked Tailwind outline-* utilities, since
+   outline-color reliably lost the cascade to some other layer's default in this setup. */
+.focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.15s ease;
+}
+
+.focus-ring:focus-visible {
+  outline-color: var(--color-coral-dark);
+}
+
 .glow-accent {
-  box-shadow: 0 0 60px -15px var(--accent-shadow);
+  box-shadow: var(--shadow-warm);
 }
 
 @keyframes fade-in {
@@ -75,4 +148,78 @@ body {
 .animate-slide-up {
   animation: slide-up 0.7s ease-out 0.15s forwards;
   opacity: 0;
+}
+
+@keyframes wave-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-wave {
+  animation: wave-drift 14s linear infinite;
+}
+
+@keyframes beam-sweep {
+  0%,
+  100% {
+    transform: rotate(-16deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: rotate(16deg);
+    opacity: 0.85;
+  }
+}
+
+.animate-beam {
+  animation: beam-sweep 6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes glow-flicker {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-glow-flicker {
+  animation: glow-flicker 2.4s ease-in-out infinite;
+}
+
+@keyframes drift-plane {
+  0% {
+    transform: translate(0, 0) rotate(-3deg);
+  }
+  50% {
+    transform: translate(-6px, 10px) rotate(2deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(-3deg);
+  }
+}
+
+.animate-drift-plane {
+  animation: drift-plane 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

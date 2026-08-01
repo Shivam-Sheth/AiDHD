@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
-import { DM_Sans, Outfit } from "next/font/google";
+import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "900"],
+  style: ["normal", "italic"],
+});
+
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "AiDHD — Concierge for group nights & trips",
+  title: "AiDHD — from group chat chaos to booked in minutes",
   description:
-    "Group nights out and weekend trips from the same chat. AiDHD builds costed plans and books with scoped Prava payments per category.",
+    "Everyone drops a budget and a vibe. AiDHD reconciles the mess into a few costed plans and books them — separate Prava limits per category, not one scary lump sum.",
 };
 
 export default function RootLayout({
@@ -26,8 +34,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${dmSans.variable} h-full`}>
-      <body className="min-h-full antialiased">{children}</body>
+    <html
+      lang="en"
+      className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} h-full`}
+    >
+      <body className="min-h-full antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import {
+  FlightOfferCard,
+  StayOfferCard,
+} from "@/components/booking/OfferCards";
 import { ThemeToggle } from "@/components/ThemeProvider";
 import type { ReelClarifyAsk, ReelPlanResult } from "@/lib/reel/types";
 
@@ -445,76 +449,19 @@ export function ReelPlanner() {
                         No flights yet — set origin city and rebuild.
                       </p>
                     ) : (
-                      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <ul className="mt-4 space-y-3">
                         {result.flights.map((f) => (
-                          <li key={f.id} className="surface p-4">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-[var(--edge)] bg-[var(--panel)]">
-                                {f.airline_logo_url ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={f.airline_logo_url}
-                                    alt=""
-                                    width={40}
-                                    height={40}
-                                    className="h-9 w-9 object-contain"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <span className="font-display text-sm font-semibold">
-                                    {(f.airline_iata || f.airline.slice(0, 2)).toUpperCase()}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-display text-base font-semibold text-[var(--ink)]">
-                                  {f.airline}
-                                </p>
-                                <p className="mt-0.5 text-xs text-[var(--inkmute)]">
-                                  {f.cabin} · {f.source}
-                                </p>
-                              </div>
-                              <p className="shrink-0 font-display text-lg font-semibold text-[var(--ink)]">
-                                ${Math.round(f.price_per_person)}
-                                <span className="text-xs font-medium text-[var(--inkmute)]">
-                                  /pp
-                                </span>
-                              </p>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between gap-2">
-                              <div>
-                                <p className="font-display text-xl font-semibold tracking-tight">
-                                  {f.from}
-                                </p>
-                                <p className="text-xs text-[var(--inkmute)]">
-                                  {new Date(f.depart).toLocaleString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
-                              </div>
-                              <div className="flex flex-1 flex-col items-center px-2">
-                                <div className="h-px w-full bg-[var(--edgehot)]" />
-                                <span className="mt-1 text-[10px] uppercase tracking-wider text-[var(--inkmute)]">
-                                  {f.from}–{f.to}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-display text-xl font-semibold tracking-tight">
-                                  {f.to}
-                                </p>
-                                <p className="text-xs text-[var(--inkmute)]">
-                                  {new Date(f.arrive).toLocaleString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
-                              </div>
-                            </div>
+                          <li key={f.id}>
+                            <FlightOfferCard
+                              airline={f.airline}
+                              airlineLogo={f.airline_logo_url}
+                              from={f.from}
+                              to={f.to}
+                              depart={f.depart}
+                              arrive={f.arrive}
+                              cabin={f.cabin}
+                              price={f.price_per_person}
+                            />
                           </li>
                         ))}
                       </ul>
@@ -539,44 +486,18 @@ export function ReelPlanner() {
                     ) : (
                       <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                         {result.hotels.map((h) => (
-                          <li key={h.id} className="surface p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3">
-                                <div
-                                  className={`flex h-10 w-10 shrink-0 items-center justify-center border text-sm font-semibold ${
-                                    h.review_rank === 1
-                                      ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--btn-fg)]"
-                                      : "border-[var(--edge)] text-[var(--inksoft)]"
-                                  }`}
-                                >
-                                  #{h.review_rank ?? "–"}
-                                </div>
-                                <div>
-                                  <p className="font-display text-base font-semibold leading-snug text-[var(--ink)]">
-                                    {h.name}
-                                  </p>
-                                  <p className="mt-0.5 text-xs text-[var(--inkmute)]">
-                                    {h.neighborhood} · {h.nights} nights
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="shrink-0 font-display text-lg font-semibold">
-                                ${Math.round(h.price_total)}
-                              </p>
-                            </div>
-                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--inkmute)]">
-                              {h.rating != null && (
-                                <span>
-                                  ★ {h.rating.toFixed(1)}
-                                  {h.review_count != null &&
-                                    ` · ${h.review_count.toLocaleString()} reviews`}
-                                </span>
-                              )}
-                              {h.review_rank === 1 && <span>Best reviewed</span>}
-                              <span>
-                                {h.check_in} → {h.check_out}
-                              </span>
-                            </div>
+                          <li key={h.id}>
+                            <StayOfferCard
+                              name={h.name}
+                              neighborhood={h.neighborhood}
+                              nights={h.nights}
+                              rating={h.rating}
+                              reviewCount={h.review_count}
+                              reviewRank={h.review_rank}
+                              price={h.price_total}
+                              checkIn={h.check_in}
+                              checkOut={h.check_out}
+                            />
                           </li>
                         ))}
                       </ul>

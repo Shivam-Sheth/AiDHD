@@ -23,6 +23,12 @@ import {
   type RouteInfoPayload,
 } from "@/components/PlacesMap";
 import { ThemeToggle } from "@/components/ThemeProvider";
+import {
+  FlightOfferCard,
+  PlaceOfferCard,
+  SourcePill,
+  StayOfferCard,
+} from "@/components/booking/OfferCards";
 
 type FlightCard = {
   id: string;
@@ -191,103 +197,21 @@ function fmtTime(iso: string) {
 }
 
 function sourceBadge(source?: string) {
-  const live =
-    source === "duffel" || source === "ticketmaster" || source === "linq";
-  const label =
-    source === "duffel"
-      ? "Live · Duffel"
-      : source === "ticketmaster"
-        ? "Live · Ticketmaster"
-        : source === "fixture"
-          ? "Fixture"
-          : source || "Lookup";
-  return (
-    <span
-      className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-        live
-          ? "bg-emerald-100 text-emerald-900"
-          : "bg-stone-200/80 text-stone-700"
-      }`}
-    >
-      {label}
-    </span>
-  );
+  return <SourcePill source={source} />;
 }
 
 function FlightRow({ f }: { f: FlightCard }) {
   return (
-    <article className="surface group relative overflow-hidden p-4 transition duration-300 hover:border-[var(--edgehot)]">
-      <div className="mb-2 text-xs tracking-[0.12em] text-[var(--inkmute)] uppercase">
-        Flight
-      </div>
-      <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-[var(--edge)] bg-white">
-          {f.airline_logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={f.airline_logo_url}
-              alt=""
-              className="h-8 w-8 object-contain"
-            />
-          ) : (
-            <span className="font-display text-xs font-semibold text-[#0b3d38]">
-              {f.airline.slice(0, 2).toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate font-display text-sm font-medium text-[var(--ink)]">
-              {f.airline}
-            </p>
-            <p className="font-display text-lg font-semibold tabular-nums text-[var(--ink)]">
-              ${Math.round(f.price_per_person)}
-              <span className="ml-0.5 text-[10px] font-medium text-[var(--inkmute)]">
-                /pp
-              </span>
-            </p>
-          </div>
-          <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <div>
-              <p className="font-display text-xl font-semibold tracking-tight text-[var(--ink)]">
-                {f.from}
-              </p>
-              <p className="text-xs text-[var(--inkmute)]">{fmtTime(f.depart)}</p>
-            </div>
-            <div className="flex flex-col items-center px-1">
-              <div className="h-px w-10 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--inkmute)]">
-                {f.cabin}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="font-display text-xl font-semibold tracking-tight text-[var(--ink)]">
-                {f.to}
-              </p>
-              <p className="text-xs text-[var(--inkmute)]">{fmtTime(f.arrive)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ReviewsBlock({ reviews }: { reviews?: PlaceReview[] }) {
-  if (!reviews?.length) return null;
-  return (
-    <div className="mt-2 space-y-1.5 border-t border-[var(--edge)] pt-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--inkmute)]">
-        Google reviews
-      </p>
-      {reviews.slice(0, 2).map((r, i) => (
-        <p key={i} className="text-xs leading-relaxed text-[var(--inksoft)]">
-          <span className="font-semibold text-[var(--inksoft)]">{r.author}</span>
-          {r.rating != null && <span className="text-[var(--inksoft)]"> · ★{r.rating}</span>}
-          {r.text && <span> — {r.text}</span>}
-        </p>
-      ))}
-    </div>
+    <FlightOfferCard
+      airline={f.airline}
+      airlineLogo={f.airline_logo_url}
+      from={f.from}
+      to={f.to}
+      depart={f.depart}
+      arrive={f.arrive}
+      cabin={f.cabin}
+      price={f.price_per_person}
+    />
   );
 }
 
@@ -313,31 +237,17 @@ function MediaCard({
   reviews?: PlaceReview[];
 }) {
   return (
-    <article
+    <PlaceOfferCard
+      photo={photo}
+      title={title}
+      meta={meta}
+      price={price}
+      priceSuffix={priceSuffix}
+      highlighted={highlighted}
+      reviews={reviews}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`flex overflow-hidden border bg-[var(--panel)]/90 transition ${
-        highlighted ? "border-white/30" : "border-[var(--edge)]"
-      }`}
-    >
-      {photo && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo} alt="" className="h-28 w-28 shrink-0 object-cover" />
-      )}
-      <div className="flex flex-1 flex-col justify-center p-3">
-        <p className="font-display text-sm font-medium text-[var(--ink)]">{title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-[var(--inkmute)]">{meta}</p>
-        <p className="mt-2 font-display text-lg font-semibold text-[var(--ink)]">
-          ${Math.round(price)}
-          {priceSuffix && (
-            <span className="ml-0.5 text-[10px] font-medium text-[var(--inkmute)]">
-              {priceSuffix}
-            </span>
-          )}
-        </p>
-        <ReviewsBlock reviews={reviews} />
-      </div>
-    </article>
+    />
   );
 }
 
@@ -806,45 +716,39 @@ function ConciergeInner({
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-28 pt-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] sm:px-6">
       <section className="flex min-h-[70vh] flex-col">
-        <p className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--inkmute)]">
-          Live concierge
-        </p>
-        <h1 className="font-display mt-3 max-w-lg text-[2.65rem] font-bold leading-[1.05] tracking-tight text-[var(--ink)] sm:text-5xl">
-          AiDHD
+        <p className="section-kicker">Live concierge</p>
+        <h1 className="font-display mt-3 max-w-lg text-[2.65rem] font-semibold leading-[1.05] tracking-tight text-[var(--ink)] sm:text-5xl">
+          Ask. Browse. Book.
         </h1>
         <p className="mt-3 max-w-md text-[15px] leading-relaxed text-[var(--inksoft)]">
-          Flights, hotels, dinner, clubs, movies, tickets — options land as
-          cards here. When you&apos;re ready, Prava opens for payment.
+          Flights, stays, dinner, clubs, movies, tickets — results land as real
+          booking cards. When you&apos;re ready, Prava opens for payment.
         </p>
 
         <div className="mt-7 flex flex-wrap items-center gap-3">
           {conversation.status !== "connected" ? (
-            <button
-              type="button"
-              onClick={startVoice}
-              className="rounded-none btn-primary"
-            >
+            <button type="button" onClick={startVoice} className="btn-primary">
               Start voice
             </button>
           ) : (
             <button
               type="button"
               onClick={stopVoice}
-              className="rounded-none border border-rose-300/40 bg-rose-500/15 px-5 py-3 font-display text-sm font-semibold text-rose-100"
+              className="btn-ghost border-[var(--rose)]/40 text-[var(--rose)]"
             >
               End · {conversation.isSpeaking ? "speaking" : "listening"}
             </button>
           )}
           <span
-            className={`inline-flex items-center gap-2 rounded-none border px-3 py-1.5 text-xs ${
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${
               live
-                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                ? "border-[var(--cyan)]/35 bg-[var(--cyan)]/10 text-[var(--cyan)]"
                 : "border-[var(--edge)] bg-[var(--accent-soft)] text-[var(--inkmute)]"
             }`}
           >
             <span
-              className={`h-1.5 w-1.5 rounded-none ${
-                live ? "animate-pulse bg-emerald-300" : "bg-white/30"
+              className={`h-1.5 w-1.5 rounded-full ${
+                live ? "animate-pulse bg-[var(--cyan)]" : "bg-[var(--inkmute)]"
               }`}
             />
             {live ? "Mic live" : "Text anytime"}
@@ -1042,7 +946,7 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-[var(--inksoft)]/80">
+                      <p className="section-kicker">
                         {c.payload.label || "Flights"}
                       </p>
                       {sourceBadge(c.payload.source)}
@@ -1051,7 +955,7 @@ function ConciergeInner({
                           href={c.payload.google_flights_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-200 hover:bg-white/15"
+                          className="rounded-full bg-[var(--sky)]/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--sky)] hover:bg-[var(--sky)]/25"
                         >
                           Open Google Flights
                         </a>
@@ -1085,59 +989,38 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-[var(--inksoft)]/80">
-                        Stays · {c.payload.label || "by reviews"}
+                      <p className="section-kicker">
+                        Stays · {c.payload.label || "guest ranked"}
                       </p>
                       {sourceBadge(c.payload.source)}
                     </div>
-                    {c.payload.offers.slice(0, 4).map((h) => (
-                      <article
-                        key={h.id}
-                        onMouseEnter={() => setHoveredPlaceId(`hotels-${h.id}`)}
-                        onMouseLeave={() =>
-                          setHoveredPlaceId((id) =>
-                            id === `hotels-${h.id}` ? null : id,
-                          )
-                        }
-                        className={`overflow-hidden rounded-none border bg-[var(--panel)]/90 transition ${
-                          hoveredPlaceId === `hotels-${h.id}`
-                            ? "border-[var(--edgehot)]"
-                            : "border-[var(--edge)]"
-                        }`}
-                      >
-                        {h.photo_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={h.photo_url}
-                            alt=""
-                            className="h-28 w-full object-cover"
-                          />
-                        )}
-                        <div className="p-4">
-                          <div className="flex justify-between gap-2">
-                            <p className="font-display text-sm font-semibold text-[var(--ink)]">
-                              #{h.review_rank} {h.name}
-                            </p>
-                            <p className="font-display text-lg font-bold text-[var(--ink)]">
-                              ${Math.round(h.price_total)}
-                            </p>
-                          </div>
-                          <p className="mt-1 text-xs text-[var(--inkmute)]">
-                            {h.rating != null && (
-                              <span className="font-semibold text-[var(--inksoft)]">
-                                ★ {h.rating.toFixed(1)}
-                              </span>
-                            )}
-                            {h.review_count != null && (
-                              <span> · {h.review_count} reviews</span>
-                            )}
-                            {" · "}
-                            {h.neighborhood} · {h.nights}n
-                          </p>
-                          <ReviewsBlock reviews={placeReviews[`hotels-${h.id}`]} />
-                        </div>
-                      </article>
-                    ))}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {c.payload.offers.slice(0, 4).map((h) => (
+                        <StayOfferCard
+                          key={h.id}
+                          name={h.name}
+                          photo={h.photo_url}
+                          neighborhood={h.neighborhood}
+                          nights={h.nights}
+                          rating={h.rating}
+                          reviewCount={h.review_count}
+                          reviewRank={h.review_rank}
+                          price={h.price_total}
+                          checkIn={h.check_in}
+                          checkOut={h.check_out}
+                          highlighted={hoveredPlaceId === `hotels-${h.id}`}
+                          reviews={placeReviews[`hotels-${h.id}`]}
+                          onMouseEnter={() =>
+                            setHoveredPlaceId(`hotels-${h.id}`)
+                          }
+                          onMouseLeave={() =>
+                            setHoveredPlaceId((id) =>
+                              id === `hotels-${h.id}` ? null : id,
+                            )
+                          }
+                        />
+                      ))}
+                    </div>
                   </div>
                 );
               }

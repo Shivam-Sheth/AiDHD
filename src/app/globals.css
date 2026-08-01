@@ -125,6 +125,26 @@ body {
   background: color-mix(in srgb, var(--panel) 92%, transparent);
 }
 
+.offer-card {
+  border: 1px solid var(--edge);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  box-shadow: 0 10px 30px -22px var(--accent-shadow);
+}
+
+.offer-card:hover {
+  border-color: var(--edgehot);
+  box-shadow: 0 18px 40px -24px var(--accent-shadow);
+}
+
+.section-kicker {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--inkmute);
+}
+
 .field {
   width: 100%;
   border: 1px solid var(--edge);

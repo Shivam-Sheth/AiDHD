@@ -86,8 +86,7 @@ export function DemoApp({
   const [eventId, setEventId] = useState(EVENT_ID);
   const [voiceClip, setVoiceClip] = useState<string | null>(null);
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
-  const { active: pixelActive, setActive: setPixelActive, meta: pixelMeta } =
-    usePixelObject(true);
+  const { active: pixelActive, setActive: setPixelActive } = usePixelObject(true);
 
   const refresh = useCallback(async () => {
     const data = await j<Snapshot>(`/api/events/${eventId}`);
@@ -335,14 +334,15 @@ export function DemoApp({
       </header>
 
       <main id="top" className="relative z-10 mx-auto w-full max-w-6xl px-5 lg:px-8">
-        <section className="grid min-h-[92vh] items-center gap-10 pt-24 pb-16 lg:grid-cols-[1fr_1.05fr] lg:gap-8">
+        <section className="grid min-h-[92vh] items-center gap-10 pt-24 pb-16 lg:grid-cols-[0.95fr_1.15fr] lg:gap-10">
           <div className="animate-fade-in order-2 lg:order-1">
+            <p className="section-kicker mb-4">Group nights & trips</p>
             <h1 className="font-display text-5xl font-semibold tracking-tight text-[var(--ink)] sm:text-6xl lg:text-7xl">
               AiDHD
             </h1>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-[var(--inksoft)]">
-              Group nights and trips, planned and booked from chat — flights,
-              hotels, tickets, dining.
+              From chat to booked — fly, stay, experience, dine. One agent that
+              finishes the loop with real inventory and scoped payments.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/agent" className="btn-primary">
@@ -355,20 +355,20 @@ export function DemoApp({
               >
                 Group demo
               </button>
+              <Link href="/reel" className="btn-ghost">
+                Reel → plan
+              </Link>
             </div>
             <div className="mt-12">
               <PixelObjectPicker
                 active={pixelActive}
                 onSelect={setPixelActive}
               />
-              <p className="mt-3 max-w-sm text-sm leading-relaxed text-[var(--inkmute)]">
-                {pixelMeta.blurb}
-              </p>
             </div>
           </div>
 
           <div className="animate-slide-up order-1 w-full lg:order-2">
-            <PixelSceneStage activeKey={pixelActive} />
+            <PixelSceneStage activeKey={pixelActive} journey />
           </div>
         </section>
 

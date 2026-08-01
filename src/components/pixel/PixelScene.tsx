@@ -197,11 +197,11 @@ function SceneInner({
 
   return (
     <>
-      <ambientLight intensity={1.1} />
-      <hemisphereLight intensity={0.55} color="#c8d0e8" groundColor="#12141c" />
-      <directionalLight position={[18, 26, 20]} intensity={1.35} />
-      <pointLight position={[-22, 8, 16]} intensity={420} color="#5eead4" />
-      <pointLight position={[22, -6, 12]} intensity={280} color="#f0a0b8" />
+      <ambientLight intensity={0.95} />
+      <hemisphereLight intensity={0.4} color="#d8dde8" groundColor="#101218" />
+      <directionalLight position={[16, 22, 18]} intensity={1.15} />
+      <pointLight position={[-18, 8, 14]} intensity={180} color="#5eead4" />
+      <pointLight position={[18, -4, 10]} intensity={120} color="#f0a0b8" />
       <CameraRig pointer={pointer} reduced={reduced} distance={distance} />
       {models.map(({ key, model }) => (
         <VoxelMesh

@@ -215,10 +215,9 @@ function sourceBadge(source?: string) {
 
 function FlightRow({ f }: { f: FlightCard }) {
   return (
-    <article className="pixel-panel group relative overflow-hidden p-4 transition duration-300 hover:-translate-y-0.5 hover:border-[var(--cyan)]/40">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="h-1.5 w-1.5 bg-[var(--cyan)]" />
-        <span className="label text-[var(--cyan)]">Flight</span>
+    <article className="surface group relative overflow-hidden p-4 transition duration-300 hover:border-[var(--edgehot)]">
+      <div className="mb-2 text-xs tracking-[0.12em] text-[var(--inkmute)] uppercase">
+        Flight
       </div>
       <div className="flex items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-[var(--edge)] bg-white">
@@ -230,17 +229,17 @@ function FlightRow({ f }: { f: FlightCard }) {
               className="h-8 w-8 object-contain"
             />
           ) : (
-            <span className="font-display text-[0.45rem] text-[#0b3d38]">
+            <span className="font-display text-xs font-semibold text-[#0b3d38]">
               {f.airline.slice(0, 2).toUpperCase()}
             </span>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate font-display text-[0.62rem] text-[var(--ink)]">
+            <p className="truncate font-display text-sm font-medium text-[var(--ink)]">
               {f.airline}
             </p>
-            <p className="font-display text-[0.85rem] tabular-nums text-[var(--amber)]">
+            <p className="font-display text-lg font-semibold tabular-nums text-[var(--ink)]">
               ${Math.round(f.price_per_person)}
               <span className="ml-0.5 text-[10px] font-medium text-[var(--inkmute)]">
                 /pp
@@ -249,19 +248,19 @@ function FlightRow({ f }: { f: FlightCard }) {
           </div>
           <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <div>
-              <p className="font-display text-[1rem] tracking-tight text-[var(--ink)]">
+              <p className="font-display text-xl font-semibold tracking-tight text-[var(--ink)]">
                 {f.from}
               </p>
               <p className="text-xs text-[var(--inkmute)]">{fmtTime(f.depart)}</p>
             </div>
             <div className="flex flex-col items-center px-1">
-              <div className="h-px w-10 bg-gradient-to-r from-transparent via-[var(--cyan)]/70 to-transparent" />
+              <div className="h-px w-10 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
               <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--inkmute)]">
                 {f.cabin}
               </p>
             </div>
             <div className="text-right">
-              <p className="font-display text-[1rem] tracking-tight text-[var(--ink)]">
+              <p className="font-display text-xl font-semibold tracking-tight text-[var(--ink)]">
                 {f.to}
               </p>
               <p className="text-xs text-[var(--inkmute)]">{fmtTime(f.arrive)}</p>
@@ -317,7 +316,7 @@ function MediaCard({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={`flex overflow-hidden border bg-[var(--panel)]/90 transition ${
-        highlighted ? "border-[var(--amber)]/60" : "border-[var(--edge)]"
+        highlighted ? "border-white/30" : "border-[var(--edge)]"
       }`}
     >
       {photo && (
@@ -325,9 +324,9 @@ function MediaCard({
         <img src={photo} alt="" className="h-28 w-28 shrink-0 object-cover" />
       )}
       <div className="flex flex-1 flex-col justify-center p-3">
-        <p className="font-display text-[0.62rem] text-[var(--ink)]">{title}</p>
+        <p className="font-display text-sm font-medium text-[var(--ink)]">{title}</p>
         <p className="mt-1 text-xs leading-relaxed text-[var(--inkmute)]">{meta}</p>
-        <p className="mt-2 font-display text-[0.85rem] text-[var(--amber)]">
+        <p className="mt-2 font-display text-lg font-semibold text-[var(--ink)]">
           ${Math.round(price)}
           {priceSuffix && (
             <span className="ml-0.5 text-[10px] font-medium text-[var(--inkmute)]">
@@ -1348,23 +1347,22 @@ export function ConciergeAgent({
 }) {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
-        <div className="absolute inset-0 site-atmosphere" />
-        <div className="absolute inset-[-12%] site-stars" />
-        <div className="absolute inset-x-0 bottom-0 h-[40vh] site-grid-floor" />
-      </div>
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 site-atmosphere"
+        aria-hidden
+      />
       <header className="mx-auto flex max-w-6xl items-baseline justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
-          className="font-display text-[0.7rem] tracking-widest text-[var(--ink)] transition-colors hover:text-[var(--cyan)]"
+          className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
         >
-          AiDHD<span className="text-[var(--cyan)]">.APP</span>
+          AiDHD
         </Link>
         <div className="flex gap-5 text-sm text-[var(--inkmute)]">
-          <Link href="/reel" className="transition hover:text-[var(--cyan)]">
+          <Link href="/reel" className="transition hover:text-[var(--ink)]">
             Reel → plan
           </Link>
-          <Link href="/" className="transition hover:text-[var(--cyan)]">
+          <Link href="/" className="transition hover:text-[var(--ink)]">
             Demo
           </Link>
         </div>

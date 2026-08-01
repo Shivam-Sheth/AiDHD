@@ -13,7 +13,7 @@ const OAUTH_ERRORS: Record<string, string> = {
 };
 
 const fieldClass =
-  "w-full border border-[var(--edge)] bg-[var(--void)] px-4 py-3 text-[var(--ink)] outline-none transition placeholder:text-[var(--inkmute)] focus:border-[var(--cyan)]";
+  "w-full border border-[var(--edge)] bg-[var(--void)] px-4 py-3 text-[var(--ink)] outline-none transition placeholder:text-[var(--inkmute)] focus:border-[var(--edgehot)]";
 
 export function LoginForm() {
   const router = useRouter();
@@ -66,41 +66,40 @@ export function LoginForm() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
-        <div className="absolute inset-0 site-atmosphere" />
-        <div className="absolute inset-[-12%] site-stars" />
-      </div>
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 site-atmosphere"
+        aria-hidden
+      />
 
       <header className="mx-auto flex max-w-3xl items-baseline justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
-          className="font-display text-[0.7rem] tracking-widest text-[var(--ink)] transition-colors hover:text-[var(--cyan)]"
+          className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
         >
-          AiDHD<span className="text-[var(--cyan)]">.APP</span>
+          AiDHD
         </Link>
         <Link
           href="/"
-          className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--cyan)]"
+          className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
         >
           Back home
         </Link>
       </header>
 
       <main className="mx-auto flex max-w-3xl justify-center px-5 pb-24 pt-14 sm:px-6">
-        <div className="pixel-panel w-full max-w-sm animate-fade-in p-6">
-          <p className="label text-[var(--cyan)]">
-            <span className="blink">▮</span> Welcome back
-          </p>
-          <h1 className="font-display mt-4 text-[1.1rem] leading-snug tracking-wide text-[var(--ink)]">
+        <div className="w-full max-w-sm animate-fade-in">
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-[var(--ink)]">
             Sign in
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
             Name and email are required — phone number is optional.
           </p>
 
-          <form onSubmit={handleSubmit} className="animate-slide-up mt-8 space-y-4">
+          <form onSubmit={handleSubmit} className="animate-slide-up mt-10 space-y-4">
             <label className="block">
-              <span className="label mb-1.5 block text-[var(--inkmute)]">Name</span>
+              <span className="mb-1.5 block text-sm text-[var(--inksoft)]">
+                Name
+              </span>
               <input
                 type="text"
                 value={name}
@@ -113,7 +112,9 @@ export function LoginForm() {
             </label>
 
             <label className="block">
-              <span className="label mb-1.5 block text-[var(--inkmute)]">Email</span>
+              <span className="mb-1.5 block text-sm text-[var(--inksoft)]">
+                Email
+              </span>
               <input
                 type="email"
                 value={email}
@@ -126,8 +127,8 @@ export function LoginForm() {
 
             <label className="block">
               <span className="mb-1.5 flex items-baseline justify-between">
-                <span className="label text-[var(--inkmute)]">Phone</span>
-                <span className="text-[10px] text-[var(--inkmute)]">Optional</span>
+                <span className="text-sm text-[var(--inksoft)]">Phone</span>
+                <span className="text-xs text-[var(--inkmute)]">Optional</span>
               </span>
               <input
                 type="tel"
@@ -140,7 +141,7 @@ export function LoginForm() {
             </label>
 
             <label className="block">
-              <span className="label mb-1.5 block text-[var(--inkmute)]">
+              <span className="mb-1.5 block text-sm text-[var(--inksoft)]">
                 Password
               </span>
               <input
@@ -154,7 +155,7 @@ export function LoginForm() {
             </label>
 
             {error && (
-              <p className="border border-[var(--rose)]/40 bg-[var(--rose)]/10 px-3 py-2 text-sm text-[var(--rose)]">
+              <p className="border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">
                 {error}
               </p>
             )}
@@ -162,7 +163,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="pixel-btn pixel-btn-fill w-full disabled:cursor-wait disabled:opacity-60"
+              className="btn-primary w-full disabled:cursor-wait disabled:opacity-60"
             >
               {submitting ? "Signing in…" : "Sign in"}
             </button>
@@ -170,7 +171,7 @@ export function LoginForm() {
 
           <div className="mt-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-[var(--edge)]" />
-            <span className="label text-[var(--inkmute)]">or</span>
+            <span className="text-xs text-[var(--inkmute)]">or</span>
             <div className="h-px flex-1 bg-[var(--edge)]" />
           </div>
 
@@ -178,7 +179,7 @@ export function LoginForm() {
             type="button"
             onClick={() => void handleGoogleSignIn()}
             disabled={googleBusy}
-            className="pixel-btn mt-6 w-full gap-3 text-[var(--inksoft)] disabled:cursor-wait disabled:opacity-60"
+            className="btn-ghost mt-6 w-full gap-3 disabled:cursor-wait disabled:opacity-60"
           >
             <svg viewBox="0 0 18 18" className="h-4 w-4" aria-hidden>
               <path

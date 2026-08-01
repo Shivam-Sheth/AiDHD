@@ -65,7 +65,6 @@ function placeFromComponent(
     const neighborhood = parts[1] || destination;
     return { label: name, query: `${name}, ${neighborhood}` };
   }
-  // Flights are a route, not a point on a map — skip.
   return null;
 }
 
@@ -112,28 +111,6 @@ export function DemoApp({
   }, [eventId]);
 
   const phase = phaseFrom(snap);
-
-  useEffect(() => {
-    const nodes = Array.from(document.querySelectorAll(".reveal"));
-    if (!nodes.length) return;
-    if (!("IntersectionObserver" in window)) {
-      nodes.forEach((el) => el.classList.add("is-visible"));
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            io.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
-    );
-    nodes.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [snap?.packages?.length, phase]);
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -198,7 +175,6 @@ export function DemoApp({
     }
   }
 
-  /** Bypass Meta webhook — types a reply as if it came from WhatsApp. */
   async function simulateWhatsAppReply() {
     setBusy(true);
     setError(null);
@@ -301,111 +277,89 @@ export function DemoApp({
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[var(--void)] text-[var(--ink)]">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
-        <div className="absolute inset-0 site-atmosphere" />
-        <div className="absolute inset-[-12%] site-stars" />
-        <div className="absolute inset-x-0 bottom-0 h-[45vh] site-grid-floor" />
-      </div>
-      <div className="crt-overlay" aria-hidden />
-      <div className="vignette" aria-hidden />
+      <div
+        className="pointer-events-none fixed inset-0 -z-10 site-atmosphere"
+        aria-hidden
+      />
 
-      <header className="fixed inset-x-0 top-0 z-50">
-        <div className="h-[3px] w-full bg-[var(--abyss)]">
-          <div className="h-full w-1/3 bg-gradient-to-r from-[var(--cyan)] via-[var(--sky)] to-[var(--rose)]" />
-        </div>
-        <nav className="border-b border-[var(--edge)] bg-[var(--void)]/85 backdrop-blur-md">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--edge)] bg-[var(--void)]/80 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 lg:px-8">
+          <button
+            type="button"
+            onClick={() => scrollTo("top")}
+            className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
+          >
+            AiDHD
+          </button>
+          <nav className="hidden items-center gap-7 md:flex">
+            {[
+              ["problem", "Problem"],
+              ["use-cases", "Plans"],
+              ["how-it-works", "How it works"],
+              ["demo", "Demo"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => scrollTo(id)}
+                className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
+              >
+                {label}
+              </button>
+            ))}
+            <Link
+              href="/agent"
+              className="text-sm text-[var(--inksoft)] transition-colors hover:text-[var(--ink)]"
+            >
+              Live agent
+            </Link>
+          </nav>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
+            >
+              Sign in
+            </Link>
             <button
               type="button"
-              onClick={() => scrollTo("top")}
-              className="font-display text-[0.62rem] tracking-widest text-[var(--ink)] transition-colors hover:text-[var(--cyan)]"
+              onClick={() => void startDemo()}
+              className="btn-primary !py-2 !px-3.5 text-sm"
             >
-              AiDHD<span className="text-[var(--cyan)]">.APP</span>
+              Try demo
             </button>
-            <ul className="hidden items-center gap-0.5 md:flex">
-              {[
-                ["problem", "Problem"],
-                ["use-cases", "Plans"],
-                ["how-it-works", "Flow"],
-                ["demo", "Demo"],
-              ].map(([id, label]) => (
-                <li key={id}>
-                  <button
-                    type="button"
-                    onClick={() => scrollTo(id)}
-                    className="label whitespace-nowrap px-2 py-2 text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
-                  >
-                    {label}
-                  </button>
-                </li>
-              ))}
-              <li>
-                <Link
-                  href="/agent"
-                  className="label whitespace-nowrap px-2 py-2 text-[var(--cyan)] transition-colors hover:text-[var(--ink)]"
-                >
-                  Live
-                </Link>
-              </li>
-            </ul>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="hidden text-[11px] text-[var(--inkmute)] transition-colors hover:text-[var(--ink)] sm:inline"
-              >
-                Sign in
-              </Link>
-              <button
-                type="button"
-                onClick={() => void startDemo()}
-                className="pixel-btn pixel-btn-fill"
-              >
-                Try demo
-              </button>
-            </div>
           </div>
-        </nav>
+        </div>
       </header>
 
-      <main id="top" className="relative z-10 mx-auto w-full max-w-6xl px-5">
-        <section className="grid min-h-[92vh] items-center gap-8 pt-28 pb-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
+      <main id="top" className="relative z-10 mx-auto w-full max-w-6xl px-5 lg:px-8">
+        <section className="grid min-h-[92vh] items-center gap-10 pt-24 pb-16 lg:grid-cols-[1fr_1.05fr] lg:gap-8">
           <div className="animate-fade-in order-2 lg:order-1">
-            <p className="label mb-5 text-[var(--cyan)]">
-              <span className="blink">▮</span> Group planner — Ready
-            </p>
-            <h1 className="hero-title text-[var(--ink)]">
+            <h1 className="font-display text-5xl font-semibold tracking-tight text-[var(--ink)] sm:text-6xl lg:text-7xl">
               AiDHD
-              <br />
-              <span className="text-[var(--rose)]">CONCIERGE</span>
             </h1>
-            <p className="mt-6 max-w-lg text-sm leading-relaxed text-[var(--inksoft)] md:text-base">
-              Friends drop budgets in chat. AiDHD finds flights, hotels, tickets,
-              and tables — then books with scoped Prava payments per category.
+            <p className="mt-5 max-w-md text-lg leading-relaxed text-[var(--inksoft)]">
+              Group nights and trips, planned and booked from chat — flights,
+              hotels, tickets, dining.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/agent" className="pixel-btn pixel-btn-fill">
+              <Link href="/agent" className="btn-primary">
                 Live Concierge
               </Link>
               <button
                 type="button"
                 onClick={() => void startDemo()}
-                className="pixel-btn text-[var(--inksoft)]"
+                className="btn-ghost"
               >
                 Group demo
               </button>
             </div>
-            <div className="mt-10">
+            <div className="mt-12">
               <PixelObjectPicker
                 active={pixelActive}
                 onSelect={setPixelActive}
               />
-              <p
-                className="mt-3 max-w-md text-sm leading-relaxed text-[var(--inksoft)]"
-                style={{
-                  borderLeft: `2px solid ${pixelMeta.accent}`,
-                  paddingLeft: 12,
-                }}
-              >
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-[var(--inkmute)]">
                 {pixelMeta.blurb}
               </p>
             </div>
@@ -415,46 +369,16 @@ export function DemoApp({
             <PixelSceneStage activeKey={pixelActive} />
           </div>
         </section>
-      </main>
 
-      <div className="relative z-10 overflow-hidden border-y border-[var(--edge)] bg-[var(--abyss)]/60 py-3">
-        <div className="marquee-track">
-          {[0, 1].map((copy) => (
-            <div key={copy} className="flex shrink-0 items-center">
-              {[
-                "FLIGHTS",
-                "HOTELS",
-                "TICKETS",
-                "DINING",
-                "PRAVA",
-                "SENSO TRUST",
-              ].map((item) => (
-                <span
-                  key={`${copy}-${item}`}
-                  className="label flex items-center gap-6 px-6 text-[var(--inkmute)]"
-                >
-                  {item}
-                  <span className="text-[var(--cyan)]">◆</span>
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <main className="relative z-10 mx-auto w-full max-w-6xl px-5">
         <section
           id="problem"
-          className="scroll-mt-24 border-b border-[var(--edge)]/50 py-20 md:py-28"
+          className="border-t border-[var(--edge)] py-20 md:py-28"
         >
-          <div className="reveal mx-auto max-w-3xl text-center">
-            <p className="label mb-3 text-[var(--rose)]">
-              <span className="text-[var(--inkmute)]">01</span> / Problem
-            </p>
-            <h2 className="section-title text-[var(--ink)]">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
               Group chat is where plans go to die
             </h2>
-            <p className="mt-5 text-sm leading-relaxed text-[var(--inksoft)] md:text-base">
+            <p className="mt-5 text-base leading-relaxed text-[var(--inksoft)]">
               Three budgets. Two vibes. Zero bookings. AiDHD finishes the loop —
               search, cards, pay, confirm — for nights out and weekend trips.
             </p>
@@ -463,107 +387,78 @@ export function DemoApp({
 
         <section
           id="use-cases"
-          className="scroll-mt-24 border-b border-[var(--edge)]/50 py-20 md:py-28"
+          className="border-t border-[var(--edge)] py-20 md:py-28"
         >
-          <div className="reveal mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="label mb-3 text-[var(--amber)]">
-                <span className="text-[var(--inkmute)]">02</span> / Plans
-              </p>
-              <h2 className="section-title text-[var(--ink)]">
-                Same product. Two kinds of plans.
-              </h2>
-            </div>
-            <p className="max-w-md text-sm leading-relaxed text-[var(--inksoft)]">
+          <div className="mb-12 max-w-xl">
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
+              Same product. Two kinds of plans.
+            </h2>
+            <p className="mt-4 text-[var(--inksoft)]">
               Collect → package → pay per category → book.
             </p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <article className="reveal pixel-panel p-6">
-              <p className="label text-[var(--rose)]">Night out</p>
-              <h3 className="font-display mt-3 text-[0.78rem] text-[var(--ink)]">
+          <div className="grid gap-10 md:grid-cols-2 md:gap-16">
+            <div>
+              <p className="text-xs font-medium tracking-[0.14em] text-[var(--inkmute)] uppercase">
+                Night out
+              </p>
+              <h3 className="font-display mt-3 text-2xl font-medium text-[var(--ink)]">
                 Concert + dinner
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
                 Tickets, timing, and a pre-show table that fit everyone&apos;s
                 budget — with separate Prava mandates for ticket and dining.
               </p>
-              <ul className="mt-4 space-y-2 text-[13px] text-[var(--inksoft)]">
-                {["Ticket tier + venue", "Dinner reservation", "Spend caps per category"].map(
-                  (item) => (
-                    <li key={item} className="flex gap-3">
-                      <span className="mt-[7px] h-1.5 w-1.5 shrink-0 bg-[var(--rose)]" />
-                      {item}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </article>
-            <article className="reveal pixel-panel p-6">
-              <p className="label text-[var(--cyan)]">Travel</p>
-              <h3 className="font-display mt-3 text-[0.78rem] text-[var(--ink)]">
+            </div>
+            <div>
+              <p className="text-xs font-medium tracking-[0.14em] text-[var(--inkmute)] uppercase">
+                Travel
+              </p>
+              <h3 className="font-display mt-3 text-2xl font-medium text-[var(--ink)]">
                 Weekend / multi-day trip
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
                 Flights, hotel, itinerary, and dinner — same agent, same
                 per-category Prava flow.
               </p>
-              <ul className="mt-4 space-y-2 text-[13px] text-[var(--inksoft)]">
-                {["Flights + hotel stays", "Itinerary days for the group", "Re-mandate only the failed leg"].map(
-                  (item) => (
-                    <li key={item} className="flex gap-3">
-                      <span className="mt-[7px] h-1.5 w-1.5 shrink-0 bg-[var(--cyan)]" />
-                      {item}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </article>
+            </div>
           </div>
         </section>
 
         <section
           id="how-it-works"
-          className="scroll-mt-24 border-b border-[var(--edge)]/50 py-20 md:py-28"
+          className="border-t border-[var(--edge)] py-20 md:py-28"
         >
-          <div className="reveal mb-10 text-center">
-            <p className="label mb-3 text-[var(--sky)]">
-              <span className="text-[var(--inkmute)]">03</span> / Flow
-            </p>
-            <h2 className="section-title text-[var(--ink)]">How it works</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm text-[var(--inksoft)]">
-              Three steps from messy group chat to a booked night — or trip.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <h2 className="font-display text-center text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
+            How it works
+          </h2>
+          <p className="mx-auto mt-4 max-w-lg text-center text-[var(--inksoft)]">
+            Three steps from messy group chat to a booked night — or trip.
+          </p>
+          <div className="mt-14 grid gap-10 md:grid-cols-3">
             {[
               {
                 n: "01",
                 t: "Share budget + vibe",
                 d: "Web, WhatsApp, or iMessage — dates, caps, and prefs.",
-                c: "var(--cyan)",
               },
               {
                 n: "02",
                 t: "Get 2–3 real plans",
                 d: "Tickets + dinner, or flights + hotel + itinerary — trust-checked.",
-                c: "var(--rose)",
               },
               {
                 n: "03",
                 t: "Pick. Pay. Book.",
                 d: "Separate Prava limits per category. Failures re-ask only that leg.",
-                c: "var(--amber)",
               },
             ].map((s) => (
-              <div key={s.n} className="reveal pixel-panel p-5">
-                <p className="font-display text-[0.7rem]" style={{ color: s.c }}>
-                  {s.n}
-                </p>
-                <h3 className="mt-3 font-display text-[0.68rem] text-[var(--ink)]">
+              <div key={s.n}>
+                <p className="font-display text-sm text-[var(--inkmute)]">{s.n}</p>
+                <h3 className="mt-3 font-display text-xl font-medium text-[var(--ink)]">
                   {s.t}
                 </h3>
-                <p className="mt-3 text-sm leading-relaxed text-[var(--inksoft)]">
+                <p className="mt-2 text-sm leading-relaxed text-[var(--inksoft)]">
                   {s.d}
                 </p>
               </div>
@@ -571,13 +466,12 @@ export function DemoApp({
           </div>
         </section>
 
-        <section id="demo" className="scroll-mt-24 py-20 md:py-28">
-          <div className="reveal mx-auto max-w-3xl text-center">
-            <p className="label mb-3 text-[var(--lime)]">
-              <span className="text-[var(--inkmute)]">04</span> / Demo
-            </p>
-            <h2 className="section-title text-[var(--ink)]">Live demo</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm text-[var(--inksoft)]">
+        <section id="demo" className="border-t border-[var(--edge)] py-20 md:py-28">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
+              Live demo
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-[var(--inksoft)]">
               WhatsApp collects prefs. AiDHD plans and books with per-category
               Prava mandates + voice confirm.
             </p>
@@ -589,9 +483,9 @@ export function DemoApp({
                   setSelected(null);
                   setVoiceClip(null);
                 }}
-                className={`pixel-btn ${
-                  eventId === EVENT_ID ? "pixel-btn-fill" : "text-[var(--inkmute)]"
-                }`}
+                className={
+                  eventId === EVENT_ID ? "btn-primary !py-2" : "btn-ghost !py-2"
+                }
               >
                 Outing
               </button>
@@ -602,29 +496,31 @@ export function DemoApp({
                   setSelected(null);
                   setVoiceClip(null);
                 }}
-                className={`pixel-btn ${
+                className={
                   eventId === TRIP_EVENT_ID
-                    ? "pixel-btn-fill"
-                    : "text-[var(--inkmute)]"
-                }`}
+                    ? "btn-primary !py-2"
+                    : "btn-ghost !py-2"
+                }
               >
                 Travel · Miami
               </button>
             </div>
             {error && (
-              <p className="mt-6 border border-[var(--rose)]/40 bg-[var(--rose)]/10 px-4 py-3 text-sm text-[var(--rose)]">
+              <p className="mt-6 border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">
                 {error}
               </p>
             )}
           </div>
 
           {integrations.whatsapp === "live" && (
-            <div className="reveal pixel-panel mx-auto mt-8 max-w-3xl px-5 py-5">
-              <p className="label text-[var(--inkmute)]">WhatsApp sandbox</p>
+            <div className="surface mx-auto mt-8 max-w-3xl px-5 py-5">
+              <p className="text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
+                WhatsApp sandbox
+              </p>
               <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--inksoft)]">
                 <li>
-                  Meta → app <strong className="text-[var(--ink)]">AiDHD</strong> →{" "}
-                  <strong className="text-[var(--ink)]">Use cases</strong>
+                  Meta → app <strong className="text-[var(--ink)]">AiDHD</strong>{" "}
+                  → <strong className="text-[var(--ink)]">Use cases</strong>
                 </li>
                 <li>
                   Open{" "}
@@ -641,18 +537,20 @@ export function DemoApp({
                 onChange={(e) => setWaPhones(e.target.value)}
                 placeholder="+15551234567, +15559876543"
                 rows={2}
-                className="mt-4 w-full border border-[var(--edge)] bg-[var(--void)] px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--cyan)]"
+                className="mt-4 w-full border border-[var(--edge)] bg-[var(--void)] px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--edgehot)]"
               />
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void inviteWhatsApp()}
-                className="pixel-btn pixel-btn-fill mt-3 disabled:opacity-50"
+                className="btn-primary mt-3 disabled:opacity-50"
               >
                 {busy ? "Sending…" : "Text friends"}
               </button>
               <div className="mt-5 border-t border-[var(--edge)] pt-4">
-                <p className="label text-[var(--inkmute)]">Research call</p>
+                <p className="text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
+                  Research call
+                </p>
                 <p className="mt-1 text-sm text-[var(--inksoft)]">
                   Demo a venue research call (height limits, hotel policy…).
                 </p>
@@ -688,31 +586,33 @@ export function DemoApp({
                       }
                     })()
                   }
-                  className="pixel-btn mt-3 text-[var(--inksoft)] disabled:opacity-50"
+                  className="btn-ghost mt-3 disabled:opacity-50"
                 >
                   Demo research call
                 </button>
               </div>
               <div className="mt-5 border-t border-[var(--edge)] pt-4">
-                <p className="label text-[var(--inkmute)]">Simulate reply</p>
+                <p className="text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
+                  Simulate reply
+                </p>
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                   <input
                     value={waReplyPhone}
                     onChange={(e) => setWaReplyPhone(e.target.value)}
                     placeholder="+17735411355"
-                    className="border border-[var(--edge)] bg-[var(--void)] px-3 py-2 text-sm outline-none focus:border-[var(--cyan)] sm:w-44"
+                    className="border border-[var(--edge)] bg-[var(--void)] px-3 py-2 text-sm outline-none focus:border-[var(--edgehot)] sm:w-44"
                   />
                   <input
                     value={waReplyMsg}
                     onChange={(e) => setWaReplyMsg(e.target.value)}
                     placeholder="PLAN"
-                    className="min-w-0 flex-1 border border-[var(--edge)] bg-[var(--void)] px-3 py-2 text-sm outline-none focus:border-[var(--cyan)]"
+                    className="min-w-0 flex-1 border border-[var(--edge)] bg-[var(--void)] px-3 py-2 text-sm outline-none focus:border-[var(--edgehot)]"
                   />
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => void simulateWhatsAppReply()}
-                    className="pixel-btn text-[var(--inksoft)] disabled:opacity-50"
+                    className="btn-ghost disabled:opacity-50"
                   >
                     Send reply
                   </button>
@@ -725,13 +625,10 @@ export function DemoApp({
           )}
 
           <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="pixel-panel overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-[var(--edge)] bg-[var(--abyss)]/80 px-4 py-3">
-                <span className="h-2 w-2 bg-[var(--rose)]" />
-                <span className="h-2 w-2 bg-[var(--amber)]" />
-                <span className="h-2 w-2 bg-[var(--cyan)]" />
-                <span className="ml-2 text-sm text-[var(--inkmute)]">
-                  AiDHD — {snap?.event.title ?? "loading…"}
+            <div className="surface overflow-hidden">
+              <div className="flex items-center justify-between border-b border-[var(--edge)] px-4 py-3">
+                <span className="text-sm text-[var(--inkmute)]">
+                  {snap?.event.title ?? "loading…"}
                 </span>
               </div>
 
@@ -745,7 +642,7 @@ export function DemoApp({
                       type="button"
                       disabled={busy}
                       onClick={() => void startDemo()}
-                      className="pixel-btn pixel-btn-fill mt-6 disabled:opacity-50"
+                      className="btn-primary mt-6 disabled:opacity-50"
                     >
                       {busy ? "Working…" : "Start demo"}
                     </button>
@@ -757,7 +654,9 @@ export function DemoApp({
                   phase === "pay" ||
                   phase === "done") && (
                   <div>
-                    <p className="label mb-3 text-[var(--inkmute)]">The group</p>
+                    <p className="mb-3 text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
+                      The group
+                    </p>
                     <div className="grid gap-2 sm:grid-cols-3">
                       {(snap?.responses ?? []).map((r) => {
                         const name =
@@ -766,13 +665,13 @@ export function DemoApp({
                         return (
                           <div
                             key={r.id}
-                            className="border border-[var(--edge)] bg-[var(--void)]/50 px-3 py-3"
+                            className="border border-[var(--edge)] bg-[var(--void)]/40 px-3 py-3"
                           >
                             <div className="flex items-baseline justify-between">
-                              <span className="text-sm font-semibold text-[var(--ink)]">
+                              <span className="text-sm font-medium text-[var(--ink)]">
                                 {name}
                               </span>
-                              <span className="text-sm font-semibold text-[var(--cyan)]">
+                              <span className="text-sm text-[var(--inksoft)]">
                                 ${r.budget_cap}
                               </span>
                             </div>
@@ -788,7 +687,7 @@ export function DemoApp({
 
                 {(phase === "plans" || phase === "pay" || phase === "done") && (
                   <div>
-                    <p className="label mb-3 text-[var(--inkmute)]">
+                    <p className="mb-3 text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
                       {phase === "plans" ? "Pick a plan" : "Selected plan"}
                     </p>
                     <div className="space-y-3">
@@ -805,13 +704,13 @@ export function DemoApp({
                           onClick={() => void choosePlan(pkg)}
                           className={`w-full border p-4 text-left transition ${
                             chosen?.id === pkg.id
-                              ? "border-[var(--cyan)] bg-[var(--cyan)]/10 shadow-[3px_3px_0_0] shadow-[var(--cyan)]/25"
-                              : "border-[var(--edge)] bg-[var(--void)]/40 hover:border-[var(--edgehot)]"
+                              ? "border-white/30 bg-white/[0.04]"
+                              : "border-[var(--edge)] bg-transparent hover:border-[var(--edgehot)]"
                           } disabled:cursor-default`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <div className="font-display text-[0.65rem] text-[var(--ink)]">
+                              <div className="font-display text-base font-medium text-[var(--ink)]">
                                 {pkg.label}
                               </div>
                               <p className="mt-1 text-xs text-[var(--inkmute)]">
@@ -835,7 +734,7 @@ export function DemoApp({
                               </div>
                             </div>
                             <div className="shrink-0 text-right">
-                              <div className="font-semibold text-[var(--amber)]">
+                              <div className="font-medium text-[var(--ink)]">
                                 ${pkg.total_cost}
                               </div>
                               <div className="text-xs text-[var(--inkmute)]">
@@ -856,17 +755,17 @@ export function DemoApp({
 
                 {(phase === "pay" || phase === "done") && (
                   <div>
-                    <p className="label mb-3 text-[var(--inkmute)]">
+                    <p className="mb-3 text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
                       Pay with Prava
                     </p>
                     <div className="space-y-2">
                       {(snap?.mandates ?? []).map((m) => (
                         <div
                           key={m.id}
-                          className="flex items-center justify-between border border-[var(--edge)] bg-[var(--void)]/40 px-4 py-3"
+                          className="flex items-center justify-between border border-[var(--edge)] px-4 py-3"
                         >
                           <div>
-                            <div className="text-sm font-semibold capitalize text-[var(--ink)]">
+                            <div className="text-sm font-medium capitalize text-[var(--ink)]">
                               {m.category}
                               <span className="font-normal text-[var(--inkmute)]">
                                 {" "}
@@ -887,7 +786,7 @@ export function DemoApp({
                         type="button"
                         disabled={busy}
                         onClick={() => void payAndBook()}
-                        className="pixel-btn pixel-btn-fill mt-5 w-full disabled:opacity-50"
+                        className="btn-primary mt-5 w-full disabled:opacity-50"
                       >
                         {busy ? "Booking…" : "Approve & book"}
                       </button>
@@ -896,8 +795,8 @@ export function DemoApp({
                 )}
 
                 {phase === "done" && (
-                  <div className="border border-[var(--cyan)]/40 bg-[var(--cyan)]/10 p-4 text-center">
-                    <p className="font-display text-[0.75rem] text-[var(--cyan)]">
+                  <div className="border border-[var(--edge)] bg-white/[0.03] p-4 text-center">
+                    <p className="font-display text-lg font-medium text-[var(--ink)]">
                       Booked
                     </p>
                     <div className="mt-3 space-y-1 text-sm text-[var(--inksoft)]">
@@ -912,7 +811,7 @@ export function DemoApp({
                     </div>
                     {voiceClip && (
                       <div className="mt-4">
-                        <p className="label mb-2 text-[var(--inkmute)]">
+                        <p className="mb-2 text-xs tracking-[0.12em] text-[var(--inkmute)] uppercase">
                           Voice confirm
                         </p>
                         <audio
@@ -925,7 +824,7 @@ export function DemoApp({
                     <button
                       type="button"
                       onClick={() => void resetDemo()}
-                      className="mt-5 text-sm font-semibold text-[var(--cyan)]"
+                      className="mt-5 text-sm text-[var(--inksoft)] underline-offset-4 hover:underline"
                     >
                       Run again
                     </button>
@@ -936,8 +835,8 @@ export function DemoApp({
 
             {recommendedPlaces.length > 0 && (
               <div className="flex flex-col gap-6">
-                <div className="pixel-panel p-4">
-                  <p className="label mb-3 text-[var(--inkmute)]">
+                <div className="surface p-4">
+                  <p className="mb-3 text-xs font-medium tracking-[0.12em] text-[var(--inkmute)] uppercase">
                     Recommended places
                   </p>
                   <div className="max-h-72 space-y-2 overflow-y-auto">
@@ -950,15 +849,15 @@ export function DemoApp({
                         }
                         className={`cursor-default border px-3 py-2 transition ${
                           hoveredPlaceId === p.id
-                            ? "border-[var(--cyan)] bg-[var(--cyan)]/10"
-                            : "border-[var(--edge)] bg-[var(--void)]/40"
+                            ? "border-white/25 bg-white/[0.04]"
+                            : "border-[var(--edge)]"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-[var(--ink)]">
+                          <span className="text-sm font-medium text-[var(--ink)]">
                             {p.label}
                           </span>
-                          <span className="text-xs font-semibold text-[var(--amber)]">
+                          <span className="text-xs text-[var(--inksoft)]">
                             ${p.cost}
                           </span>
                         </div>
@@ -983,21 +882,20 @@ export function DemoApp({
         <footer className="border-t border-[var(--edge)] py-10">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="font-display text-[0.7rem] text-[var(--ink)]">
+              <p className="font-display text-base font-semibold text-[var(--ink)]">
                 AiDHD
               </p>
-              <p className="mt-2 text-[11px] text-[var(--inkmute)]">
-                Built for Prava&apos;s Agentic Commerce Hackathon · procedural
-                voxels
+              <p className="mt-1 text-sm text-[var(--inkmute)]">
+                Built for Prava&apos;s Agentic Commerce Hackathon
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               {Object.entries(integrations).map(([k, v]) => (
                 <span
                   key={k}
-                  className={`border px-2.5 py-1 text-[10px] font-semibold tracking-wide uppercase ${
+                  className={`border px-2.5 py-1 text-[10px] tracking-wide uppercase ${
                     v === "live" || v === "registered"
-                      ? "border-[var(--cyan)]/40 text-[var(--cyan)]"
+                      ? "border-white/25 text-[var(--inksoft)]"
                       : "border-[var(--edge)] text-[var(--inkmute)]"
                   }`}
                 >
@@ -1017,11 +915,11 @@ function StatusDot({ status }: { status: string }) {
     status === "approved" || status === "used" || status === "confirmed";
   return (
     <span
-      className={`border px-2.5 py-0.5 text-[10px] font-bold tracking-wide uppercase ${
+      className={`border px-2.5 py-0.5 text-[10px] font-medium tracking-wide uppercase ${
         ok
-          ? "border-[var(--cyan)]/50 text-[var(--cyan)]"
+          ? "border-white/25 text-[var(--inksoft)]"
           : status === "failed"
-            ? "border-[var(--rose)]/50 text-[var(--rose)]"
+            ? "border-red-400/40 text-red-200"
             : "border-[var(--edge)] text-[var(--inkmute)]"
       }`}
     >

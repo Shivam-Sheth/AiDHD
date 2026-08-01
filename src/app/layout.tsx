@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Press_Start_2P } from "next/font/google";
+import { DM_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const pressStart = Press_Start_2P({
-  variable: "--font-press",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-display-face",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "500", "600", "700"],
 });
 
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
+const dmSans = DM_Sans({
+  variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${pressStart.variable} ${jetbrains.variable} h-full`}
+      className={`${spaceGrotesk.variable} ${dmSans.variable} h-full`}
     >
       <body className="min-h-full antialiased" suppressHydrationWarning>
         {children}

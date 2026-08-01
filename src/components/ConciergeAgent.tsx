@@ -22,6 +22,7 @@ import {
   type PlaceReview,
   type RouteInfoPayload,
 } from "@/components/PlacesMap";
+import { ThemeToggle } from "@/components/ThemeProvider";
 
 type FlightCard = {
   id: string;
@@ -275,14 +276,14 @@ function FlightRow({ f }: { f: FlightCard }) {
 function ReviewsBlock({ reviews }: { reviews?: PlaceReview[] }) {
   if (!reviews?.length) return null;
   return (
-    <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
+    <div className="mt-2 space-y-1.5 border-t border-[var(--edge)] pt-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--inkmute)]">
         Google reviews
       </p>
       {reviews.slice(0, 2).map((r, i) => (
-        <p key={i} className="text-xs leading-relaxed text-white/55">
-          <span className="font-semibold text-white/70">{r.author}</span>
-          {r.rating != null && <span className="text-amber-200"> · ★{r.rating}</span>}
+        <p key={i} className="text-xs leading-relaxed text-[var(--inksoft)]">
+          <span className="font-semibold text-[var(--inksoft)]">{r.author}</span>
+          {r.rating != null && <span className="text-[var(--inksoft)]"> · ★{r.rating}</span>}
           {r.text && <span> — {r.text}</span>}
         </p>
       ))}
@@ -352,7 +353,7 @@ function RouteRow({
   const body = (
     <div className="flex flex-col items-center gap-1.5 py-3">
       <span className="text-3xl leading-none">{icon}</span>
-      <span className="text-center text-xs font-medium text-neutral-500">{subtext}</span>
+      <span className="text-center text-xs font-medium text-[var(--inkmute)]">{subtext}</span>
     </div>
   );
   if (href) {
@@ -361,7 +362,7 @@ function RouteRow({
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="block rounded-2xl transition hover:bg-neutral-200/70"
+        className="block rounded-none transition hover:bg-[var(--accent-soft)]"
       >
         {body}
       </a>
@@ -375,13 +376,13 @@ function RoutePanel({ info }: { info: RouteInfoPayload | null }) {
   const fast = (info?.drive_minutes ?? 999) < 30;
   return (
     <div
-      className={`fixed top-1/2 right-0 z-40 w-72 max-w-[85vw] -translate-y-1/2 rounded-l-3xl bg-neutral-100 px-5 py-6 text-[#12181f] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${
+      className={`fixed top-1/2 right-0 z-40 w-72 max-w-[85vw] -translate-y-1/2 rounded-l-3xl bg-[var(--panel)] px-5 py-6 text-[var(--ink)] border border-[var(--edge)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${
         info ? "translate-x-0" : "pointer-events-none translate-x-full"
       }`}
     >
       {info && (
-        <div className="divide-y divide-neutral-200">
-          <p className="pb-3 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <div className="divide-y divide-[var(--edge)]">
+          <p className="pb-3 text-center text-[11px] font-semibold uppercase tracking-wider text-[var(--inkmute)]">
             Hotel → {info.place}
           </p>
           <div className="flex flex-col items-center gap-1 py-4">
@@ -390,7 +391,7 @@ function RoutePanel({ info }: { info: RouteInfoPayload | null }) {
             >
               {info.drive_minutes ?? "—"}
             </p>
-            <p className="text-xs font-medium text-neutral-500">minutes</p>
+            <p className="text-xs font-medium text-[var(--inkmute)]">minutes</p>
           </div>
           <RouteRow
             icon="🚶"
@@ -805,13 +806,13 @@ function ConciergeInner({
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-28 pt-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] sm:px-6">
       <section className="flex min-h-[70vh] flex-col">
-        <p className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300/90">
+        <p className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--inkmute)]">
           Live concierge
         </p>
-        <h1 className="font-display mt-3 max-w-lg text-[2.65rem] font-bold leading-[1.05] tracking-tight text-white sm:text-5xl">
+        <h1 className="font-display mt-3 max-w-lg text-[2.65rem] font-bold leading-[1.05] tracking-tight text-[var(--ink)] sm:text-5xl">
           AiDHD
         </h1>
-        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/65">
+        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-[var(--inksoft)]">
           Flights, hotels, dinner, clubs, movies, tickets — options land as
           cards here. When you&apos;re ready, Prava opens for payment.
         </p>
@@ -821,7 +822,7 @@ function ConciergeInner({
             <button
               type="button"
               onClick={startVoice}
-              className="rounded-2xl bg-amber-300 px-5 py-3 font-display text-sm font-semibold text-[#142019] shadow-[0_10px_30px_-12px_rgba(251,191,36,0.7)] transition hover:bg-amber-200"
+              className="rounded-none btn-primary"
             >
               Start voice
             </button>
@@ -829,20 +830,20 @@ function ConciergeInner({
             <button
               type="button"
               onClick={stopVoice}
-              className="rounded-2xl border border-rose-300/40 bg-rose-500/15 px-5 py-3 font-display text-sm font-semibold text-rose-100"
+              className="rounded-none border border-rose-300/40 bg-rose-500/15 px-5 py-3 font-display text-sm font-semibold text-rose-100"
             >
               End · {conversation.isSpeaking ? "speaking" : "listening"}
             </button>
           )}
           <span
-            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${
+            className={`inline-flex items-center gap-2 rounded-none border px-3 py-1.5 text-xs ${
               live
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
-                : "border-white/10 bg-white/5 text-white/50"
+                : "border-[var(--edge)] bg-[var(--accent-soft)] text-[var(--inkmute)]"
             }`}
           >
             <span
-              className={`h-1.5 w-1.5 rounded-full ${
+              className={`h-1.5 w-1.5 rounded-none ${
                 live ? "animate-pulse bg-emerald-300" : "bg-white/30"
               }`}
             />
@@ -850,15 +851,15 @@ function ConciergeInner({
           </span>
         </div>
         {voiceError && (
-          <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+          <p className="mt-3 rounded-none border border-[var(--edge)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--ink)]">
             {voiceError}
           </p>
         )}
 
-        <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0c1117]/70 shadow-inner backdrop-blur-md">
+        <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border border-[var(--edge)] bg-[var(--panel)]/80 shadow-inner backdrop-blur-md">
           <div className="max-h-[380px] flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
             {lines.length === 0 && (
-              <p className="text-sm leading-relaxed text-white/45">
+              <p className="text-sm leading-relaxed text-[var(--inkmute)]">
                 Try: “Flights Chicago → NYC Aug 11–15” · “Dinner in Chicago” ·
                 “Clubs in Brooklyn” · “Movies tonight” · “Hotels in Bali”
               </p>
@@ -870,14 +871,14 @@ function ConciergeInner({
                   l.role === "user" ? "ml-auto text-right" : ""
                 }`}
               >
-                <span className="font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
+                <span className="font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--inkmute)]">
                   {l.role === "user" ? "You" : "AiDHD"}
                 </span>
                 <p
-                  className={`mt-1 rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  className={`mt-1 rounded-none px-3.5 py-2.5 text-sm leading-relaxed ${
                     l.role === "user"
-                      ? "bg-amber-300/15 text-amber-50"
-                      : "bg-white/5 text-white/85"
+                      ? "bg-[var(--accent-soft)] text-[var(--ink)]"
+                      : "bg-[var(--accent-soft)] text-[var(--ink)]"
                   }`}
                 >
                   {l.text}
@@ -887,18 +888,18 @@ function ConciergeInner({
           </div>
           <form
             onSubmit={sendText}
-            className="flex gap-2 border-t border-white/10 p-3"
+            className="flex gap-2 border-t border-[var(--edge)] p-3"
           >
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Ask for flights, dinner, clubs, movies…"
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-amber-300/40 focus:ring-2 focus:ring-amber-300/15"
+              className="flex-1 rounded-none border border-[var(--edge)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--inkmute)] focus:border-[var(--edgehot)]"
             />
             <button
               type="submit"
               disabled={pending || !draft.trim()}
-              className="rounded-xl bg-white px-4 py-3 font-display text-sm font-semibold text-[#0c1117] disabled:opacity-40"
+              className="btn-primary disabled:opacity-40"
             >
               {pending ? "…" : "Send"}
             </button>
@@ -908,18 +909,18 @@ function ConciergeInner({
 
       <aside className="space-y-5">
         {payment && (
-          <div className="animate-[slide-up_0.4s_ease] overflow-hidden rounded-3xl border border-amber-300/25 bg-gradient-to-br from-amber-400/15 to-[#12181f] p-4 shadow-[0_20px_50px_-24px_rgba(251,191,36,0.45)]">
+          <div className="animate-[slide-up_0.4s_ease] overflow-hidden rounded-none border border-[var(--edge)] bg-gradient-to-br from-[var(--accent-soft)] to-[var(--panel)] p-4 ">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-display text-sm font-semibold text-amber-100">
+                <p className="font-display text-sm font-semibold text-[var(--ink)]">
                   Prava checkout
                 </p>
-                <p className="mt-1 text-sm text-white/70">
+                <p className="mt-1 text-sm text-[var(--inksoft)]">
                   ${payment.payload.amount.toFixed(2)} ·{" "}
                   {payment.payload.merchant}
                 </p>
               </div>
-              <span className="rounded-md bg-amber-300/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100">
+              <span className="rounded-md bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--ink)]">
                 {payment.payload.mode}
               </span>
             </div>
@@ -929,9 +930,9 @@ function ConciergeInner({
               <>
                 <div
                   ref={cardContainerRef}
-                  className="mt-3 min-h-[220px] w-full overflow-hidden rounded-2xl bg-white"
+                  className="mt-3 min-h-[220px] w-full overflow-hidden rounded-none bg-white"
                 />
-                <p className="mt-2 text-[11px] text-white/45">
+                <p className="mt-2 text-[11px] text-[var(--inkmute)]">
                   {completing
                     ? "Finalizing…"
                     : "Enter your card above — booking completes automatically once approved (passkey may be requested)."}
@@ -944,16 +945,16 @@ function ConciergeInner({
                     href={payment.payload.pay_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-flex rounded-xl bg-amber-300 px-3 py-2 text-sm font-semibold text-[#142019]"
+                    className="mt-3 inline-flex rounded-none btn-primary"
                   >
                     Open Prava
                   </a>
                 ) : (
-                  <p className="mt-2 text-xs text-white/55">
+                  <p className="mt-2 text-xs text-[var(--inksoft)]">
                     Session {payment.payload.session_id}
                   </p>
                 )}
-                <p className="mt-2 text-[11px] text-white/45">
+                <p className="mt-2 text-[11px] text-[var(--inkmute)]">
                   {pravaPublishableKey
                     ? "Approve passkey / card here — the agent can't finish that by voice alone."
                     : "Add PRAVA_PUBLISHABLE_KEY to collect a real card — this session is running mock/demo checkout."}
@@ -962,7 +963,7 @@ function ConciergeInner({
                   type="button"
                   disabled={completing}
                   onClick={() => void completePayment()}
-                  className="mt-3 w-full rounded-xl bg-amber-300 px-3 py-2.5 font-display text-sm font-semibold text-[#142019] disabled:opacity-50"
+                  className="mt-3 w-full rounded-none btn-primary disabled:opacity-50"
                 >
                   {completing
                     ? "Finalizing…"
@@ -974,20 +975,20 @@ function ConciergeInner({
         )}
 
         {receipt && (
-          <div className="animate-[slide-up_0.4s_ease] rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+          <div className="animate-[slide-up_0.4s_ease] rounded-none border border-emerald-400/30 bg-emerald-500/10 p-4">
             <p className="font-display text-sm font-semibold text-emerald-100">
               Transaction complete
             </p>
-            <p className="mt-1 text-sm text-white/80">
+            <p className="mt-1 text-sm text-[var(--inksoft)]">
               {receipt.payload.confirmation_id} · $
               {receipt.payload.amount.toFixed(2)} ·{" "}
               {receipt.payload.merchant}
             </p>
-            <p className="mt-2 text-xs text-white/50">
+            <p className="mt-2 text-xs text-[var(--inkmute)]">
               Mandate {receipt.payload.mandate_id} · token{" "}
               {receipt.payload.token_ref} · {receipt.payload.mode}
             </p>
-            <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+            <p className="mt-2 text-[11px] leading-relaxed text-[var(--inkmute)]">
               {receipt.payload.summary}
             </p>
           </div>
@@ -995,10 +996,10 @@ function ConciergeInner({
 
         <div>
           <div className="mb-3 flex items-end justify-between gap-2">
-            <h2 className="font-display text-lg font-bold text-white">
+            <h2 className="font-display text-lg font-bold text-[var(--ink)]">
               Results
             </h2>
-            <p className="text-[11px] text-white/40">
+            <p className="text-[11px] text-[var(--inkmute)]">
               Cards appear when tools run
             </p>
           </div>
@@ -1019,11 +1020,11 @@ function ConciergeInner({
           )}
 
           {cards.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.03] px-5 py-10 text-center">
-              <p className="font-display text-sm font-medium text-white/55">
+            <div className="rounded-none border border-dashed border-[var(--edge)] bg-[var(--accent-soft)] px-5 py-10 text-center">
+              <p className="font-display text-sm font-medium text-[var(--inksoft)]">
                 Waiting for a lookup
               </p>
-              <p className="mt-2 text-xs leading-relaxed text-white/35">
+              <p className="mt-2 text-xs leading-relaxed text-[var(--inkmute)]">
                 Flight, hotel, dinner, club, movie, and ticket cards show up
                 here the moment the agent searches.
               </p>
@@ -1041,7 +1042,7 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-[var(--inksoft)]/80">
                         {c.payload.label || "Flights"}
                       </p>
                       {sourceBadge(c.payload.source)}
@@ -1084,7 +1085,7 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-[var(--inksoft)]/80">
                         Stays · {c.payload.label || "by reviews"}
                       </p>
                       {sourceBadge(c.payload.source)}
@@ -1098,10 +1099,10 @@ function ConciergeInner({
                             id === `hotels-${h.id}` ? null : id,
                           )
                         }
-                        className={`overflow-hidden rounded-2xl border bg-[#12181f]/90 transition ${
+                        className={`overflow-hidden rounded-none border bg-[var(--panel)]/90 transition ${
                           hoveredPlaceId === `hotels-${h.id}`
-                            ? "border-amber-300/60"
-                            : "border-white/10"
+                            ? "border-[var(--edgehot)]"
+                            : "border-[var(--edge)]"
                         }`}
                       >
                         {h.photo_url && (
@@ -1114,16 +1115,16 @@ function ConciergeInner({
                         )}
                         <div className="p-4">
                           <div className="flex justify-between gap-2">
-                            <p className="font-display text-sm font-semibold text-white">
+                            <p className="font-display text-sm font-semibold text-[var(--ink)]">
                               #{h.review_rank} {h.name}
                             </p>
-                            <p className="font-display text-lg font-bold text-amber-300">
+                            <p className="font-display text-lg font-bold text-[var(--ink)]">
                               ${Math.round(h.price_total)}
                             </p>
                           </div>
-                          <p className="mt-1 text-xs text-white/50">
+                          <p className="mt-1 text-xs text-[var(--inkmute)]">
                             {h.rating != null && (
-                              <span className="font-semibold text-amber-200">
+                              <span className="font-semibold text-[var(--inksoft)]">
                                 ★ {h.rating.toFixed(1)}
                               </span>
                             )}
@@ -1147,7 +1148,7 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-[var(--inksoft)]/80">
                         {c.payload.label || "Tickets"}
                       </p>
                       {sourceBadge(c.payload.source)}
@@ -1179,7 +1180,7 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-[var(--inksoft)]/80">
                         Dinner · {c.payload.label || "picks"}
                       </p>
                       {sourceBadge(c.payload.source)}
@@ -1212,7 +1213,7 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-[var(--inksoft)]/80">
                         Clubs · {c.payload.label || "nightlife"}
                       </p>
                       {sourceBadge(c.payload.source)}
@@ -1245,7 +1246,7 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-[var(--inksoft)]/80">
                         Movies · {c.payload.label || "showtimes"}
                       </p>
                       {sourceBadge(c.payload.source)}
@@ -1275,7 +1276,7 @@ function ConciergeInner({
                 return (
                   <div
                     key={`w-${idx}`}
-                    className="animate-[slide-in-left_0.5s_ease] overflow-hidden rounded-2xl border border-white/10 bg-[#12181f]/90 p-4 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)]"
+                    className="animate-[slide-in-left_0.5s_ease] overflow-hidden rounded-none border border-[var(--edge)] bg-[var(--panel)]/90 p-4 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)]"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -1284,10 +1285,10 @@ function ConciergeInner({
                           <img src={w.icon_url} alt="" className="h-10 w-10" />
                         )}
                         <div>
-                          <p className="font-display text-sm font-semibold text-white">
+                          <p className="font-display text-sm font-semibold text-[var(--ink)]">
                             {w.place}
                           </p>
-                          <p className="text-xs text-white/50">
+                          <p className="text-xs text-[var(--inkmute)]">
                             {w.mode === "forecast" ? "Forecast" : "Current"} ·{" "}
                             {new Date(`${w.date}T00:00:00`).toLocaleDateString(
                               "en-US",
@@ -1296,18 +1297,18 @@ function ConciergeInner({
                           </p>
                         </div>
                       </div>
-                      <p className="font-display text-lg font-bold text-amber-300">
+                      <p className="font-display text-lg font-bold text-[var(--ink)]">
                         {w.mode === "forecast"
                           ? `${Math.round(w.temp_high ?? 0)}°/${Math.round(w.temp_low ?? 0)}°`
                           : `${Math.round(w.temperature ?? 0)}°F`}
                       </p>
                     </div>
-                    <p className="mt-2 text-sm text-white/70">{w.condition}</p>
+                    <p className="mt-2 text-sm text-[var(--inksoft)]">{w.condition}</p>
                     <p
                       className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold ${
                         w.extreme
-                          ? "bg-orange-500 text-white"
-                          : "bg-green-600 text-white"
+                          ? "bg-orange-500 text-[var(--ink)]"
+                          : "bg-green-600 text-[var(--ink)]"
                       }`}
                     >
                       {w.extreme
@@ -1322,11 +1323,11 @@ function ConciergeInner({
           </div>
         </div>
 
-        <p className="text-center text-[11px] text-white/30">
+        <p className="text-center text-[11px] text-[var(--inkmute)]">
           Prefer a reel?{" "}
           <Link
             href="/reel"
-            className="text-amber-200/70 underline-offset-2 hover:underline"
+            className="text-[var(--inksoft)]/70 underline-offset-2 hover:underline"
           >
             Paste Instagram → plan
           </Link>
@@ -1351,14 +1352,15 @@ export function ConciergeAgent({
         className="pointer-events-none absolute inset-0 -z-10 site-atmosphere"
         aria-hidden
       />
-      <header className="mx-auto flex max-w-6xl items-baseline justify-between px-5 pt-8 sm:px-6">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
           className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
         >
           AiDHD
         </Link>
-        <div className="flex gap-5 text-sm text-[var(--inkmute)]">
+        <div className="flex items-center gap-4 text-sm text-[var(--inkmute)]">
+          <ThemeToggle />
           <Link href="/reel" className="transition hover:text-[var(--ink)]">
             Reel → plan
           </Link>

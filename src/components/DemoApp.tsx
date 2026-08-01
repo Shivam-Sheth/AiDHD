@@ -8,6 +8,7 @@ import {
   PixelSceneStage,
   usePixelObject,
 } from "@/components/pixel/PixelHero";
+import { ThemeToggle } from "@/components/ThemeProvider";
 import type { PackageComponent, PackageData, Snapshot } from "@/lib/types-client";
 
 const EVENT_ID = "evt_demo_friday";
@@ -314,7 +315,8 @@ export function DemoApp({
               Live agent
             </Link>
           </nav>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href="/login"
               className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"

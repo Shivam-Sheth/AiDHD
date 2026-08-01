@@ -38,10 +38,8 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-      <p className="font-display text-sm text-neutral-500">
-        Finishing sign-in…
-      </p>
+    <main className="flex min-h-screen items-center justify-center bg-[var(--void)] text-[var(--ink)]">
+      <p className="text-sm text-[var(--inkmute)]">Finishing sign-in…</p>
     </main>
   );
 }

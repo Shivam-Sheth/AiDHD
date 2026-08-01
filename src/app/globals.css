@@ -5,7 +5,33 @@
   --font-display: var(--font-display-face), "Segoe UI", sans-serif;
 }
 
+/* Light (default) */
 :root {
+  --void: #f5f5f6;
+  --abyss: #ececee;
+  --panel: #ffffff;
+  --ink: #121317;
+  --inksoft: #4b5160;
+  --inkmute: #7a8190;
+  --edge: rgba(18, 19, 23, 0.1);
+  --edgehot: rgba(18, 19, 23, 0.22);
+  --cyan: #0f9f8a;
+  --rose: #c96b86;
+  --amber: #b8892f;
+  --sky: #3d7eb8;
+  --bg: var(--void);
+  --surface: var(--panel);
+  --accent: #121317;
+  --accent-hover: #000000;
+  --accent-soft: rgba(18, 19, 23, 0.05);
+  --accent-shadow: rgb(0 0 0 / 0.08);
+  --btn-fg: #f5f5f6;
+  --atmosphere-a: rgba(15, 159, 138, 0.08);
+  --atmosphere-b: rgba(201, 107, 134, 0.06);
+}
+
+/* Dark */
+html.dark {
   --void: #07080c;
   --abyss: #0c0d12;
   --panel: #111318;
@@ -24,11 +50,13 @@
   --accent-hover: #ffffff;
   --accent-soft: rgba(255, 255, 255, 0.06);
   --accent-shadow: rgb(0 0 0 / 0.35);
+  --btn-fg: #07080c;
+  --atmosphere-a: rgba(94, 234, 212, 0.06);
+  --atmosphere-b: rgba(240, 160, 184, 0.05);
 }
 
 html {
   scroll-behavior: smooth;
-  color-scheme: dark;
 }
 
 body {
@@ -46,9 +74,9 @@ body {
 
 .site-atmosphere {
   background:
-    radial-gradient(ellipse 80% 50% at 70% 10%, rgba(94, 234, 212, 0.06), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 10% 80%, rgba(240, 160, 184, 0.05), transparent 50%),
-    linear-gradient(180deg, #0a0b10 0%, #07080c 55%, #050608 100%);
+    radial-gradient(ellipse 80% 50% at 70% 10%, var(--atmosphere-a), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 10% 80%, var(--atmosphere-b), transparent 50%),
+    linear-gradient(180deg, var(--abyss) 0%, var(--void) 55%, var(--void) 100%);
 }
 
 .btn-primary {
@@ -57,19 +85,18 @@ body {
   justify-content: center;
   border: 1px solid transparent;
   background: var(--ink);
-  color: var(--void);
+  color: var(--btn-fg);
   padding: 0.75rem 1.25rem;
   font-size: 0.875rem;
   font-weight: 550;
   letter-spacing: -0.01em;
   transition:
     background 0.15s ease,
-    color 0.15s ease,
     opacity 0.15s ease;
 }
 
 .btn-primary:hover {
-  background: #ffffff;
+  background: var(--accent-hover);
 }
 
 .btn-ghost {
@@ -89,13 +116,31 @@ body {
 }
 
 .btn-ghost:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--inkmute);
+  background: var(--accent-soft);
 }
 
 .surface {
   border: 1px solid var(--edge);
-  background: rgba(17, 19, 24, 0.85);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--edge);
+  background: var(--void);
+  padding: 0.75rem 1rem;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.field::placeholder {
+  color: var(--inkmute);
+}
+
+.field:focus {
+  border-color: var(--edgehot);
 }
 
 @keyframes fade-in {

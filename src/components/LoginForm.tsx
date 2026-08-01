@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { ThemeToggle } from "@/components/ThemeProvider";
 import { supabase } from "@/lib/supabase/client";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -71,19 +72,22 @@ export function LoginForm() {
         aria-hidden
       />
 
-      <header className="mx-auto flex max-w-3xl items-baseline justify-between px-5 pt-8 sm:px-6">
+      <header className="mx-auto flex max-w-3xl items-center justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
           className="font-display text-lg font-semibold tracking-tight text-[var(--ink)]"
         >
           AiDHD
         </Link>
-        <Link
-          href="/"
-          className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
-        >
-          Back home
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Link
+            href="/"
+            className="text-sm text-[var(--inkmute)] transition-colors hover:text-[var(--ink)]"
+          >
+            Back home
+          </Link>
+        </div>
       </header>
 
       <main className="mx-auto flex max-w-3xl justify-center px-5 pb-24 pt-14 sm:px-6">

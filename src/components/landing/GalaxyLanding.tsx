@@ -135,8 +135,8 @@ function useHandMesh(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
       ctx.beginPath();
       ctx.moveTo(a[0], a[1]);
       ctx.lineTo(b[0], b[1]);
-      ctx.strokeStyle = `rgba(255,110,64,${alpha})`;
-      ctx.lineWidth = 1 * dpr;
+      ctx.strokeStyle = `rgba(255,120,70,${Math.min(1, alpha * 1.55)})`;
+      ctx.lineWidth = 1.35 * dpr;
       ctx.stroke();
     };
 
@@ -155,8 +155,8 @@ function useHandMesh(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
           const dx = allPts[i][0] - allPts[j][0];
           const dy = allPts[i][1] - allPts[j][1];
           const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < w * 0.16) {
-            drawMeshLine(allPts[i], allPts[j], 0.05 * (1 - d / (w * 0.16)));
+          if (d < w * 0.18) {
+            drawMeshLine(allPts[i], allPts[j], 0.09 * (1 - d / (w * 0.18)));
           }
         }
       }
@@ -165,10 +165,10 @@ function useHandMesh(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
         for (let i = 0; i < f.length - 1; i++) {
           const a = pt(f[i], 1, t);
           const b = pt(f[i + 1], 1, t);
-          drawMeshLine(a, b, 0.5);
+          drawMeshLine(a, b, 0.72);
           ctx.beginPath();
-          ctx.arc(a[0], a[1], 1.6 * dpr, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255,150,90,0.6)";
+          ctx.arc(a[0], a[1], 2.1 * dpr, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,160,100,0.85)";
           ctx.fill();
         }
       }
@@ -176,7 +176,7 @@ function useHandMesh(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
       for (let i = 0; i < PALM.length; i++) {
         const a = pt(PALM[i], 0.4, t);
         const b = pt(PALM[(i + 1) % PALM.length], 0.4, t);
-        drawMeshLine(a, b, 0.35);
+        drawMeshLine(a, b, 0.55);
       }
 
       ctx.restore();

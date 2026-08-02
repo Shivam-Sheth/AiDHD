@@ -380,7 +380,7 @@ export function PlacesMap({
         className={
           variant === "dark"
             ? "flex h-72 w-full items-center justify-center rounded-3xl border border-dashed border-white/15 bg-white/[0.03] px-4 text-center text-xs text-white/40"
-            : "flex h-72 w-full items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-4 text-center text-xs text-neutral-500"
+            : "flex h-72 w-full items-center justify-center rounded-2xl border border-dashed border-line-strong bg-subtle px-4 text-center text-xs text-muted"
         }
       >
         Add GOOGLE_MAPS_API to .env.local to show recommended places on a map.
@@ -394,7 +394,7 @@ export function PlacesMap({
       className={
         variant === "dark"
           ? "h-72 w-full rounded-3xl border border-white/10"
-          : "h-72 w-full rounded-2xl border border-neutral-200 bg-neutral-100"
+          : "h-72 w-full rounded-2xl border border-line bg-subtle"
       }
     />
   );

@@ -31,11 +31,18 @@ function supabaseConfigured() {
   );
 }
 
+function supabaseRestBase(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+  // Accept either project root or a mistaken .../rest/v1 suffix
+  return raw.replace(/\/+$/, "").replace(/\/rest\/v1$/i, "");
+}
+
 async function sb(
   path: string,
   init?: RequestInit,
 ): Promise<{ ok: boolean; data: unknown; status: number }> {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const base = supabaseRestBase();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(`${base}/rest/v1/${path}`, {
     ...init,
@@ -104,13 +111,65 @@ export async function getTraveler(
   return data[0] as TravelerProfile;
 }
 
-/** Save passport — stores ciphertext only. */
+/** One-time passports — RAM only, TTL 30m, never written to Supabase. */
+const oncePassports = new Map<string, { value: string; expires: number }>();
+
+export function stashOncePassport(user_id: string, passport_number: string) {
+  oncePassports.set(user_id, {
+    value: passport_number.trim(),
+    expires: Date.now() + 30 * 60_000,
+  });
+}
+
+export function takeOncePassport(user_id: string): string | null {
+  const row = oncePassports.get(user_id);
+  if (!row) return null;
+  oncePassports.delete(user_id);
+  if (row.expires < Date.now()) return null;
+  return row.value;
+}
+
+/** Read without consuming one-time stash (for multi-passenger book prep). */
+export async function peekPassportPlaintext(
+  user_id: string,
+): Promise<string | null> {
+  const row = oncePassports.get(user_id);
+  if (row && row.expires >= Date.now()) return row.value;
+  const t = await getTraveler(user_id);
+  if (!t?.passport_ciphertext) return null;
+  return decryptSecret(t.passport_ciphertext);
+}
+
+export function consumeOncePassports(user_ids: string[]) {
+  for (const id of user_ids) oncePassports.delete(id);
+}
+
+/** Save passport — stores ciphertext only when remember=true. */
 export async function savePassport(input: {
   user_id: string;
   passport_number: string;
   email?: string;
   display_name?: string;
-}): Promise<{ ok: boolean; ref?: VaultRef; error?: string }> {
+  /** false = use-once (RAM), not vaulted */
+  remember?: boolean;
+}): Promise<{ ok: boolean; ref?: VaultRef; error?: string; remembered?: boolean }> {
+  const remember = input.remember !== false;
+
+  if (!remember) {
+    stashOncePassport(input.user_id, input.passport_number);
+    // Ensure traveler row exists for name/email without passport ciphertext
+    await upsertTraveler({
+      user_id: input.user_id,
+      email: input.email || "",
+      display_name: input.display_name || "",
+    });
+    return {
+      ok: true,
+      remembered: false,
+      ref: passportVaultRef(input.user_id, true),
+    };
+  }
+
   if (!vaultConfigured()) {
     return { ok: false, error: "AIDHD_VAULT_KEY not configured" };
   }
@@ -128,6 +187,7 @@ export async function savePassport(input: {
 
   return {
     ok: true,
+    remembered: true,
     ref: passportVaultRef(input.user_id, true),
   };
 }
@@ -136,12 +196,22 @@ export async function savePassport(input: {
 export async function loadPassportPlaintext(
   user_id: string,
 ): Promise<string | null> {
-  const t = await getTraveler(user_id);
-  if (!t?.passport_ciphertext) return null;
-  return decryptSecret(t.passport_ciphertext);
+  return peekPassportPlaintext(user_id);
+}
+
+/** Non-destructive presence check (vault or active once-stash). */
+export async function hasPassportAvailable(user_id: string): Promise<boolean> {
+  const row = oncePassports.get(user_id);
+  if (row && row.expires >= Date.now()) return true;
+  const ref = await getPassportRef(user_id);
+  return Boolean(ref.present);
 }
 
 export async function getPassportRef(user_id: string): Promise<VaultRef> {
+  const once = oncePassports.get(user_id);
+  if (once && once.expires >= Date.now()) {
+    return passportVaultRef(user_id, true);
+  }
   const t = await getTraveler(user_id);
   return passportVaultRef(user_id, Boolean(t?.passport_ciphertext));
 }

@@ -20,6 +20,12 @@ export interface DiningOffer {
   currency: string;
   tags: string[];
   party_size: number;
+  photo_url?: string | null;
+  rating?: number;
+  review_count?: number;
+  maps_url?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface ClubOffer {
@@ -31,6 +37,12 @@ export interface ClubOffer {
   currency: string;
   open_until: string;
   tags: string[];
+  photo_url?: string | null;
+  rating?: number;
+  review_count?: number;
+  maps_url?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface MovieOffer {
@@ -224,8 +236,14 @@ export interface FlightOffer {
   airline: string;
   /** IATA airline code for logos */
   airline_iata?: string;
+  airline_logo_url?: string;
+  flight_number?: string;
+  duration?: string;
+  stops?: number;
   from: string;
+  from_city?: string;
   to: string;
+  to_city?: string;
   depart: string;
   arrive: string;
   cabin: string;

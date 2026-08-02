@@ -39,7 +39,7 @@ export default function AuthCallbackPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-      <p className="font-display text-sm text-neutral-500">
+      <p className="font-display text-sm text-muted">
         Finishing sign-in…
       </p>
     </main>

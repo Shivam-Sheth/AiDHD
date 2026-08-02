@@ -1,21 +1,130 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: var(--font-dm), system-ui, sans-serif;
-  --font-display: var(--font-outfit), system-ui, sans-serif;
+/* ---------------------------------------------------------------------------
+   AiDHD design system
+
+   Two themes off one set of semantic tokens. Dark is the default and is the
+   cinematic treatment from the reference reels (near-black field, mint accent,
+   coral mesh). Light is the neutral Airbnb/Uber-derived scale.
+
+   `@theme inline` is what makes this switchable at runtime: the generated
+   utilities emit `var(--canvas)` rather than baking the hex in, so flipping
+   `data-theme` on <html> restyles everything without a rebuild.
+   --------------------------------------------------------------------------- */
+
+@theme inline {
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-inverse: var(--inverse);
+  --color-inverse-muted: var(--inverse-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-mesh: var(--mesh);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --shadow-xs: var(--shadow-xs-v);
+  --shadow-card: var(--shadow-card-v);
+  --shadow-lifted: var(--shadow-lifted-v);
+
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 }
 
-:root {
-  --ink: #171717;
-  --muted: #525252;
-  --faint: #a3a3a3;
-  --line: #e5e5e5;
-  --bg: #fafafa;
+/* --- dark (default) ------------------------------------------------------ */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #08090b;
+  --surface: #101216;
+  --subtle: #171a1f;
+  --line: #24272e;
+  --line-strong: #3b3f48;
+
+  --ink: #f4f6f8;
+  --ink-900: #ffffff;
+  --ink-800: #e4e7ea;
+  --ink-700: #c3c8cf;
+  --muted: #9aa1ab;
+  --faint: #6a717b;
+
+  /* text/fill that sits on top of an --ink coloured surface */
+  --inverse: #08090b;
+  --inverse-muted: #4c525b;
+
+  --accent: #3ddc97;
+  --accent-ink: #04150d;
+  --mesh: #e8836b;
+
+  --success: #3ddc97;
+  --success-soft: #0e2b1f;
+  --danger: #ff7a66;
+  --danger-soft: #2e1512;
+  --warning: #f0b357;
+  --warning-soft: #2c2113;
+
+  --shadow-xs-v: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-card-v: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.45);
+  --shadow-lifted-v: 0 2px 6px rgb(0 0 0 / 0.45), 0 18px 48px rgb(0 0 0 / 0.55);
+}
+
+/* --- light --------------------------------------------------------------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --canvas: #f7f7f7;
   --surface: #ffffff;
-  --accent: #0f766e;
-  --accent-hover: #0d9488;
-  --accent-soft: #ccfbf1;
-  --accent-shadow: rgb(15 118 110 / 0.22);
+  --subtle: #f2f2f2;
+  --line: #dddddd;
+  --line-strong: #b0b0b0;
+
+  --ink: #1c1c1c;
+  --ink-900: #0f0f0f;
+  --ink-800: #262626;
+  --ink-700: #3d3d3d;
+  --muted: #6e6e6e;
+  --faint: #949494;
+
+  --inverse: #ffffff;
+  --inverse-muted: #a8a8a8;
+
+  --accent: #0f8f5e;
+  --accent-ink: #ffffff;
+  --mesh: #d1614a;
+
+  --success: #087443;
+  --success-soft: #eef6f1;
+  --danger: #c13515;
+  --danger-soft: #fdf0ed;
+  --warning: #b35309;
+  --warning-soft: #fdf5eb;
+
+  --shadow-xs-v: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-card-v: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px rgb(0 0 0 / 0.06);
+  --shadow-lifted-v: 0 2px 4px rgb(0 0 0 / 0.06), 0 12px 28px rgb(0 0 0 / 0.1);
 }
 
 html {
@@ -27,63 +136,118 @@ body {
   min-height: 100%;
   font-family: var(--font-sans);
   color: var(--ink);
-  background: var(--bg);
+  background: var(--canvas);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
+/* Display type is the same family as body — the distinction is optical size,
+   set tighter and heavier, the way the reference reels set their headlines. */
 .font-display {
   font-family: var(--font-display);
+  letter-spacing: -0.021em;
+  font-weight: 600;
 }
 
-.bg-grid-pattern {
-  background-image:
-    linear-gradient(to right, rgb(0 0 0 / 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(0 0 0 / 0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
+/* The reels' hero headline: very large, very tight, near-optical-size tracking. */
+.font-hero {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 0.94;
 }
 
-.glow-accent {
-  box-shadow: 0 0 60px -15px var(--accent-shadow);
+/* Section label above a heading. Not coloured — weight and tracking carry it. */
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Uppercase nav / pill microcopy from the references. */
+.micro {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Explicit focus ring — plain CSS rather than stacked Tailwind outline-*
+   utilities, since outline-color reliably lost the cascade to some other
+   layer's default in this setup. */
+.focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.15s ease;
+}
+
+.focus-ring:focus-visible {
+  outline-color: var(--accent);
 }
 
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-in-left {
-  from {
-    opacity: 0;
-    transform: translateX(-32px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
   }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.6s ease-out forwards;
+  animation: fade-in 0.4s ease-out forwards;
 }
 
 .animate-slide-up {
-  animation: slide-up 0.7s ease-out 0.15s forwards;
+  animation: fade-in 0.5s ease-out 0.06s forwards;
   opacity: 0;
+}
+
+/* Fingertip contact bloom in the hands hero. Applied to an SVG <circle>, so it
+   needs fill-box/centre origin — a percentage translate here resolves against
+   the element box and throws the bloom off the contact point entirely. */
+@keyframes contact-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.animate-contact {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: contact-pulse 3.2s ease-in-out infinite;
+}
+
+/* Slow drift for the reference reels' floating particle field. */
+@keyframes particle-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -26px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

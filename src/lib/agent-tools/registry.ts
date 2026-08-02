@@ -3,10 +3,16 @@
  * Used by ElevenLabs webhook/client tools and the text agent loop.
  */
 
-import { searchFlights } from "../integrations/flights";
+import {
+  bookFlightWithVault,
+  bookGroupFlightWithVault,
+  searchFlights,
+} from "../integrations/flights";
+import { getPassportRef } from "../vault/traveler-store";
 import { searchHotels } from "../integrations/hotels";
 import { searchTickets } from "../integrations/ticketmaster";
 import {
+  reserveDining,
   searchClubs,
   searchDining,
   searchMovies,
@@ -27,6 +33,9 @@ export type AgentToolName =
   | "search_movies"
   | "lookup_vendor"
   | "create_payment"
+  | "check_passport_vault"
+  | "confirm_flight_booking"
+  | "confirm_dining_reservation"
   | "get_weather"
   | "show_results";
 
@@ -192,11 +201,26 @@ export async function executeAgentTool(
             returnDate = `2026-${months[m[2]!.slice(0, 3).toLowerCase()]}-${String(Number(m[1])).padStart(2, "0")}`;
           }
         }
+        const passengerCount = Math.min(
+          9,
+          Math.max(
+            1,
+            Math.floor(
+              Number(
+                parameters.passengers ||
+                  parameters.party_size ||
+                  parameters.adults ||
+                  1,
+              ) || 1,
+            ),
+          ),
+        );
         const fl = await searchFlights({
           origin,
           destination,
           depart_date: depart,
           return_date: returnDate || undefined,
+          passengers: passengerCount,
         });
         const mapOffer = (o: (typeof fl.offers)[0], source: string) => {
           const iata =
@@ -205,9 +229,14 @@ export async function executeAgentTool(
             id: o.id,
             airline: o.airline,
             airline_iata: iata,
-            airline_logo_url: airlineLogoUrl(iata),
+            airline_logo_url: o.airline_logo_url || airlineLogoUrl(iata),
+            flight_number: o.flight_number,
+            duration: o.duration,
+            stops: o.stops,
             from: o.from,
+            from_city: o.from_city,
             to: o.to,
+            to_city: o.to_city,
             depart: o.depart,
             arrive: o.arrive,
             cabin: o.cabin,
@@ -359,11 +388,16 @@ export async function executeAgentTool(
           currency: o.currency,
           party_size: o.party_size,
           source: din.source,
-          photo_url: diningPhotoUrl(i),
+          photo_url: o.photo_url || diningPhotoUrl(i),
+          rating: o.rating,
+          review_count: o.review_count,
+          maps_url: o.maps_url,
+          lat: o.lat,
+          lng: o.lng,
         }));
         return {
           ok: true,
-          summary: `Found ${offers.length} dinner spots in ${din.city}. From ~$${Math.round(offers[0]?.price_per_person ?? 0)}/pp. Cards are on screen.`,
+          summary: `Found ${offers.length} dinner spots in ${din.city} via ${din.source === "google_places" ? "Google Places" : "fixtures"}. From ~$${Math.round(offers[0]?.price_per_person ?? 0)}/pp.`,
           data: { offers, source: din.source },
           ui: {
             kind: "dining",
@@ -387,11 +421,16 @@ export async function executeAgentTool(
           open_until: o.open_until,
           currency: o.currency,
           source: cl.source,
-          photo_url: clubPhotoUrl(i),
+          photo_url: o.photo_url || clubPhotoUrl(i),
+          rating: o.rating,
+          review_count: o.review_count,
+          maps_url: o.maps_url,
+          lat: o.lat,
+          lng: o.lng,
         }));
         return {
           ok: true,
-          summary: `Found ${offers.length} clubs in ${cl.city}. Cover from ~$${Math.round(offers[0]?.cover ?? 0)}. Cards are on screen.`,
+          summary: `Found ${offers.length} clubs in ${cl.city} via fixtures. Cover from ~$${Math.round(offers[0]?.cover ?? 0)}.`,
           data: { offers, source: cl.source },
           ui: {
             kind: "clubs",
@@ -494,10 +533,11 @@ export async function executeAgentTool(
             data: session,
           };
         }
+        const offerId = str(parameters.offer_id || parameters.offerId);
         return {
           ok: true,
           summary: `Prava checkout is open on their screen for $${amount.toFixed(2)} to ${merchant} (${session.mode}). Ask them to approve passkey/card there — do not read URLs aloud.`,
-          data: { ...session, pay_url: payUrl },
+          data: { ...session, pay_url: payUrl, offer_id: offerId || undefined },
           ui: {
             kind: "payment",
             payload: {
@@ -509,6 +549,128 @@ export async function executeAgentTool(
               merchant,
               category,
               mode: session.mode,
+              offer_id: offerId || undefined,
+              user_id: str(parameters.user_id) || undefined,
+            },
+          },
+        };
+      }
+
+      case "check_passport_vault": {
+        const userId = str(parameters.user_id);
+        if (!userId) {
+          return {
+            ok: false,
+            summary:
+              "Need user_id to check vault. Tell them to open /account and save a passport — never ask for the number by voice.",
+          };
+        }
+        const ref = await getPassportRef(userId);
+        return {
+          ok: true,
+          summary: ref.present
+            ? `Passport on file for this user (vault ref only). Safe to confirm_flight_booking after Prava.`
+            : `No passport in vault. Tell them to add it at /account — do NOT ask them to speak the number.`,
+          data: { ref },
+          ui: {
+            kind: "message",
+            payload: {
+              text: ref.present
+                ? "Passport on file ✓"
+                : "Passport missing — open /account",
+            },
+          },
+        };
+      }
+
+      case "confirm_flight_booking": {
+        const offerId = str(parameters.offer_id || parameters.offerId);
+        const userId = str(parameters.user_id);
+        const userIdsRaw = parameters.user_ids;
+        const userIds = Array.isArray(userIdsRaw)
+          ? userIdsRaw.map((u) => String(u)).filter(Boolean)
+          : typeof userIdsRaw === "string"
+            ? userIdsRaw.split(/[\s,]+/).filter(Boolean)
+            : [];
+        if (!offerId || (!userId && !userIds.length)) {
+          return {
+            ok: false,
+            summary:
+              "Need offer_id and user_id (or user_ids for one order N passports). Never ask for passport numbers — vault / private links only.",
+          };
+        }
+        const booked =
+          userIds.length > 1
+            ? await bookGroupFlightWithVault({
+                offerId,
+                passengers: userIds.map((id) => ({ userId: id })),
+              })
+            : await bookFlightWithVault({
+                offerId,
+                userId: userId || userIds[0]!,
+                email: str(parameters.email) || undefined,
+                givenName: str(parameters.given_name) || undefined,
+                familyName: str(parameters.family_name) || undefined,
+                phone: str(parameters.phone) || undefined,
+              });
+        if (!booked.ok) {
+          return {
+            ok: false,
+            summary: booked.failure_reason,
+            data: booked,
+          };
+        }
+        const n =
+          userIds.length > 1 ? userIds.length : 1;
+        return {
+          ok: true,
+          summary: `Flight booked (${booked.mode}) — one order · ${n} passenger(s). Confirmation ${booked.confirmation_id}${booked.booking_reference ? ` · PNR ${booked.booking_reference}` : ""}. Tell the user the code only — no passport details.`,
+          data: booked,
+          ui: {
+            kind: "message",
+            payload: {
+              text: `Booked · ${booked.confirmation_id}`,
+              confirmation_id: booked.confirmation_id,
+            },
+          },
+        };
+      }
+
+      case "confirm_dining_reservation": {
+        const restaurant =
+          str(parameters.restaurant || parameters.name || parameters.merchant) ||
+          "Restaurant";
+        const spoc =
+          str(parameters.spoc_name || parameters.name_on_reservation) ||
+          str(parameters.user_name) ||
+          "";
+        const party =
+          num(parameters.party_size || parameters.party || parameters.guests) ||
+          2;
+        const reserved = await reserveDining({
+          offerId: str(parameters.offer_id) || `dining_${Date.now()}`,
+          restaurant,
+          spoc_name: spoc,
+          party_size: party,
+          time: str(parameters.time || parameters.datetime) || undefined,
+          cuisine: str(parameters.cuisine) || undefined,
+          neighborhood: str(parameters.neighborhood) || undefined,
+        });
+        if (!reserved.ok) {
+          return { ok: false, summary: reserved.failure_reason, data: reserved };
+        }
+        return {
+          ok: true,
+          summary: `Reserved ${reserved.restaurant} for ${reserved.party_size} under ${reserved.spoc_name} (${reserved.time_label}). Confirmation ${reserved.confirmation_id}. ${reserved.notes}`,
+          data: reserved,
+          ui: {
+            kind: "message",
+            payload: {
+              text: `Table reserved · ${reserved.confirmation_id}`,
+              confirmation_id: reserved.confirmation_id,
+              restaurant: reserved.restaurant,
+              spoc_name: reserved.spoc_name,
+              party_size: reserved.party_size,
             },
           },
         };
@@ -528,9 +690,9 @@ export async function executeAgentTool(
       default:
         return {
           ok: false,
-          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, lookup_vendor, get_weather, or create_payment.`,
+          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, lookup_vendor, get_weather, create_payment, check_passport_vault, confirm_flight_booking, or confirm_dining_reservation.`,
         };
-    }
+      }
   } catch (e) {
     return {
       ok: false,
@@ -546,7 +708,8 @@ IDENTITY
 - Sharp, warm, concise. Human — never hotel front-desk or call-center.
 - Never invent prices. Always call tools before quoting.
 - NEVER collect passport numbers, full card numbers, or CVV by voice/chat.
-  Say: "Add that in the AiDHD secure vault — I only get a reference, not the secret."
+  Passport is ONLY for flight booking — never at login. If missing, call confirm_flight_booking
+  so the PassportGate opens (Remember encrypted vs Use once). Never ask them to speak digits.
 - Cards for options appear on the user's screen. After a search, highlight 2–3 options and say the rest are on screen.
 
 CAPABILITIES
@@ -556,14 +719,18 @@ CAPABILITIES
   (e.g., right after search_flights or search_hotels). Mention the outlook briefly and clearly flag
   any extreme weather caution shown on the card.
 - create_payment → opens Prava on screen (do not read long URLs aloud)
+- check_passport_vault(user_id) → present/missing only (never the number)
+- confirm_flight_booking(offer_id, user_id) → Duffel via vault; AFTER Prava success
+- confirm_dining_reservation(restaurant, spoc_name, party_size, time?) → table under SPOC name
 - iMessage users may also be chatting via Linq — keep answers short; confirmations land in-thread
 
 FLOW
 1) Intent: outing vs trip, cities, dates, budget, party size
 2) Tool search immediately
 3) Once destination + first travel date are known: call get_weather
-4) On pick: confirm total → create_payment
-5) If vault missing for ticketing, still show offers; say booking finalizes after vault + Prava
+4) Flights: create_payment (include offer_id) → Prava → confirm_flight_booking
+5) Dinner: ask SPOC name if needed → confirm_dining_reservation (passport NOT required)
+6) Read back confirmation codes only — never PII
 
 EDGE CASES
 - Ambiguous city → ask once, then search
@@ -600,11 +767,12 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
   });
 
   return [
-    client("search_flights", "Search flights. For round trips pass return_date too.", {
+    client("search_flights", "Search flights. For round trips pass return_date too. For groups pass passengers=party size (one offer for N).", {
       origin: prop("Origin city or IATA"),
       destination: prop("Destination city or IATA"),
       depart_date: prop("Outbound date YYYY-MM-DD"),
       return_date: prop("Optional return date YYYY-MM-DD"),
+      passengers: prop("Adult count for one order (default 1)"),
     }, ["origin", "destination"]),
     client("search_hotels", "Search stays ranked by guest reviews.", {
       city: prop("Destination city"),
@@ -640,12 +808,47 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
       },
       ["city", "date"],
     ),
-    client("create_payment", "Start Prava payment and open on-screen checkout.", {
+    client("create_payment", "Start Prava payment and open on-screen checkout. For flights pass offer_id so booking can finish after pay.", {
       merchant: prop("What they are paying for"),
       amount: prop("USD total amount", "number"),
       category: prop("flight | hotel | ticket | dining | club | movie | trip"),
       email: prop("Payer email"),
+      user_id: prop("Payer user id for vault linkage"),
+      offer_id: prop("Flight/dining offer id to book after payment"),
     }, ["amount", "merchant"]),
+    client(
+      "check_passport_vault",
+      "Check if passport is stored in AiDHD vault (returns present/missing only — never the number). Tell user to use /account if missing.",
+      { user_id: prop("Traveler user id") },
+      ["user_id"],
+    ),
+    client(
+      "confirm_flight_booking",
+      "Book the chosen Duffel offer after Prava. Server loads passports from vault — never ask by voice. For groups pass user_ids (one order N passports).",
+      {
+        offer_id: prop("Duffel offer id from search card (off_…)"),
+        user_id: prop("Traveler user id (solo)"),
+        user_ids: prop("Optional list of traveler user ids for one group order"),
+        email: prop("Optional contact email"),
+        given_name: prop("Optional given name"),
+        family_name: prop("Optional family name"),
+      },
+      ["offer_id"],
+    ),
+    client(
+      "confirm_dining_reservation",
+      "Reserve a restaurant table under the SPOC's name. No passport. Pass restaurant + spoc_name + party_size.",
+      {
+        restaurant: prop("Restaurant name"),
+        spoc_name: prop("Name on the reservation"),
+        party_size: prop("Headcount", "number"),
+        offer_id: prop("Optional dining offer id"),
+        time: prop("Optional time / ISO datetime"),
+        cuisine: prop("Optional cuisine"),
+        neighborhood: prop("Optional neighborhood"),
+      },
+      ["restaurant", "spoc_name", "party_size"],
+    ),
     client("show_results", "Optional nudge that results are on screen.", {
       kind: prop("flights | hotels | tickets | dining | clubs | movies | payment | message"),
       message: prop("Optional status text"),

@@ -62,7 +62,9 @@ export function hasTwilio() {
 }
 
 export function hasGoogleMaps() {
-  return Boolean(process.env.GOOGLE_MAPS_API);
+  return Boolean(
+    process.env.GOOGLE_MAPS_API || process.env.GOOGLE_MAPS_API_KEY,
+  );
 }
 
 export function integrationStatus() {

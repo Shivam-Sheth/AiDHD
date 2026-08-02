@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -15,6 +15,7 @@ const OAUTH_ERRORS: Record<string, string> = {
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const starRef = useRef<HTMLCanvasElement>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -24,6 +25,57 @@ export function LoginForm() {
   );
   const [submitting, setSubmitting] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+
+  useEffect(() => {
+    const canvas = starRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let w = 0;
+    let h = 0;
+    let stars: { x: number; y: number; r: number; s: number; tw: number }[] =
+      [];
+    let raf = 0;
+    let alive = true;
+
+    const resize = () => {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+      const count = Math.floor((w * h) / 12000);
+      stars = Array.from({ length: count }, () => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: Math.random() * 1.1 + 0.2,
+        s: Math.random() * 0.2 + 0.02,
+        tw: Math.random() * Math.PI * 2,
+      }));
+    };
+
+    const tick = (t: number) => {
+      if (!alive) return;
+      ctx.clearRect(0, 0, w, h);
+      for (const st of stars) {
+        st.y -= st.s;
+        if (st.y < -2) st.y = h + 2;
+        const flicker = 0.4 + Math.sin(t * 0.001 + st.tw) * 0.3;
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255,240,230,${0.22 * flicker + 0.06})`;
+        ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener("resize", resize);
+    resize();
+    raf = requestAnimationFrame(tick);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,30 +111,45 @@ export function LoginForm() {
       setError(OAUTH_ERRORS.google_oauth_failed);
       setGoogleBusy(false);
     }
-    // On success the SDK redirects the browser to Google — nothing left to do here.
   }
 
+  const fieldClass =
+    "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[#f3f2ee] shadow-none outline-none transition placeholder:text-white/30 focus:border-[rgba(255,148,87,0.55)] focus:ring-2 focus:ring-[rgba(255,106,61,0.2)]";
+
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#07070a] text-[#f3f2ee]">
+      <canvas
+        ref={starRef}
+        className="pointer-events-none fixed inset-0 -z-10 h-full w-full"
+        aria-hidden
+      />
       <div
-        className="pointer-events-none absolute inset-0 -z-10"
+        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.035] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none fixed inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(ellipse 80% 50% at 10% -10%, #99f6e4 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 100% 0%, #a5f3fc 0%, transparent 50%), linear-gradient(180deg, #f0fdfa 0%, #fafafa 42%, #fafafa 100%)",
+            "radial-gradient(ellipse at 20% 0%, rgba(255,106,61,0.16), transparent 45%), radial-gradient(ellipse at 80% 10%, rgba(53,208,192,0.1), transparent 40%), radial-gradient(ellipse at 50% 100%, rgba(139,108,246,0.08), transparent 50%)",
         }}
+        aria-hidden
       />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-pattern opacity-40" />
 
       <header className="mx-auto flex max-w-3xl items-baseline justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
-          className="font-display text-2xl font-bold tracking-tight text-neutral-900 transition-opacity hover:opacity-70"
+          className="font-display text-2xl font-semibold tracking-tight text-[#f3f2ee] transition-opacity hover:opacity-70"
         >
           AiDHD
         </Link>
         <Link
           href="/"
-          className="text-sm text-neutral-500 transition-colors hover:text-teal-700"
+          className="text-sm text-white/45 transition-colors hover:text-[rgba(255,148,87,0.9)]"
         >
           Back home
         </Link>
@@ -90,19 +157,23 @@ export function LoginForm() {
 
       <main className="mx-auto flex max-w-3xl justify-center px-5 pb-24 pt-14 sm:px-6">
         <div className="w-full max-w-sm animate-fade-in">
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-teal-700">
-            Welcome back
+          <p className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-[rgba(255,148,87,0.9)]">
+            Welcome
           </p>
-          <h1 className="font-display mt-3 text-4xl font-bold leading-[1.1] tracking-tight text-neutral-900">
-            Sign in
+          <h1 className="font-display mt-3 text-4xl font-semibold leading-[1.1] tracking-tight text-[#f3f2ee]">
+            Join Us
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-neutral-600">
-            Name and email are required — phone number is optional.
+          <p className="mt-4 text-base leading-relaxed text-white/55">
+            Sign in to plan nights and trips with your group — name and email
+            required, phone optional.
           </p>
 
-          <form onSubmit={handleSubmit} className="animate-slide-up mt-10 space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            className="animate-slide-up mt-10 space-y-4"
+          >
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
+              <span className="mb-1.5 block text-sm font-medium text-white/70">
                 Name
               </span>
               <input
@@ -110,14 +181,14 @@ export function LoginForm() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jordan Lee"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className={fieldClass}
                 autoComplete="name"
                 autoFocus
               />
             </label>
 
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
+              <span className="mb-1.5 block text-sm font-medium text-white/70">
                 Email
               </span>
               <input
@@ -125,17 +196,17 @@ export function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className={fieldClass}
                 autoComplete="email"
               />
             </label>
 
             <label className="block">
               <span className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-sm font-medium text-neutral-700">
+                <span className="text-sm font-medium text-white/70">
                   Phone number
                 </span>
-                <span className="text-xs font-medium text-neutral-400">
+                <span className="text-xs font-medium text-white/35">
                   Optional
                 </span>
               </span>
@@ -144,13 +215,13 @@ export function LoginForm() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 (555) 123-4567"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className={fieldClass}
                 autoComplete="tel"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
+              <span className="mb-1.5 block text-sm font-medium text-white/70">
                 Password
               </span>
               <input
@@ -158,13 +229,13 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className={fieldClass}
                 autoComplete="current-password"
               />
             </label>
 
             {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                 {error}
               </p>
             )}
@@ -172,25 +243,25 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex w-full items-center justify-center rounded-xl bg-teal-700 px-6 py-3 font-display text-base font-semibold text-white shadow-md transition hover:bg-teal-600 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-br from-[#ff6a3d] to-[#ff9457] px-6 py-3 font-display text-base font-semibold text-white shadow-[0_8px_30px_rgba(255,106,61,0.35)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
             >
               {submitting ? "Signing in…" : "Sign in"}
             </button>
           </form>
 
           <div className="mt-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-neutral-200" />
-            <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-xs font-medium uppercase tracking-wide text-white/35">
               or
             </span>
-            <div className="h-px flex-1 bg-neutral-200" />
+            <div className="h-px flex-1 bg-white/10" />
           </div>
 
           <button
             type="button"
             onClick={() => void handleGoogleSignIn()}
             disabled={googleBusy}
-            className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-white px-6 py-3 font-display text-base font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:cursor-wait disabled:opacity-60"
+            className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-white/12 bg-white/[0.04] px-6 py-3 font-display text-base font-semibold text-[#f3f2ee] transition hover:border-[rgba(255,148,87,0.45)] hover:bg-white/[0.07] disabled:cursor-wait disabled:opacity-60"
           >
             <svg viewBox="0 0 18 18" className="h-5 w-5" aria-hidden>
               <path

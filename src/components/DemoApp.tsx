@@ -271,17 +271,16 @@ export function DemoApp({
   }, [snap?.packages, snap?.event.destination_or_venue]);
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-[#07070a] text-[#f3f2ee]">
       {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-neutral-200/80 bg-white/90 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07070a]/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 lg:px-10">
-          <button
-            type="button"
-            onClick={() => scrollTo("top")}
-            className="font-display text-xl font-bold text-neutral-900 transition-colors hover:text-[var(--accent)]"
+          <Link
+            href="/"
+            className="font-display text-xl font-semibold text-[#f3f2ee] transition-colors hover:text-[var(--accent)]"
           >
             AiDHD
-          </button>
+          </Link>
           <nav className="hidden items-center gap-8 md:flex">
             {[
               ["problem", "Problem"],
@@ -293,20 +292,20 @@ export function DemoApp({
                 key={id}
                 type="button"
                 onClick={() => scrollTo(id)}
-                className="text-sm font-medium text-neutral-600 transition-colors hover:text-[var(--accent)]"
+                className="text-sm font-medium text-white/55 transition-colors hover:text-[var(--accent)]"
               >
                 {label}
               </button>
             ))}
             <Link
               href="/reel"
-              className="text-sm font-medium text-teal-700 transition-colors hover:text-teal-600"
+              className="text-sm font-medium text-[rgba(255,148,87,0.9)] transition-colors hover:text-[var(--accent)]"
             >
               Reel → itinerary
             </Link>
             <Link
               href="/agent"
-              className="text-sm font-medium text-teal-700 transition-colors hover:text-teal-600"
+              className="text-sm font-medium text-[rgba(255,148,87,0.9)] transition-colors hover:text-[var(--accent)]"
             >
               Live agent
             </Link>
@@ -314,7 +313,7 @@ export function DemoApp({
           <div className="flex items-center gap-4">
             <Link
               href="/login"
-              className="text-sm font-medium text-neutral-600 transition-colors hover:text-[var(--accent)]"
+              className="text-sm font-medium text-white/55 transition-colors hover:text-[var(--accent)]"
             >
               Sign in
             </Link>
@@ -332,23 +331,23 @@ export function DemoApp({
       {/* Hero */}
       <section
         id="top"
-        className="relative flex min-h-[88vh] items-center overflow-hidden bg-neutral-50 bg-grid-pattern"
+        className="relative flex min-h-[88vh] items-center overflow-hidden bg-[#07070a] bg-grid-pattern"
       >
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-teal-50/50 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[rgba(255,106,61,0.12)] via-transparent to-transparent" />
         <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-12 px-6 py-16 lg:flex-row lg:gap-16 lg:px-10 lg:py-24">
           <div className="animate-fade-in flex-1 text-center lg:text-left">
-            <h1 className="font-display text-4xl font-bold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl">
+            <h1 className="font-display text-4xl font-semibold tracking-tight text-[#f3f2ee] sm:text-5xl lg:text-6xl">
               AiDHD
             </h1>
             <p className="mt-4 text-xl font-semibold text-[var(--accent)] sm:text-2xl">
               Agentic commerce for group nights & trips
             </p>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-neutral-600 lg:mx-0">
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/55 lg:mx-0">
               Friends drop budgets in iMessage or WhatsApp. AiDHD discovers live
               options (Duffel / Ticketmaster), ranks merchants with{" "}
-              <span className="font-semibold text-neutral-800">Senso trust</span>
+              <span className="font-semibold text-white/85">Senso trust</span>
               , and completes the spend with{" "}
-              <span className="font-semibold text-neutral-800">Prava</span>{" "}
+              <span className="font-semibold text-white/85">Prava</span>{" "}
               Collect → mandate → scoped token — not a fake pay button.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2 lg:justify-start">
@@ -361,7 +360,7 @@ export function DemoApp({
               ].map((t) => (
                 <span
                   key={t}
-                  className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-900"
+                  className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-white/75"
                 >
                   {t}
                 </span>

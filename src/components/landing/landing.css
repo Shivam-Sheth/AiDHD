@@ -66,26 +66,27 @@
 
 .aidhd-landing .hand-mesh {
   position: fixed;
-  top: -6%;
-  left: -8%;
-  width: 56vw;
-  height: 56vw;
-  max-width: 640px;
-  max-height: 640px;
+  top: -2%;
+  left: -4%;
+  width: 58vw;
+  height: 58vw;
+  max-width: 680px;
+  max-height: 680px;
   z-index: 4;
   pointer-events: none;
-  opacity: 0.95;
+  opacity: 1;
+  filter: drop-shadow(0 0 28px rgba(255, 110, 64, 0.35));
 }
 
 .aidhd-landing .reach-hand {
   position: fixed;
-  right: -2%;
-  bottom: 8%;
-  width: 42vw;
-  max-width: 480px;
+  right: 2%;
+  bottom: 14%;
+  width: 40vw;
+  max-width: 460px;
   z-index: 4;
   pointer-events: none;
-  opacity: 0.95;
+  opacity: 1;
   animation: aidhd-reach-float 7s ease-in-out infinite;
 }
 

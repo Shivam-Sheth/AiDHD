@@ -72,20 +72,20 @@
   height: 56vw;
   max-width: 640px;
   max-height: 640px;
-  z-index: 2;
+  z-index: 4;
   pointer-events: none;
-  opacity: 0.85;
+  opacity: 0.95;
 }
 
 .aidhd-landing .reach-hand {
   position: fixed;
-  right: -4%;
-  bottom: -6%;
+  right: -2%;
+  bottom: 8%;
   width: 42vw;
   max-width: 480px;
-  z-index: 2;
+  z-index: 4;
   pointer-events: none;
-  opacity: 0.9;
+  opacity: 0.95;
   animation: aidhd-reach-float 7s ease-in-out infinite;
 }
 
@@ -220,7 +220,10 @@
   line-height: 1;
   color: var(--gb-ink);
   text-align: center;
+  text-shadow: 0 0 40px rgba(255, 106, 61, 0.25);
   animation: aidhd-brand-in 1.1s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  position: relative;
+  z-index: 6;
 }
 
 @keyframes aidhd-brand-in {
@@ -238,15 +241,16 @@
 
 .aidhd-landing .join-us-btn {
   position: relative;
+  z-index: 7;
   width: 118px;
   height: 118px;
   border-radius: 50%;
   background: radial-gradient(
     circle at 35% 30%,
-    rgba(255, 255, 255, 0.1),
-    rgba(255, 255, 255, 0.02) 60%
+    rgba(255, 148, 87, 0.22),
+    rgba(255, 255, 255, 0.04) 60%
   );
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 148, 87, 0.55);
   color: var(--gb-ink);
   font-family: var(--font-display);
   font-size: 14px;
@@ -256,6 +260,7 @@
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(8px);
+  box-shadow: 0 0 48px rgba(255, 106, 61, 0.28);
   transition:
     transform 0.45s cubic-bezier(0.2, 0.9, 0.25, 1),
     border-color 0.4s ease,

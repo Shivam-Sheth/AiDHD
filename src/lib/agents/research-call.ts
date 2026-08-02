@@ -10,13 +10,32 @@ export type ResearchJobStatus =
   | "done"
   | "failed";
 
+/**
+ * What kind of business the agent is calling — drives the phone script.
+ * Covers restaurants, hotels, airlines, venues, ticket providers, stores,
+ * support desks, and any other merchant.
+ */
+export type CallVenueType =
+  | "restaurant"
+  | "hotel"
+  | "airline"
+  | "event_venue"
+  | "ticket_provider"
+  | "store"
+  | "customer_support"
+  | "merchant"
+  | "other";
+
 export interface ResearchJob {
   id: string;
   question: string;
   venue_name: string;
   venue_phone: string;
+  venue_type?: CallVenueType | string;
   reply_to_phone?: string;
-  reply_channel: "whatsapp" | "web";
+  reply_channel: "whatsapp" | "web" | "group";
+  /** When set, findings are posted back into this group chat. */
+  group_id?: string;
   status: ResearchJobStatus;
   conversation_id?: string;
   call_sid?: string;
@@ -64,18 +83,22 @@ export async function startBackgroundResearchCall(input: {
   question: string;
   venue_name: string;
   venue_phone: string;
+  venue_type?: CallVenueType | string;
   reply_to_phone?: string;
-  reply_channel?: "whatsapp" | "web";
+  reply_channel?: "whatsapp" | "web" | "group";
+  group_id?: string;
 }): Promise<ResearchJob> {
   const job: ResearchJob = {
     id: randomUUID(),
     question: input.question.trim(),
     venue_name: input.venue_name.trim(),
     venue_phone: normalizePhone(input.venue_phone),
+    venue_type: input.venue_type,
     reply_to_phone: input.reply_to_phone
       ? normalizePhone(input.reply_to_phone)
       : undefined,
     reply_channel: input.reply_channel ?? "whatsapp",
+    group_id: input.group_id,
     status: "queued",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -98,10 +121,15 @@ export async function startBackgroundResearchCall(input: {
     return completeResearchJob(job.id, findings);
   }
 
+  const venueLabel = venueTypeLabel(job.venue_type);
   const firstMessage =
-    `Hi, I'm calling from AiDHD on behalf of a guest. ` +
-    `Quick question about ${job.venue_name}: ${job.question} ` +
-    `Please answer briefly so I can relay it.`;
+    `Hi, I'm calling from Prava on behalf of a customer. ` +
+    `Quick question for ${venueLabel} ${job.venue_name}: ${job.question} ` +
+    `Please answer briefly so I can relay it. ` +
+    `I can ask about availability, prices, reservations, policies, ` +
+    `accessibility, dietary requirements, cancellations, refunds, or order ` +
+    `status — I am not authorized to commit to any booking, cancellation, ` +
+    `account change, or payment on this call.`;
 
   try {
     const res = await fetch(
@@ -160,6 +188,27 @@ export async function startBackgroundResearchCall(input: {
   }
 }
 
+function venueTypeLabel(type?: string): string {
+  switch (type) {
+    case "restaurant":
+      return "the restaurant";
+    case "hotel":
+      return "the hotel";
+    case "airline":
+      return "the airline";
+    case "event_venue":
+      return "the venue";
+    case "ticket_provider":
+      return "the ticket provider";
+    case "store":
+      return "the store";
+    case "customer_support":
+      return "the support team at";
+    default:
+      return "the business";
+  }
+}
+
 async function simulateVenueAnswer(job: ResearchJob): Promise<string> {
   const q = job.question.toLowerCase();
   if (q.includes("height") || q.includes("tall") || q.includes("kart")) {
@@ -205,5 +254,84 @@ export async function completeResearchJob(id: string, findings: string) {
       body: `Research agent called ${job.venue_name}:\nQ: ${job.question}\nA: ${findings}`,
     });
   }
+
+  // Fan findings back into the group chat that asked for the call.
+  if (job.group_id) {
+    try {
+      const { appendMessage } = await import("@/lib/groups/store");
+      const { AIDHD_BOT_ID, AIDHD_BOT_NAME } = await import(
+        "@/lib/groups/types"
+      );
+      await appendMessage({
+        groupId: job.group_id,
+        senderId: AIDHD_BOT_ID,
+        senderName: AIDHD_BOT_NAME,
+        body: `📞 Called ${job.venue_name}:\nQ: ${job.question}\nA: ${findings}`,
+        kind: "tool_result",
+        meta: { call_job_id: job.id },
+      });
+    } catch {
+      // non-fatal
+    }
+  }
   return job;
+}
+
+/**
+ * Generate a user-led call script — the user dials themselves; we hand them
+ * a ready-to-read script with all the relevant details.
+ */
+export async function generateCallScript(input: {
+  venue_name: string;
+  venue_type?: CallVenueType | string;
+  purpose: string;
+  details?: Record<string, unknown>;
+  caller_name?: string;
+}): Promise<{ script: string; tips: string[] }> {
+  const detailLines = Object.entries(input.details || {})
+    .filter(([, v]) => v != null && v !== "")
+    .map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${String(v)}`)
+    .join("\n");
+
+  try {
+    const { completeJson } = await import("../integrations/llm");
+    const result = await completeJson({
+      system:
+        `You write short phone-call scripts a customer reads when calling a business ` +
+        `(${venueTypeLabel(input.venue_type)}). Return JSON ` +
+        `{"script":"...","tips":["...","..."]}. The script should be natural ` +
+        `first-person sentences covering: who they are, what they need, the key ` +
+        `details, and the questions to ask. Under 120 words. 2-3 short tips.`,
+      user: JSON.stringify({
+        venue: input.venue_name,
+        venue_type: input.venue_type || "other",
+        purpose: input.purpose,
+        caller_name: input.caller_name || "the customer",
+        details: input.details || {},
+      }),
+    });
+    if (result) {
+      const parsed = JSON.parse(result.text) as {
+        script?: string;
+        tips?: string[];
+      };
+      if (parsed.script) {
+        return { script: parsed.script, tips: parsed.tips || [] };
+      }
+    }
+  } catch {
+    // fall through to template
+  }
+
+  const script =
+    `Hi, my name is ${input.caller_name || "…"} — I'm calling about ${input.purpose}.` +
+    (detailLines ? `\n\nDetails to mention:\n${detailLines}` : "") +
+    `\n\nQuestions to ask:\n- Is that available?\n- What's the total price?\n- What's the cancellation policy?\n- Can I get a confirmation number?`;
+  return {
+    script,
+    tips: [
+      "Ask for a confirmation number before hanging up.",
+      "Confirm the total price including fees.",
+    ],
+  };
 }

@@ -8,9 +8,18 @@ import {
   readLocalGroupUser,
   writeLocalGroupUser,
 } from "@/lib/groups/client-session";
+import { AuthGuard } from "@/components/AuthGuard";
 import type { GroupMode } from "@/lib/groups/types";
 
 export default function NewGroupPage() {
+  return (
+    <AuthGuard>
+      <NewGroupPageInner />
+    </AuthGuard>
+  );
+}
+
+function NewGroupPageInner() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [place, setPlace] = useState("");

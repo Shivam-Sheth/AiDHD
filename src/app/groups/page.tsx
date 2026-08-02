@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AuthGuard } from "@/components/AuthGuard";
 import {
   groupAuthHeaders,
   readLocalGroupUser,
@@ -10,7 +11,16 @@ import {
 import type { GroupParty } from "@/lib/groups/types";
 
 export default function GroupsPage() {
+  return (
+    <AuthGuard>
+      <GroupsPageInner />
+    </AuthGuard>
+  );
+}
+
+function GroupsPageInner() {
   const [groups, setGroups] = useState<GroupParty[]>([]);
+  const [unread, setUnread] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
@@ -35,6 +45,7 @@ export default function GroupsPage() {
       if (res.ok) {
         const data = await res.json();
         setGroups(data.groups || []);
+        setUnread(data.unread || {});
       } else if (res.status === 401) {
         setError(null);
       } else {
@@ -132,12 +143,19 @@ export default function GroupsPage() {
           <li key={g.id}>
             <Link
               href={`/groups/${g.id}`}
-              className="block rounded-xl border border-line bg-surface px-4 py-3 transition hover:border-accent/50"
+              className="flex items-center justify-between rounded-xl border border-line bg-surface px-4 py-3 transition hover:border-accent/50"
             >
-              <p className="font-semibold text-ink">{g.title}</p>
-              <p className="text-xs text-muted">
-                {g.mode} · {g.place} · {g.status}
-              </p>
+              <span>
+                <p className="font-semibold text-ink">{g.title}</p>
+                <p className="text-xs text-muted">
+                  {g.mode} · {g.place} · {g.status}
+                </p>
+              </span>
+              {(unread[g.id] ?? 0) > 0 && (
+                <span className="ml-3 shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-ink">
+                  {unread[g.id]}
+                </span>
+              )}
             </Link>
           </li>
         ))}

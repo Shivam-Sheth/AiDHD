@@ -30,6 +30,7 @@ export function InviteFriendsPanel({
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [directTarget, setDirectTarget] = useState("");
   const canContacts = useMemo(() => contactsApiAvailable(), []);
 
   const allPhones = useMemo(() => {
@@ -139,6 +140,52 @@ export function InviteFriendsPanel({
       setStatus(
         `${channel === "whatsapp" ? "WhatsApp" : "iMessage"} invite sent. ${data.tip || ""}`,
       );
+      onInvited?.();
+    } catch {
+      setError("Network error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Invite by email, phone, or @username in one box. */
+  async function inviteDirect() {
+    const target = directTarget.trim();
+    if (!target) return;
+    setBusy("direct");
+    setError(null);
+    setStatus(null);
+    try {
+      const headers = await groupAuthHeaders();
+      const body: Record<string, string> = {};
+      if (target.includes("@") && target.includes(".")) body.email = target;
+      else if (/^\+?[\d\s().-]{7,}$/.test(target)) body.phone = target;
+      else body.username = target.replace(/^@/, "");
+
+      const res = await fetch(`/api/groups/${groupId}/invite`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Invite failed");
+        return;
+      }
+      if (data.invite_url) setInviteUrl(data.invite_url);
+      if (data.member) {
+        setStatus(`${data.member.display_name} was added to the group.`);
+      } else if (data.texted) {
+        setStatus("Invite texted to that number.");
+      } else if (data.notified) {
+        setStatus("They already have an account — invite sent in-app.");
+      } else if (data.mailto) {
+        window.location.href = data.mailto;
+        setStatus("Personal invite link created — email draft opened.");
+      } else {
+        setStatus("Personal invite link created.");
+      }
+      setDirectTarget("");
       onInvited?.();
     } catch {
       setError("Network error");
@@ -268,6 +315,34 @@ export function InviteFriendsPanel({
           ))}
         </ul>
       )}
+
+      <div className="mt-3">
+        <label className="block text-xs text-muted">
+          Invite by email, phone, or @username
+          <div className="mt-1 flex gap-1.5">
+            <input
+              value={directTarget}
+              onChange={(e) => setDirectTarget(e.target.value)}
+              placeholder="friend@email.com · +1555… · @handle"
+              className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-2 py-1.5 text-xs text-ink"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void inviteDirect();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void inviteDirect()}
+              disabled={busy !== null || !directTarget.trim()}
+              className="shrink-0 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-inverse disabled:opacity-50"
+            >
+              {busy === "direct" ? "…" : "Invite"}
+            </button>
+          </div>
+        </label>
+      </div>
 
       <label className="mt-3 block text-xs text-muted">
         Or paste phones

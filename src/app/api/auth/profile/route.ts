@@ -35,9 +35,34 @@ export async function POST(req: NextRequest) {
     (user.user_metadata?.name as string | undefined) ||
     null;
 
-  const { error: upsertError } = await supabase
+  let body: { phone?: string; username?: string } = {};
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    // body is optional (Google OAuth callback sends none)
+  }
+
+  const phone =
+    body.phone?.trim() ||
+    (user.user_metadata?.phone as string | undefined) ||
+    null;
+  const username = body.username?.trim()?.toLowerCase() || null;
+
+  const row: Record<string, unknown> = { id: user.id, email: user.email, name };
+  if (phone) row.phone = phone;
+  if (username) row.username = username;
+
+  let { error: upsertError } = await supabase
     .from("profiles")
-    .upsert({ id: user.id, email: user.email, name }, { onConflict: "id" });
+    .upsert(row, { onConflict: "id" });
+
+  // Older projects may not have run upgrade_v2.sql yet — retry without the
+  // new columns so sign-in never breaks on schema drift.
+  if (upsertError && (phone || username)) {
+    ({ error: upsertError } = await supabase
+      .from("profiles")
+      .upsert({ id: user.id, email: user.email, name }, { onConflict: "id" }));
+  }
 
   if (upsertError) {
     return NextResponse.json({ error: upsertError.message }, { status: 500 });

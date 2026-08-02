@@ -3,11 +3,20 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AuthGuard } from "@/components/AuthGuard";
 import { GroupChat } from "@/components/groups/GroupChat";
 import { groupAuthHeaders } from "@/lib/groups/client-session";
 import type { GroupMember, GroupParty } from "@/lib/groups/types";
 
 export default function GroupDetailPage() {
+  return (
+    <AuthGuard>
+      <GroupDetailPageInner />
+    </AuthGuard>
+  );
+}
+
+function GroupDetailPageInner() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [group, setGroup] = useState<GroupParty | null>(null);

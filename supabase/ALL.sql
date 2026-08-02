@@ -1,5 +1,8 @@
 -- AiDHD full schema — paste into Supabase SQL Editor and click Run
 -- Project: https://supabase.com/dashboard/project/fbjlmtxfdzrlfsbbyxss/sql/new
+-- IMPORTANT: after this file, also run supabase/upgrade_v2.sql (reactions,
+-- read receipts, polls, approvals, calendar connections, SMS links,
+-- notifications, chat-uploads bucket).
 
 -- ========== profiles ==========
 create table if not exists public.profiles (

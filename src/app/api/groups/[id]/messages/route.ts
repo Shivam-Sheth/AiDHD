@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { maybeHandleAgentMention } from "@/lib/groups/agent";
 import { resolveGroupUser } from "@/lib/groups/auth";
+import { listReactions, listReads } from "@/lib/groups/chat-extras";
 import { extractMentions } from "@/lib/groups/mentions";
 import {
   appendMessage,
@@ -8,6 +9,28 @@ import {
   isMember,
   listMessages,
 } from "@/lib/groups/store";
+import type { GroupMessage } from "@/lib/groups/types";
+
+async function decoratedMessages(groupId: string) {
+  const [messages, reactions, reads] = await Promise.all([
+    listMessages(groupId),
+    listReactions(groupId),
+    listReads(groupId),
+  ]);
+  const byMessage = new Map<string, GroupMessage["reactions"]>();
+  for (const r of reactions) {
+    const list = byMessage.get(r.message_id) ?? [];
+    list!.push(r);
+    byMessage.set(r.message_id, list);
+  }
+  return {
+    messages: messages.map(({ body_ciphertext: _, ...rest }) => ({
+      ...rest,
+      reactions: byMessage.get(rest.id) ?? [],
+    })),
+    reads,
+  };
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,10 +48,8 @@ export async function GET(
   if (!(await isMember(id, user.id))) {
     return NextResponse.json({ error: "Not a member." }, { status: 403 });
   }
-  const messages = await listMessages(id);
-  return NextResponse.json({
-    messages: messages.map(({ body_ciphertext: _, ...rest }) => rest),
-  });
+  const { messages, reads } = await decoratedMessages(id);
+  return NextResponse.json({ messages, reads });
 }
 
 export async function POST(
@@ -79,12 +100,13 @@ export async function POST(
     origin,
   });
 
-  const messages = await listMessages(id);
+  const { messages, reads } = await decoratedMessages(id);
   return NextResponse.json({
     message: message
       ? { ...message, body_ciphertext: undefined }
       : null,
     agent_handled: agent.handled,
-    messages: messages.map(({ body_ciphertext: _, ...rest }) => rest),
+    messages,
+    reads,
   });
 }

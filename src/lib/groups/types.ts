@@ -8,7 +8,7 @@ export type GroupStatus =
   | "booking"
   | "confirmed"
   | "cancelled";
-export type MemberRole = "organizer" | "spoc" | "member" | "bot";
+export type MemberRole = "organizer" | "admin" | "spoc" | "member" | "bot";
 export type MemberChannel = "web" | "whatsapp" | "imessage" | "system";
 export type MessageKind =
   | "text"
@@ -17,8 +17,24 @@ export type MessageKind =
   | "booking_prompt"
   | "review_link"
   | "spoc_ask"
-  | "tool_result";
-export type BookingCategory = "flight" | "hotel" | "ticket" | "dining" | "trip";
+  | "tool_result"
+  | "poll"
+  | "approval_request"
+  | "share"
+  | "file";
+export type BookingCategory =
+  | "flight"
+  | "hotel"
+  | "ticket"
+  | "dining"
+  | "trip"
+  | "event"
+  | "movie"
+  | "class"
+  | "appointment"
+  | "experience"
+  | "product"
+  | "other";
 export type BookingDraftStatus =
   | "draft"
   | "awaiting_info"
@@ -28,7 +44,16 @@ export type BookingDraftStatus =
   | "failed";
 
 export const AIDHD_BOT_ID = "bot_aidhd";
-export const AIDHD_BOT_NAME = "AiDHD";
+export const AIDHD_BOT_NAME = "Prava";
+
+/** Human-facing role labels (organizer is the owner). */
+export const ROLE_LABELS: Record<MemberRole, string> = {
+  organizer: "owner",
+  admin: "admin",
+  spoc: "SPOC",
+  member: "member",
+  bot: "bot",
+};
 
 export type GroupParty = {
   id: string;
@@ -67,6 +92,11 @@ export type GroupInvite = {
   max_uses: number;
   uses: number;
   expires_at?: string | null;
+  /** Targeted invites (by email / phone / username) — optional. */
+  invited_email?: string | null;
+  invited_phone?: string | null;
+  invited_username?: string | null;
+  role?: "admin" | "member";
   created_at: string;
 };
 
@@ -82,7 +112,89 @@ export type GroupMessage = {
   kind: MessageKind;
   reply_to?: string | null;
   meta: Record<string, unknown>;
+  edited_at?: string | null;
+  deleted_at?: string | null;
+  /** Attached at API response time (never persisted on the row). */
+  reactions?: MessageReaction[];
   created_at: string;
+};
+
+export type MessageReaction = {
+  message_id: string;
+  group_id: string;
+  user_id: string;
+  user_name: string;
+  emoji: string;
+  created_at: string;
+};
+
+export type MessageRead = {
+  group_id: string;
+  user_id: string;
+  last_read_at: string;
+  last_read_message_id?: string | null;
+};
+
+export type GroupPoll = {
+  id: string;
+  group_id: string;
+  message_id?: string | null;
+  question: string;
+  options: string[];
+  created_by: string;
+  status: "open" | "closed";
+  closes_at?: string | null;
+  created_at: string;
+  /** Attached at read time. */
+  votes?: PollVote[];
+};
+
+export type PollVote = {
+  poll_id: string;
+  user_id: string;
+  user_name: string;
+  option_index: number;
+  created_at: string;
+};
+
+export type ApprovalKind =
+  | "payment"
+  | "booking"
+  | "reservation"
+  | "purchase"
+  | "cancellation"
+  | "calendar_create"
+  | "calendar_update"
+  | "calendar_delete"
+  | "outbound_call"
+  | "outbound_message"
+  | "other";
+
+export type ApprovalStatus =
+  | "pending"
+  | "approved"
+  | "declined"
+  | "executed"
+  | "failed"
+  | "expired";
+
+export type ActionApproval = {
+  id: string;
+  group_id?: string | null;
+  user_id?: string | null;
+  message_id?: string | null;
+  kind: ApprovalKind;
+  summary: string;
+  amount_usd?: number | null;
+  payload: Record<string, unknown>;
+  status: ApprovalStatus;
+  requested_by: string;
+  decided_by?: string | null;
+  decided_at?: string | null;
+  result?: Record<string, unknown> | null;
+  expires_at?: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type TravelerSlot = {

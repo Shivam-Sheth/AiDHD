@@ -66,6 +66,7 @@ export async function POST(
     displayName: user.name,
     email: user.email,
     channel: "web",
+    role: invite.role === "admin" ? "admin" : "member",
   });
 
   return NextResponse.json({ ok: true, group_id: invite.group_id });

@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AuthGuard } from "@/components/AuthGuard";
 import { PassportGate } from "@/components/vault/PassportGate";
 import {
   readLocalGroupUser,
+  signOutEverywhere,
   writeLocalGroupUser,
 } from "@/lib/groups/client-session";
 
@@ -13,6 +16,15 @@ import {
  * Passports are collected at flight-book time via PassportGate.
  */
 export default function AccountPage() {
+  return (
+    <AuthGuard>
+      <AccountPageInner />
+    </AuthGuard>
+  );
+}
+
+function AccountPageInner() {
+  const router = useRouter();
   const local = readLocalGroupUser();
   const [name, setName] = useState(local?.name || "");
   const [email, setEmail] = useState(local?.email || "");
@@ -116,6 +128,16 @@ export default function AccountPage() {
       </div>
 
       {msg && <p className="mt-4 text-sm text-success">{msg}</p>}
+
+      <button
+        type="button"
+        onClick={() => {
+          void signOutEverywhere().then(() => router.replace("/login"));
+        }}
+        className="mt-8 w-full rounded-xl border border-line py-3 text-sm font-semibold text-ink-700 transition hover:border-danger/40 hover:text-danger"
+      >
+        Sign out
+      </button>
     </div>
   );
 }

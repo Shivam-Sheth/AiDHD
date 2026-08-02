@@ -25,6 +25,39 @@ export function writeLocalGroupUser(user: LocalGroupUser) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
 }
 
+export function clearLocalGroupUser() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Sign out everywhere: Supabase session + demo local user. */
+export async function signOutEverywhere(): Promise<void> {
+  try {
+    const { supabase } = await import("@/lib/supabase/client");
+    if (supabase) await supabase.auth.signOut();
+  } catch {
+    // ignore — still clear local state
+  }
+  clearLocalGroupUser();
+}
+
+/** True when the visitor has any usable session (Supabase or demo local). */
+export async function hasAnySession(): Promise<boolean> {
+  try {
+    const { supabase } = await import("@/lib/supabase/client");
+    if (supabase) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) return true;
+    }
+  } catch {
+    // fall through
+  }
+  return Boolean(readLocalGroupUser());
+}
+
 export async function groupAuthHeaders(): Promise<HeadersInit> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

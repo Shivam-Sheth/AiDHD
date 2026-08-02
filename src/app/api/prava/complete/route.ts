@@ -38,8 +38,9 @@ export async function POST(req: Request) {
     );
   }
 
+  const PENDING_STATUSES = new Set(["pending", "processing", "awaiting_result"]);
   let result = await getPaymentResult(body.session_id);
-  for (let i = 0; i < 5 && result.status === "awaiting_result"; i++) {
+  for (let i = 0; i < 5 && PENDING_STATUSES.has(result.status); i++) {
     await new Promise((r) => setTimeout(r, 1000));
     result = await getPaymentResult(body.session_id);
   }

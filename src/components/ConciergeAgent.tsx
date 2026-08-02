@@ -612,7 +612,13 @@ function ConciergeInner({
 
     const sdk = new PravaSDK({ publishableKey: pravaPublishableKey });
     void sdk.collectPAN({
-      sessionToken: payment.payload.session_token,
+      // @prava-sdk/core's buildIframeUrl() only fills the iframe URL's `session`
+      // query param when one isn't already present, using whatever we pass here
+      // as sessionToken — Prava's own reference integration (prava-sandbox)
+      // passes session_id for that reason, not the JWT session_token, or the
+      // mounted iframe binds to the wrong identifier and card collection never
+      // resolves.
+      sessionToken: payment.payload.session_id,
       iframeUrl: payment.payload.iframe_url,
       container: cardContainerRef.current,
       onSuccess: () => void completePayment(),

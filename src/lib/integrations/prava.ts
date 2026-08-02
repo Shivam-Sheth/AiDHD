@@ -237,12 +237,13 @@ export async function completePravaCheckout(input: {
 /* ------------------------- Real Prava API, from here ------------------------- */
 
 export interface PravaPaymentResult {
-  /** awaiting_result | completed | failed (per docs.prava.space/concepts/payments) */
+  /** pending | processing | awaiting_result | completed | failed (per docs.prava.space's PaymentResult schema) */
   status: string;
   /** One-time virtual card number — single-use, merchant- and amount-locked, short-lived. */
   token?: string;
   dynamic_cvv?: string;
-  expiry?: string;
+  expiry_month?: string;
+  expiry_year?: string;
   mode: "live" | "mock";
 }
 
@@ -257,7 +258,8 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
       status: "completed",
       token: `4242${randomUUID().replace(/-/g, "").slice(0, 8)}`,
       dynamic_cvv: "***",
-      expiry: "12/29",
+      expiry_month: "12",
+      expiry_year: "29",
       mode: "mock",
     };
   }
@@ -270,15 +272,26 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
     if (!res.ok) return { status: "failed", mode: "live" };
     const data = (await res.json()) as {
       status?: string;
-      token?: string;
-      dynamic_cvv?: string;
-      expiry?: string;
+      transactions?: Array<{
+        status?: string;
+        line_items?: Array<{
+          token?: string | null;
+          dynamic_cvv?: string | null;
+          expiry_month?: string | null;
+          expiry_year?: string | null;
+        }>;
+      }>;
     };
+    // Credentials sit on the first line item of the first transaction per
+    // docs.prava.space's PaymentResult schema — never at the response's top
+    // level, despite that being a natural first guess.
+    const item = data.transactions?.[0]?.line_items?.[0];
     return {
       status: data.status || "awaiting_result",
-      token: data.token,
-      dynamic_cvv: data.dynamic_cvv,
-      expiry: data.expiry,
+      token: item?.token || undefined,
+      dynamic_cvv: item?.dynamic_cvv || undefined,
+      expiry_month: item?.expiry_month || undefined,
+      expiry_year: item?.expiry_year || undefined,
       mode: "live",
     };
   } catch {

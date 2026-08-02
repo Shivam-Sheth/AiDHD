@@ -24,13 +24,26 @@ function storefrontUrl() {
 async function storefrontFetch<T>(query: string, variables: Record<string, unknown>): Promise<T | null> {
   const url = storefrontUrl();
   const reqBody = { query, variables };
+  const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || "";
+  // Redacted (last 4 chars + length only) — lets us confirm via Vercel logs
+  // which token value is actually loaded at runtime without ever printing
+  // the real value. Temporary diagnostic for the local-works/Vercel-401 gap;
+  // fine to leave in long-term since it's fully redacted either way.
+  logInfo("shopify", "using token", {
+    length: token.length,
+    last4: token.slice(-4) || "(empty)",
+    domain: process.env.SHOPIFY_STORE_DOMAIN || "(unset)",
+  });
   logRequest("shopify", "POST", url, reqBody);
   try {
     const res = await fetch(url, {
       method: "POST",
+      // Never let Next.js's fetch cache serve a stale response for this —
+      // every call must hit Shopify live.
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Storefront-Access-Token": process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN!,
+        "X-Shopify-Storefront-Access-Token": token,
       },
       body: JSON.stringify(reqBody),
     });

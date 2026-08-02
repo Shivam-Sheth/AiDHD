@@ -144,7 +144,7 @@ async function planReply(input: {
 Return JSON only:
 {
   "reply": "optional short reply if no tools needed",
-  "tools": [{"name":"get_weather|search_flights|search_hotels|search_tickets|search_dining|search_clubs|search_movies|create_payment","params":{}}],
+  "tools": [{"name":"get_weather|search_flights|search_hotels|search_tickets|search_dining|search_clubs|search_movies|search_products|create_payment","params":{}}],
   "ask_spoc": false,
   "start_booking": null | {"category":"flight|hotel|ticket|dining|trip|event|movie|class|appointment|experience|product|other","summary":"...","amount":0,"merchant":"..."},
   "set_spoc_name": null | "exact display name from members list if they volunteered",

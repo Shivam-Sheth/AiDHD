@@ -31,6 +31,7 @@ export type AgentToolName =
   | "search_dining"
   | "search_clubs"
   | "search_movies"
+  | "search_products"
   | "lookup_vendor"
   | "create_payment"
   | "check_passport_vault"
@@ -468,6 +469,42 @@ export async function executeAgentTool(
         };
       }
 
+      case "search_products": {
+        const query = str(parameters.query || parameters.keyword);
+        if (!query) {
+          return { ok: false, summary: "Need a product query to search." };
+        }
+        const { getCommerceProvider } = await import("@/lib/providers");
+        const provider = getCommerceProvider();
+        const products = await provider.searchProducts({
+          query,
+          merchant: str(parameters.merchant) || undefined,
+          max_price: num(parameters.max_price),
+          limit: 5,
+        });
+        const offers = products.map((p) => ({
+          id: p.id,
+          name: p.title,
+          merchant: p.merchant,
+          description: p.description,
+          price: p.price,
+          currency: p.currency,
+          options: p.options,
+          in_stock: p.in_stock,
+          url: p.url,
+          photo_url: p.image_url,
+        }));
+        return {
+          ok: true,
+          summary: `Found ${offers.length} products for "${query}" via ${provider.name}. Top: ${offers[0]?.name || "n/a"} ~$${Math.round(offers[0]?.price ?? 0)} (${offers[0]?.merchant || ""}). Purchases use the merchant's hosted checkout after approval.`,
+          data: { offers, source: provider.name },
+          ui: {
+            kind: "message",
+            payload: { text: `${offers.length} products for "${query}"`, offers },
+          },
+        };
+      }
+
       case "get_weather": {
         const city = str(parameters.city || parameters.destination);
         const date = str(
@@ -690,7 +727,7 @@ export async function executeAgentTool(
       default:
         return {
           ok: false,
-          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, lookup_vendor, get_weather, create_payment, check_passport_vault, confirm_flight_booking, or confirm_dining_reservation.`,
+          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, search_products, lookup_vendor, get_weather, create_payment, check_passport_vault, confirm_flight_booking, or confirm_dining_reservation.`,
         };
       }
   } catch (e) {
@@ -796,6 +833,11 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
       city: prop("City name"),
       title: prop("Optional movie title keyword"),
     }, ["city"]),
+    client("search_products", "Search products from supported merchants (hosted checkout after approval).", {
+      query: prop("What they want to buy, e.g. running shoes size 10"),
+      merchant: prop("Optional merchant filter"),
+      max_price: prop("Optional max USD price", "number"),
+    }, ["query"]),
     client("lookup_vendor", "Look up vendor trust / reputation score.", {
       vendor: prop("Merchant or venue name"),
     }, ["vendor"]),

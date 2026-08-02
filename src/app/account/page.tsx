@@ -31,6 +31,20 @@ function AccountPageInner() {
   const [present, setPresent] = useState(false);
   const [gateOpen, setGateOpen] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [calendar, setCalendar] = useState<{
+    connected: boolean;
+    email: string;
+  } | null>(null);
+  const [calendarBusy, setCalendarBusy] = useState(false);
+  const [sms, setSms] = useState<{
+    linked: boolean;
+    pending: boolean;
+    phone_last4: string | null;
+    linq_number: string | null;
+  } | null>(null);
+  const [smsPhone, setSmsPhone] = useState("");
+  const [smsInstructions, setSmsInstructions] = useState<string | null>(null);
+  const [smsBusy, setSmsBusy] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -44,7 +58,70 @@ function AccountPageInner() {
         setPresent(Boolean(data.ref?.present));
       }
     })();
+    void (async () => {
+      const { groupAuthHeaders } = await import("@/lib/groups/client-session");
+      const headers = await groupAuthHeaders();
+      const [cal, smsRes] = await Promise.all([
+        fetch("/api/calendar/status", { headers }),
+        fetch("/api/sms/link", { headers }),
+      ]);
+      if (cal.ok) setCalendar(await cal.json());
+      if (smsRes.ok) setSms(await smsRes.json());
+    })();
   }, []);
+
+  async function connectCalendar() {
+    setCalendarBusy(true);
+    try {
+      const { groupAuthHeaders } = await import("@/lib/groups/client-session");
+      const headers = await groupAuthHeaders();
+      const res = await fetch("/api/calendar/oauth/start", {
+        method: "POST",
+        headers,
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      if (data.ok) {
+        setCalendar({ connected: true, email: email || "demo" });
+        setMsg(data.message || "Calendar connected.");
+      }
+    } finally {
+      setCalendarBusy(false);
+    }
+  }
+
+  async function startSmsLinking(e: React.FormEvent) {
+    e.preventDefault();
+    if (!smsPhone.trim()) return;
+    setSmsBusy(true);
+    setSmsInstructions(null);
+    try {
+      const { groupAuthHeaders } = await import("@/lib/groups/client-session");
+      const headers = await groupAuthHeaders();
+      const res = await fetch("/api/sms/link", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ phone: smsPhone.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSmsInstructions(data.error || "Could not start linking.");
+        return;
+      }
+      setSmsInstructions(data.instructions);
+      setSms((prev) => ({
+        linked: false,
+        pending: true,
+        phone_last4: data.phone_last4,
+        linq_number: data.linq_number ?? prev?.linq_number ?? null,
+      }));
+    } finally {
+      setSmsBusy(false);
+    }
+  }
 
   function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -125,6 +202,68 @@ function AccountPageInner() {
         >
           {present ? "Update passport" : "Add passport (optional)"}
         </button>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-line bg-surface p-4">
+        <p className="text-sm font-semibold text-ink">Google Calendar</p>
+        <p className="mt-1 text-xs text-muted">
+          {calendar?.connected ? (
+            <span className="text-success">
+              Connected{calendar.email ? ` · ${calendar.email}` : ""} — Prava
+              can add plans after you approve each one.
+            </span>
+          ) : (
+            "Connect so confirmed plans, reservations, and flights can be added to your calendar (with your approval each time)."
+          )}
+        </p>
+        {!calendar?.connected && (
+          <button
+            type="button"
+            onClick={() => void connectCalendar()}
+            disabled={calendarBusy}
+            className="mt-3 w-full rounded-xl border border-accent/40 bg-accent/10 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
+          >
+            {calendarBusy ? "Connecting…" : "Connect Google Calendar"}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-4 rounded-xl border border-line bg-surface p-4">
+        <p className="text-sm font-semibold text-ink">Text Prava (SMS)</p>
+        {sms?.linked ? (
+          <p className="mt-1 text-xs text-success">
+            Linked to ···{sms.phone_last4} — text{" "}
+            {sms.linq_number || "the Prava number"} things like &ldquo;book a
+            table for 4 tomorrow 8pm&rdquo;.
+          </p>
+        ) : (
+          <>
+            <p className="mt-1 text-xs text-muted">
+              Link your phone to book, buy, and reserve over text. We verify
+              with a code — no payment details ever go over SMS.
+            </p>
+            <form onSubmit={startSmsLinking} className="mt-3 flex gap-2">
+              <input
+                value={smsPhone}
+                onChange={(e) => setSmsPhone(e.target.value)}
+                placeholder="+1 (555) 123-4567"
+                inputMode="tel"
+                autoComplete="tel"
+                className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={smsBusy || !smsPhone.trim()}
+                className="shrink-0 rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-inverse disabled:opacity-50"
+              >
+                {smsBusy ? "…" : sms?.pending ? "Resend code" : "Link"}
+              </button>
+            </form>
+            {smsInstructions && (
+              <p className="mt-2 text-xs text-ink-700">{smsInstructions}</p>
+            )}
+          </>
+        )}
       </div>
 
       {msg && <p className="mt-4 text-sm text-success">{msg}</p>}

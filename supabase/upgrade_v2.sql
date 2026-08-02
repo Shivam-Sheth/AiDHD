@@ -171,6 +171,8 @@ create table if not exists public.sms_links (
   verify_code text,
   verified boolean not null default false,
   default_group_id uuid references public.groups (id) on delete set null,
+  -- SMS concierge conversation state (slots, pending approval id, history)
+  session jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

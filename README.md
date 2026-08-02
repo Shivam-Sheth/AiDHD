@@ -6,6 +6,43 @@ Built for [Prava's Agentic Commerce Hackathon](https://agentic-commerce.devfolio
 
 > Working name in the build prompt was "Splitrip". Product brand in this repo: **AiDHD**.
 
+## Platform upgrade (v2)
+
+The hackathon core has been extended into a production-shaped group booking,
+purchasing, and AI-concierge platform:
+
+- **Auth** — Supabase email/password on the existing screens, Google OAuth,
+  password reset (`/reset-password`), logout, and guarded routes. Demo
+  localStorage sessions still work when Supabase isn't configured.
+- **Groups & realtime chat** — Supabase Realtime (live messages, typing,
+  read receipts, unread badges), replies, reactions, edit/delete, polls,
+  file sharing, owner/admin/member roles, invites by link / email / phone /
+  @username.
+- **@Prava in every group chat** — tag `@Prava` to search flights/hotels/
+  dining/tickets/products, create polls, summarize the chat, suggest plans,
+  place research calls, and add plans to Google Calendar. Every external,
+  financial, or legally meaningful action posts an **Approve/Decline card**
+  first — nothing executes without a human tap.
+- **Calling** — AI-assisted outbound calls (ElevenLabs) to restaurants,
+  hotels, airlines, venues, ticket providers, stores, and support desks,
+  plus user-led calls with a generated script (`POST /api/calls/script`).
+- **SMS concierge (Linq)** — link your phone (Account → Text Prava, verify
+  with `LINK <code>`), then text things like "book a table for four tomorrow
+  at 8pm". Options come back numbered; actions need an explicit YES;
+  confirmations sync into your group chat. No payment/passport data over SMS.
+- **Google Calendar** — OAuth connect on Account; encrypted token storage;
+  the agent asks approval before creating events.
+- **Payments** — unchanged Prava-hosted checkout; agent-initiated payments
+  are approval-gated.
+- **Provider architecture** — `src/lib/providers/` registry (auth, groups,
+  chat, agent, flights, hotels, dining, events, commerce, calls, SMS,
+  calendar, payments, notifications). The `CommerceProvider` interface has a
+  fixture implementation; the **Shopify module (owned by another team)**
+  plugs in via `registerCommerceProvider()`.
+
+Database: run `supabase/ALL.sql` then **`supabase/upgrade_v2.sql`** in the
+Supabase SQL editor. Check readiness at `/api/setup/status`.
+
 ## Why this exists
 
 Group chats are where plans go to die — Friday concerts and weekend getaways alike. Three budgets, two vibes, zero bookings. AiDHD reconciles the mess and actually pays + reserves — without one scary lump-sum charge.

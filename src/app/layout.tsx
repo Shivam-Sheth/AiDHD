@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { DM_Sans, Outfit } from "next/font/google";
+import { DM_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -26,7 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${dmSans.variable} h-full`}>
+    <html
+      lang="en"
+      className={`${spaceGrotesk.variable} ${dmSans.variable} h-full`}
+    >
       <body className="min-h-full antialiased" suppressHydrationWarning>
         {children}
       </body>

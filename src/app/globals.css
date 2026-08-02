@@ -2,24 +2,27 @@
 
 @theme {
   --font-sans: var(--font-dm), system-ui, sans-serif;
-  --font-display: var(--font-outfit), system-ui, sans-serif;
+  --font-display: var(--font-space), system-ui, sans-serif;
 }
 
 :root {
-  --ink: #171717;
-  --muted: #525252;
-  --faint: #a3a3a3;
-  --line: #e5e5e5;
-  --bg: #fafafa;
-  --surface: #ffffff;
-  --accent: #0f766e;
-  --accent-hover: #0d9488;
-  --accent-soft: #ccfbf1;
-  --accent-shadow: rgb(15 118 110 / 0.22);
+  --ink: #f3f2ee;
+  --muted: rgba(243, 242, 238, 0.62);
+  --faint: rgba(243, 242, 238, 0.34);
+  --line: rgba(255, 255, 255, 0.1);
+  --bg: #07070a;
+  --bg-soft: #0d0d12;
+  --surface: rgba(255, 255, 255, 0.04);
+  --accent: #ff6a3d;
+  --accent-hover: #ff9457;
+  --accent-soft: rgba(255, 106, 61, 0.18);
+  --accent-shadow: rgb(255 106 61 / 0.28);
+  --teal: #35d0c0;
 }
 
 html {
   scroll-behavior: smooth;
+  background: var(--bg);
 }
 
 body {
@@ -37,8 +40,8 @@ body {
 
 .bg-grid-pattern {
   background-image:
-    linear-gradient(to right, rgb(0 0 0 / 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(0 0 0 / 0.03) 1px, transparent 1px);
+    linear-gradient(to right, rgb(255 255 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.04) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 

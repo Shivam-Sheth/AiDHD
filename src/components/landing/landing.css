@@ -1,0 +1,521 @@
+/* AiDHD cinematic landing — GalaxyBrain / Dala foundation */
+
+.aidhd-landing {
+  --gb-bg: #07070a;
+  --gb-ink: #f3f2ee;
+  --gb-ink-dim: rgba(243, 242, 238, 0.52);
+  --gb-ink-faint: rgba(243, 242, 238, 0.28);
+  --gb-ember: #ff6a3d;
+  --gb-ember-2: #ff9457;
+  --gb-line: rgba(255, 255, 255, 0.08);
+  --dala-purple: #8b6cf6;
+  --dala-violet: #b16bdc;
+  --dala-pink: #ef6fa8;
+  --dala-amber: #ff9a4d;
+  --dala-teal: #35d0c0;
+
+  background: var(--gb-bg);
+  color: var(--gb-ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+  font-family: var(--font-sans);
+}
+
+.aidhd-landing.leaving {
+  animation: aidhd-fade-out 0.55s ease forwards;
+}
+
+@keyframes aidhd-fade-out {
+  to {
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
+.aidhd-landing .starfield {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.aidhd-landing .grain {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.aidhd-landing .vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    transparent 30%,
+    rgba(0, 0, 0, 0.65) 100%
+  );
+}
+
+.aidhd-landing .hand-mesh {
+  position: fixed;
+  top: -6%;
+  left: -8%;
+  width: 56vw;
+  height: 56vw;
+  max-width: 640px;
+  max-height: 640px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.aidhd-landing .reach-hand {
+  position: fixed;
+  right: -4%;
+  bottom: -6%;
+  width: 42vw;
+  max-width: 480px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.9;
+  animation: aidhd-reach-float 7s ease-in-out infinite;
+}
+
+.aidhd-landing .reach-hand svg {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 0 24px rgba(255, 120, 70, 0.25));
+}
+
+@keyframes aidhd-reach-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-6px, -10px);
+  }
+}
+
+.aidhd-landing .cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 3;
+  background: radial-gradient(
+    circle,
+    rgba(255, 120, 70, 0.1) 0%,
+    rgba(255, 120, 70, 0) 70%
+  );
+  transform: translate(-50%, -50%);
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+.aidhd-landing .topnav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 34px;
+}
+
+.aidhd-landing .logo {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: var(--gb-ink-dim);
+  text-decoration: none;
+}
+
+.aidhd-landing .logo strong {
+  color: var(--gb-ink);
+  font-weight: 600;
+}
+
+.aidhd-landing .nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.aidhd-landing .pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--gb-ink-dim);
+  text-decoration: none;
+  border: 1px solid var(--gb-line);
+  padding: 8px 16px;
+  border-radius: 999px;
+  transition: all 0.35s ease;
+  backdrop-filter: blur(6px);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.aidhd-landing .pill-btn:hover {
+  color: var(--gb-ink);
+  border-color: rgba(255, 148, 87, 0.5);
+  box-shadow: 0 0 24px rgba(255, 106, 61, 0.18);
+}
+
+.aidhd-landing .pill-btn .arrow {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.aidhd-landing .pill-btn:hover .arrow {
+  transform: translate(2px, -2px);
+}
+
+.aidhd-landing .pill-btn.solid {
+  background: linear-gradient(135deg, var(--gb-ember), var(--dala-amber));
+  border: none;
+  color: #fff;
+  font-weight: 500;
+}
+
+.aidhd-landing .pill-btn.solid:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(255, 106, 61, 0.35);
+}
+
+.aidhd-landing .hero-gate {
+  position: relative;
+  z-index: 5;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+
+.aidhd-landing .brand-mark {
+  font-family: var(--font-display);
+  font-size: clamp(42px, 8vw, 88px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--gb-ink);
+  text-align: center;
+  animation: aidhd-brand-in 1.1s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+@keyframes aidhd-brand-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    letter-spacing: 0.08em;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: -0.03em;
+  }
+}
+
+.aidhd-landing .join-us-btn {
+  position: relative;
+  width: 118px;
+  height: 118px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.02) 60%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--gb-ink);
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition:
+    transform 0.45s cubic-bezier(0.2, 0.9, 0.25, 1),
+    border-color 0.4s ease,
+    background 0.4s ease;
+  animation: aidhd-join-in 1s ease 0.25s both;
+}
+
+@keyframes aidhd-join-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.aidhd-landing .join-us-btn:hover {
+  transform: scale(1.08);
+  border-color: rgba(255, 148, 87, 0.55);
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 148, 87, 0.18),
+    rgba(255, 255, 255, 0.03) 60%
+  );
+}
+
+.aidhd-landing .join-us-btn:active {
+  transform: scale(0.97);
+}
+
+.aidhd-landing .join-us-btn .label {
+  position: relative;
+  z-index: 2;
+}
+
+.aidhd-landing .ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 148, 87, 0.35);
+  animation: aidhd-pulse 3.2s ease-out infinite;
+}
+
+.aidhd-landing .ring-2 {
+  animation-delay: 1.6s;
+}
+
+@keyframes aidhd-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+.aidhd-landing .caption {
+  text-align: center;
+  animation: aidhd-join-in 1s ease 0.45s both;
+}
+
+.aidhd-landing .caption .version {
+  font-size: 12px;
+  color: var(--gb-ink-dim);
+  letter-spacing: 0.02em;
+}
+
+.aidhd-landing .caption .by {
+  font-size: 12px;
+  color: var(--gb-ink-faint);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+
+.aidhd-landing .foot-fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 34px;
+  font-size: 11px;
+  color: var(--gb-ink-faint);
+}
+
+.aidhd-landing .foot-fixed a {
+  color: var(--gb-ink-faint);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.aidhd-landing .foot-fixed a:hover {
+  color: var(--gb-ink-dim);
+}
+
+/* ---- story sections (Dala foundation, AiDHD copy) ---- */
+.aidhd-landing .blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: screen;
+}
+
+.aidhd-landing .blob-a {
+  width: 52vw;
+  height: 52vw;
+  top: 90vh;
+  left: -10vw;
+  background: radial-gradient(circle, rgba(255, 106, 61, 0.55), transparent 70%);
+}
+
+.aidhd-landing .blob-b {
+  width: 44vw;
+  height: 44vw;
+  top: 140vh;
+  right: -16vw;
+  background: radial-gradient(circle, rgba(53, 208, 192, 0.4), transparent 70%);
+}
+
+.aidhd-landing .story {
+  position: relative;
+  z-index: 5;
+  padding: 120px 8vw;
+}
+
+.aidhd-landing .story-hero {
+  min-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 18px;
+}
+
+.aidhd-landing .brain-canvas {
+  width: min(70vw, 520px);
+  height: min(70vw, 520px);
+}
+
+.aidhd-landing .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gb-ink-faint);
+}
+
+.aidhd-landing .story h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-size: clamp(32px, 5.5vw, 60px);
+  line-height: 1.08;
+}
+
+.aidhd-landing .story .sub {
+  color: var(--gb-ink-dim);
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 520px;
+}
+
+.aidhd-landing .features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 0 100px;
+}
+
+.aidhd-landing .feature {
+  text-align: left;
+  padding: 8px 4px;
+}
+
+.aidhd-landing .feature .num {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gb-ember-2);
+  margin-bottom: 12px;
+}
+
+.aidhd-landing .feature h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.aidhd-landing .feature p {
+  color: var(--gb-ink-dim);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.aidhd-landing .closing {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 28px;
+  padding: 80px 8vw 120px;
+  position: relative;
+  z-index: 5;
+}
+
+.aidhd-landing .closing h2 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 5vw, 52px);
+  line-height: 1.1;
+  font-weight: 500;
+}
+
+@media (max-width: 860px) {
+  .aidhd-landing .features {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+}
+
+@media (max-width: 640px) {
+  .aidhd-landing .hand-mesh {
+    width: 80vw;
+    height: 80vw;
+    top: -10%;
+    left: -14%;
+  }
+  .aidhd-landing .reach-hand {
+    width: 60vw;
+  }
+  .aidhd-landing .join-us-btn {
+    width: 96px;
+    height: 96px;
+    font-size: 13px;
+  }
+  .aidhd-landing .topnav {
+    padding: 20px;
+  }
+  .aidhd-landing .foot-fixed {
+    padding: 18px 20px;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+  }
+  .aidhd-landing .nav-actions .pill-btn.hide-sm {
+    display: none;
+  }
+}

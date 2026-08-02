@@ -1,5 +1,5 @@
-import { DemoApp } from "@/components/DemoApp";
+import { GalaxyLanding } from "@/components/landing/GalaxyLanding";
 
 export default function Home() {
-  return <DemoApp googleMapsApiKey={process.env.GOOGLE_MAPS_API || null} />;
+  return <GalaxyLanding />;
 }

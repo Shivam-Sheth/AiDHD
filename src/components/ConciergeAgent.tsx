@@ -22,6 +22,7 @@ import {
   type PlaceReview,
   type RouteInfoPayload,
 } from "@/components/PlacesMap";
+import type { DebugLogEntry } from "@/lib/checkout/debug-log";
 
 type FlightCard = {
   id: string;
@@ -262,6 +263,14 @@ function fmtTime(iso: string) {
     return iso;
   }
 }
+
+const DEBUG_TAG_COLORS: Record<string, string> = {
+  prava: "text-amber-300",
+  duffel: "text-sky-300",
+  poll: "text-violet-300",
+  "checkout execute": "text-emerald-300",
+  "prava complete": "text-emerald-300",
+};
 
 function sourceBadge(source?: string) {
   const live =
@@ -578,6 +587,31 @@ function ConciergeInner({
   const [routeInfo, setRouteInfo] = useState<RouteInfoPayload | null>(null);
 
   const lastOffer = useMemo(() => deriveLastOffer(cards), [cards]);
+
+  /** Live Prava/Duffel checkout trace — see lib/checkout/debug-log.ts. */
+  const [debugEntries, setDebugEntries] = useState<DebugLogEntry[]>([]);
+  const [debugConnected, setDebugConnected] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(true);
+  const debugBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const es = new EventSource("/api/checkout/debug-stream");
+    es.onopen = () => setDebugConnected(true);
+    es.onerror = () => setDebugConnected(false);
+    es.onmessage = (ev) => {
+      try {
+        const entry = JSON.parse(ev.data) as DebugLogEntry;
+        setDebugEntries((prev) => [...prev, entry].slice(-500));
+      } catch {
+        // Ignore malformed frames rather than break the stream.
+      }
+    };
+    return () => es.close();
+  }, []);
+
+  useEffect(() => {
+    if (debugOpen) debugBottomRef.current?.scrollIntoView({ block: "end" });
+  }, [debugEntries.length, debugOpen]);
 
   const pushUi = useCallback((ui: UiCard | UiCard[] | undefined | null) => {
     if (!ui) return;
@@ -1445,6 +1479,48 @@ function ConciergeInner({
             Paste Instagram → plan
           </Link>
         </p>
+
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0c1117]/90">
+          <button
+            type="button"
+            onClick={() => setDebugOpen((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-2.5"
+          >
+            <span className="font-display text-xs font-semibold text-white/70">
+              Checkout debug console
+            </span>
+            <span className="flex items-center gap-2 text-[10px]">
+              <span className={debugConnected ? "text-emerald-400" : "text-red-400"}>
+                {debugConnected ? "● live" : "● disconnected"}
+              </span>
+              <span className="text-white/40">{debugOpen ? "▾" : "▸"}</span>
+            </span>
+          </button>
+          {debugOpen && (
+            <div className="max-h-64 overflow-y-auto border-t border-white/10 px-4 py-3 font-mono text-[11px] leading-relaxed">
+              {debugEntries.length === 0 && (
+                <p className="text-white/40">
+                  Waiting for checkout activity — approve a Prava payment to see it here.
+                </p>
+              )}
+              {debugEntries.map((e) => (
+                <div key={e.id} className="mb-1.5">
+                  <span className="text-white/35">{e.ts.slice(11, 23)}</span>{" "}
+                  <span className={DEBUG_TAG_COLORS[e.tag] || "text-white/70"}>
+                    [{e.tag}]
+                  </span>{" "}
+                  <span className="text-white/85">{e.message}</span>
+                  {e.data !== undefined && (
+                    <pre className="mt-0.5 ml-4 whitespace-pre-wrap break-all text-white/45">
+                      {JSON.stringify(e.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))}
+              <div ref={debugBottomRef} />
+            </div>
+          )}
+        </div>
       </aside>
 
       <RoutePanel info={routeInfo} />

@@ -27,7 +27,9 @@ export async function POST(req: Request) {
     question?: string;
     venue_name?: string;
     venue_phone?: string;
+    venue_type?: string;
     reply_to_phone?: string;
+    group_id?: string;
     /** Demo: instantly complete with simulated venue answer */
     simulate?: boolean;
     findings?: string;
@@ -53,7 +55,10 @@ export async function POST(req: Request) {
     question: body.question,
     venue_name: body.venue_name,
     venue_phone: body.venue_phone,
+    venue_type: body.venue_type,
     reply_to_phone: body.reply_to_phone,
+    group_id: body.group_id,
+    reply_channel: body.group_id ? "group" : "whatsapp",
   });
 
   // If keyed outbound is calling async, client polls GET ?id=

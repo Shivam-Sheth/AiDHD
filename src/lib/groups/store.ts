@@ -4,6 +4,7 @@
  */
 
 import { randomBytes, randomUUID } from "crypto";
+import { broadcastGroupEvent } from "@/lib/realtime/broadcast";
 import {
   decryptMessageBody,
   encryptMessageBody,
@@ -26,14 +27,15 @@ import {
   type TravelerSlot,
 } from "./types";
 
-function supabaseConfigured() {
+export function supabaseConfigured() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 }
 
-async function sb(
+/** Service-role PostgREST fetch — shared by the group domain modules. */
+export async function sb(
   path: string,
   init?: RequestInit,
 ): Promise<{ ok: boolean; data: unknown; status: number }> {
@@ -268,7 +270,7 @@ export async function createGroup(input: {
     groupId: id,
     senderId: AIDHD_BOT_ID,
     senderName: AIDHD_BOT_NAME,
-    body: `Hey — I'm AiDHD, sitting in this group like Meta AI does in WhatsApp. Tag me with @AiDHD when you want flights, weather, restaurants, tickets, or to start a booking. Use Invite friends for a web link, WhatsApp, or iMessage.`,
+    body: `Hey — I'm Prava, sitting in this group like Meta AI does in WhatsApp. Tag me with @Prava when you want flights, hotels, restaurants, tickets, polls, a plan, or to start a booking. I'll always ask for your approval before paying, booking, calling, or touching your calendar. Use Invite friends for a web link, email, phone, WhatsApp, or iMessage.`,
     kind: "agent",
   });
 
@@ -497,18 +499,29 @@ export async function getInvite(token: string): Promise<GroupInvite | null> {
 export async function createInvite(
   groupId: string,
   createdBy: string,
+  target?: {
+    email?: string;
+    phone?: string;
+    username?: string;
+    role?: "admin" | "member";
+    maxUses?: number;
+  },
 ): Promise<GroupInvite> {
   const invite: GroupInvite = {
     token: randomBytes(16).toString("hex"),
     group_id: groupId,
     created_by: createdBy,
-    max_uses: 50,
+    max_uses: target?.maxUses ?? (target?.email || target?.phone || target?.username ? 1 : 50),
     uses: 0,
     expires_at: null,
+    invited_email: target?.email || null,
+    invited_phone: target?.phone || null,
+    invited_username: target?.username || null,
+    role: target?.role || "member",
     created_at: new Date().toISOString(),
   };
   if (supabaseConfigured()) {
-    await sb("group_invites", {
+    const res = await sb("group_invites", {
       method: "POST",
       body: JSON.stringify({
         token: invite.token,
@@ -516,11 +529,67 @@ export async function createInvite(
         created_by: invite.created_by,
         max_uses: invite.max_uses,
         uses: 0,
+        invited_email: invite.invited_email,
+        invited_phone: invite.invited_phone,
+        invited_username: invite.invited_username,
+        role: invite.role,
       }),
     });
+    if (!res.ok) {
+      // Schema drift (upgrade_v2.sql not applied) — retry without new cols.
+      await sb("group_invites", {
+        method: "POST",
+        body: JSON.stringify({
+          token: invite.token,
+          group_id: invite.group_id,
+          created_by: invite.created_by,
+          max_uses: invite.max_uses,
+          uses: 0,
+        }),
+      });
+    }
   }
   mem().invites.set(invite.token, invite);
   return invite;
+}
+
+/** Remove a member from the group. */
+export async function removeMember(
+  groupId: string,
+  userId: string,
+): Promise<void> {
+  if (supabaseConfigured()) {
+    await sb(
+      `group_members?group_id=eq.${groupId}&user_id=eq.${encodeURIComponent(userId)}`,
+      { method: "DELETE" },
+    );
+  }
+  const list = mem().members.get(groupId) ?? [];
+  mem().members.set(
+    groupId,
+    list.filter((m) => m.user_id !== userId),
+  );
+}
+
+/** Change a member's role (owner/admin management). */
+export async function setMemberRole(
+  groupId: string,
+  userId: string,
+  role: MemberRole,
+): Promise<boolean> {
+  if (supabaseConfigured()) {
+    await sb(
+      `group_members?group_id=eq.${groupId}&user_id=eq.${encodeURIComponent(userId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
+      },
+    );
+  }
+  const list = mem().members.get(groupId) ?? [];
+  const found = list.find((m) => m.user_id === userId);
+  if (found) found.role = role;
+  return true;
 }
 
 export async function consumeInvite(token: string): Promise<GroupInvite | null> {
@@ -543,6 +612,9 @@ function decryptRow(
   group: GroupParty,
   row: GroupMessage,
 ): GroupMessage {
+  if (row.deleted_at) {
+    return { ...row, body: "" };
+  }
   const key = unwrapGroupChatKey(group.chat_key_wrapped);
   const body = key
     ? decryptMessageBody(key, row.body_ciphertext)
@@ -563,29 +635,124 @@ export async function listMessages(
     );
     if (ok && Array.isArray(data)) {
       return (data as Record<string, unknown>[]).map((row) =>
-        decryptRow(group, {
-          id: String(row.id),
-          group_id: String(row.group_id),
-          sender_id: String(row.sender_id),
-          sender_name: String(row.sender_name ?? ""),
-          body_ciphertext: String(row.body_ciphertext),
-          mentions: Array.isArray(row.mentions)
-            ? (row.mentions as string[])
-            : [],
-          kind: row.kind as MessageKind,
-          reply_to: (row.reply_to as string | null) ?? null,
-          meta:
-            row.meta && typeof row.meta === "object"
-              ? (row.meta as Record<string, unknown>)
-              : {},
-          created_at: String(row.created_at),
-        }),
+        decryptRow(group, rowToMessage(row)),
       );
     }
   }
 
   const msgs = mem().messages.get(groupId) ?? [];
   return msgs.slice(-limit).map((m) => decryptRow(group, m));
+}
+
+function rowToMessage(row: Record<string, unknown>): GroupMessage {
+  return {
+    id: String(row.id),
+    group_id: String(row.group_id),
+    sender_id: String(row.sender_id),
+    sender_name: String(row.sender_name ?? ""),
+    body_ciphertext: String(row.body_ciphertext),
+    mentions: Array.isArray(row.mentions) ? (row.mentions as string[]) : [],
+    kind: row.kind as MessageKind,
+    reply_to: (row.reply_to as string | null) ?? null,
+    meta:
+      row.meta && typeof row.meta === "object"
+        ? (row.meta as Record<string, unknown>)
+        : {},
+    edited_at: (row.edited_at as string | null) ?? null,
+    deleted_at: (row.deleted_at as string | null) ?? null,
+    created_at: String(row.created_at),
+  };
+}
+
+export async function getMessage(
+  groupId: string,
+  messageId: string,
+): Promise<GroupMessage | null> {
+  if (supabaseConfigured()) {
+    const { ok, data } = await sb(
+      `group_messages?id=eq.${messageId}&group_id=eq.${groupId}&limit=1`,
+    );
+    if (ok && Array.isArray(data) && data[0]) {
+      return rowToMessage(data[0] as Record<string, unknown>);
+    }
+  }
+  const msgs = mem().messages.get(groupId) ?? [];
+  return msgs.find((m) => m.id === messageId) ?? null;
+}
+
+/** Edit a message body (sender only — enforced by the API layer). */
+export async function editMessage(input: {
+  groupId: string;
+  messageId: string;
+  body: string;
+}): Promise<GroupMessage | null> {
+  const group = await getGroup(input.groupId);
+  if (!group) return null;
+  const key = unwrapGroupChatKey(group.chat_key_wrapped);
+  if (!key) return null;
+
+  const editedAt = new Date().toISOString();
+  const ciphertext = encryptMessageBody(key, input.body);
+
+  if (supabaseConfigured()) {
+    await sb(`group_messages?id=eq.${input.messageId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        body_ciphertext: ciphertext,
+        edited_at: editedAt,
+      }),
+    });
+  }
+
+  const list = mem().messages.get(input.groupId) ?? [];
+  const found = list.find((m) => m.id === input.messageId);
+  if (found) {
+    found.body_ciphertext = ciphertext;
+    found.body = input.body;
+    found.edited_at = editedAt;
+  }
+
+  await broadcastGroupEvent(input.groupId, "message_updated", {
+    message_id: input.messageId,
+  });
+  const updated = await getMessage(input.groupId, input.messageId);
+  return updated ? decryptRow(group, updated) : null;
+}
+
+/** Soft-delete: blank the ciphertext and stamp deleted_at. */
+export async function softDeleteMessage(input: {
+  groupId: string;
+  messageId: string;
+}): Promise<boolean> {
+  const group = await getGroup(input.groupId);
+  if (!group) return false;
+  const key = unwrapGroupChatKey(group.chat_key_wrapped);
+  const deletedAt = new Date().toISOString();
+  const ciphertext = key ? encryptMessageBody(key, "") : "";
+
+  if (supabaseConfigured()) {
+    await sb(`group_messages?id=eq.${input.messageId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        body_ciphertext: ciphertext,
+        deleted_at: deletedAt,
+      }),
+    });
+  }
+
+  const list = mem().messages.get(input.groupId) ?? [];
+  const found = list.find((m) => m.id === input.messageId);
+  if (found) {
+    found.body_ciphertext = ciphertext;
+    found.body = "";
+    found.deleted_at = deletedAt;
+  }
+
+  await broadcastGroupEvent(input.groupId, "message_updated", {
+    message_id: input.messageId,
+    deleted: true,
+  });
+  return true;
 }
 
 export async function appendMessage(input: {
@@ -638,6 +805,12 @@ export async function appendMessage(input: {
   const list = mem().messages.get(input.groupId) ?? [];
   list.push(msg);
   mem().messages.set(input.groupId, list);
+
+  // Live signal — id only, never plaintext.
+  await broadcastGroupEvent(input.groupId, "message", {
+    message_id: msg.id,
+    kind: msg.kind,
+  });
   return msg;
 }
 

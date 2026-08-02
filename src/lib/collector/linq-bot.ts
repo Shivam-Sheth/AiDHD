@@ -203,6 +203,46 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
     if (!fresh) return { replies: [], skipped: "duplicate_event" };
   }
 
+  // ---------------------------------------------------------------------
+  // Verified-user concierge path (identity via sms_links).
+  // "LINK 123456" verifies phone ownership; verified users get the full
+  // Prava agent (search → confirm → book → receipt → group sync).
+  // ---------------------------------------------------------------------
+  if (msg.from_phone) {
+    try {
+      const { getSmsLinkByPhone, verifySmsLink } = await import(
+        "@/lib/sms/identity"
+      );
+
+      const linkMatch = msg.text.trim().match(/^link\s+(\d{6})$/i);
+      if (linkMatch) {
+        const verified = await verifySmsLink(msg.from_phone, linkMatch[1]!);
+        await reply(
+          msg.chat_id,
+          verified
+            ? `you're linked, ${verified.user_name} ✅ text me anything — "book a table for 4 tomorrow 8pm", "find flights to nyc next weekend", "add dinner to my calendar"`
+            : "that code didn't match — grab a fresh one from the app (Account → Text Prava)",
+          replies,
+        );
+        return { replies };
+      }
+
+      if (!isOptOut(msg.text)) {
+        const link = await getSmsLinkByPhone(msg.from_phone);
+        if (link?.verified) {
+          const { handleConciergeSms } = await import("./sms-concierge");
+          return handleConciergeSms({
+            link,
+            chatId: msg.chat_id,
+            text: msg.text,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[linq-bot] concierge path failed, using collector", e);
+    }
+  }
+
   if (isOptOut(msg.text)) {
     const sess = await getLinqSession(key);
     await saveLinqSession(key, { ...sess, opted_out: true, phase: "done" });

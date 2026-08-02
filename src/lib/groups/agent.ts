@@ -1,14 +1,20 @@
 /**
- * Group-chat AiDHD — sits in the party like Meta AI.
+ * Group-chat @Prava — sits in the party like Meta AI.
  * Only speaks when tagged (or booking/SPOC system prompts).
  * Uses OpenAI credits when available; tools hit Duffel / weather / maps / etc.
+ *
+ * Safety: any external, financial, or legally meaningful action (payments,
+ * reservations, purchases, outbound calls, calendar writes) goes through an
+ * ActionApproval — the agent posts an approval_request and waits for a human.
  */
 
 import { executeAgentTool } from "@/lib/agent-tools/registry";
 import { createPravaSession } from "@/lib/integrations/prava";
 import { completeJson, completeText } from "@/lib/integrations/llm";
 import { getPassportRef } from "@/lib/vault/traveler-store";
+import { createApproval } from "./approvals";
 import { mentionsAidhd, stripMentions } from "./mentions";
+import { createPoll } from "./polls";
 import {
   appendMessage,
   createBookingDraft,
@@ -25,8 +31,10 @@ import {
   type TravelerSlot,
 } from "./types";
 
-const SYSTEM = `You are AiDHD sitting inside a group chat (like Meta AI in WhatsApp).
-You help friends plan nights out and trips. Be sharp, warm, decisive.
+const SYSTEM = `You are Prava sitting inside a group chat (like Meta AI in WhatsApp).
+You help friends plan, book, and buy anything reservable — flights, hotels,
+restaurants, concerts, sports, movies, classes, appointments, experiences,
+products. Be sharp, warm, decisive.
 
 Rules:
 - Use recent group messages for context — names, dates, budgets, vibes, cities already said.
@@ -36,6 +44,13 @@ Rules:
 - Restaurants/tickets: ask for a SPOC volunteer (name on the reservation).
 - Flights: search with party size → one order N vault passports → private collect links for anyone
   missing a passport → review → Prava → book. Chat only shows ✓ ready / still waiting.
+- APPROVAL GATE: you never pay, book, reserve, purchase, cancel, call a business,
+  or touch someone's calendar without explicit human approval. Propose it —
+  the app posts an Approve/Decline card and waits.
+- You can also: create polls for the group, summarize the conversation,
+  suggest plans, coordinate shared purchases and split costs, place research
+  calls to businesses (approval first), add confirmed plans to Google Calendar
+  (approval first).
 - Prefer actionable next steps ("want me to search flights ORD→JFK Sat?").
 - Keep replies under ~130 words unless listing 2–3 concrete options.
 - hi/thanks → brief, no tools.`;
@@ -51,6 +66,22 @@ type ToolPlan = {
     merchant?: string;
   };
   set_spoc_name?: string;
+  create_poll?: { question: string; options: string[] } | null;
+  summarize?: boolean;
+  call_business?: {
+    venue_name: string;
+    venue_phone?: string;
+    venue_type?: string;
+    question: string;
+  } | null;
+  add_to_calendar?: {
+    title: string;
+    start?: string;
+    end?: string;
+    location?: string;
+    description?: string;
+    confirmation_number?: string;
+  } | null;
 };
 
 function heuristicTools(question: string, group: GroupParty) {
@@ -113,10 +144,14 @@ async function planReply(input: {
 Return JSON only:
 {
   "reply": "optional short reply if no tools needed",
-  "tools": [{"name":"get_weather|search_flights|search_hotels|search_tickets|search_dining|search_clubs|search_movies|create_payment","params":{}}],
+  "tools": [{"name":"get_weather|search_flights|search_hotels|search_tickets|search_dining|search_clubs|search_movies|search_products|create_payment","params":{}}],
   "ask_spoc": false,
-  "start_booking": null | {"category":"flight|hotel|ticket|dining|trip","summary":"...","amount":0,"merchant":"..."},
-  "set_spoc_name": null | "exact display name from members list if they volunteered"
+  "start_booking": null | {"category":"flight|hotel|ticket|dining|trip|event|movie|class|appointment|experience|product|other","summary":"...","amount":0,"merchant":"..."},
+  "set_spoc_name": null | "exact display name from members list if they volunteered",
+  "create_poll": null | {"question":"...","options":["...","..."]},
+  "summarize": false,
+  "call_business": null | {"venue_name":"...","venue_phone":"+1...","venue_type":"restaurant|hotel|airline|event_venue|ticket_provider|store|customer_support|merchant|other","question":"what to ask"},
+  "add_to_calendar": null | {"title":"...","start":"ISO or YYYY-MM-DD","end":"...","location":"...","description":"...","confirmation_number":"..."}
 }`,
     user: `GROUP: ${input.group.title} (${input.group.mode}) @ ${input.group.place}
 DATES: ${input.group.proposed_dates.join(", ") || "TBD"}
@@ -227,6 +262,108 @@ export async function maybeHandleAgentMention(input: {
     if (match) await setSpoc(input.group.id, match.user_id);
   }
 
+  // Heuristic fallbacks when the LLM is unavailable / omitted an intent.
+  if (
+    !plan.create_poll &&
+    /\b(make|create|start|run)\b.*\bpoll\b|\bpoll\b.*\b(for|about|on)\b/i.test(
+      question,
+    )
+  ) {
+    const optMatch = question.match(/poll(?:\s+(?:for|about|on))?:?\s*(.+)$/i);
+    const rawOptions = (optMatch?.[1] || "")
+      .split(/\s+(?:vs\.?|or)\s+|,/i)
+      .map((o) => o.trim())
+      .filter(Boolean);
+    plan.create_poll = {
+      question: optMatch?.[1]?.trim() || "What should we do?",
+      options: rawOptions.length >= 2 ? rawOptions : ["Yes", "No"],
+    };
+  }
+  if (!plan.summarize && /\bsummar(y|ize|ise)\b|\bcatch me up\b|\btl;?dr\b/i.test(question)) {
+    plan.summarize = true;
+  }
+
+  // Poll → post it and let the group vote (internal action, no approval needed).
+  if (plan.create_poll?.question && plan.create_poll.options?.length >= 2) {
+    const poll = await createPoll({
+      groupId: input.group.id,
+      question: plan.create_poll.question,
+      options: plan.create_poll.options,
+      createdBy: AIDHD_BOT_ID,
+      createdByName: AIDHD_BOT_NAME,
+    });
+    return { handled: true, agentMessageId: poll.message_id || undefined };
+  }
+
+  // Summarize the conversation on request.
+  if (plan.summarize) {
+    const summary = await completeText({
+      system: SYSTEM,
+      user: `Summarize this group conversation in under 110 words for someone catching up. Bullet the decisions, open questions, and who's doing what.\n\n${transcript}`,
+    });
+    const msg = await appendMessage({
+      groupId: input.group.id,
+      senderId: AIDHD_BOT_ID,
+      senderName: AIDHD_BOT_NAME,
+      body:
+        summary?.text?.trim() ||
+        "Not much to summarize yet — the chat is just getting started.",
+      kind: "agent",
+      meta: { summary: true },
+    });
+    return { handled: true, agentMessageId: msg?.id };
+  }
+
+  // Outbound call to a business → requires explicit approval first.
+  if (plan.call_business?.venue_name) {
+    if (!plan.call_business.venue_phone) {
+      const msg = await appendMessage({
+        groupId: input.group.id,
+        senderId: AIDHD_BOT_ID,
+        senderName: AIDHD_BOT_NAME,
+        body: `I can call ${plan.call_business.venue_name} to ask "${plan.call_business.question}" — what's their phone number? (Or say @Prava call ${plan.call_business.venue_name} at +1…)`,
+        kind: "agent",
+      });
+      return { handled: true, agentMessageId: msg?.id };
+    }
+    await createApproval({
+      groupId: input.group.id,
+      kind: "outbound_call",
+      summary: `Call ${plan.call_business.venue_name} and ask: ${plan.call_business.question}`,
+      payload: {
+        action: "call",
+        venue_name: plan.call_business.venue_name,
+        venue_phone: plan.call_business.venue_phone,
+        venue_type: plan.call_business.venue_type || "other",
+        question: plan.call_business.question,
+      },
+    });
+    return { handled: true };
+  }
+
+  // Calendar write → requires explicit approval from the requester.
+  if (plan.add_to_calendar?.title) {
+    await createApproval({
+      groupId: input.group.id,
+      kind: "calendar_create",
+      summary: `Add "${plan.add_to_calendar.title}" to ${input.senderName}'s Google Calendar${plan.add_to_calendar.start ? ` (${plan.add_to_calendar.start})` : ""}`,
+      payload: {
+        action: "calendar_create",
+        user_id: input.senderId,
+        event: {
+          title: plan.add_to_calendar.title,
+          start: plan.add_to_calendar.start,
+          end: plan.add_to_calendar.end,
+          location: plan.add_to_calendar.location,
+          description: plan.add_to_calendar.description,
+          confirmation_number: plan.add_to_calendar.confirmation_number,
+          attendees: humans.map((h) => h.email).filter(Boolean),
+        },
+      },
+    });
+    return { handled: true };
+  }
+
   const toolBits: string[] = [];
   let lastFlightOfferId: string | undefined;
   for (const t of plan.tools || []) {
@@ -255,29 +392,30 @@ export async function maybeHandleAgentMention(input: {
   if (plan.start_booking) {
     const category = plan.start_booking.category;
 
-    // Dining: if SPOC set, reserve immediately (no passport)
+    // Dining with a SPOC set: propose the reservation — a human must approve
+    // before we commit anything with the restaurant.
     if (category === "dining" && input.group.spoc_user_id) {
       const spoc =
         humans.find((h) => h.user_id === input.group.spoc_user_id) ||
         humans[0];
-      const reserved = await executeAgentTool("confirm_dining_reservation", {
-        restaurant:
-          plan.start_booking.merchant ||
-          input.group.place ||
-          input.group.title,
-        spoc_name: spoc?.display_name || "Guest",
-        party_size: humans.length,
-        time: input.group.proposed_dates[0],
-      });
-      const msg = await appendMessage({
+      const restaurant =
+        plan.start_booking.merchant || input.group.place || input.group.title;
+      await createApproval({
         groupId: input.group.id,
-        senderId: AIDHD_BOT_ID,
-        senderName: AIDHD_BOT_NAME,
-        body: reserved.summary,
-        kind: "booking_prompt",
-        meta: { reservation: reserved.data },
+        kind: "reservation",
+        summary: `Reserve ${restaurant} for ${humans.length} under ${spoc?.display_name || "Guest"}${input.group.proposed_dates[0] ? ` on ${input.group.proposed_dates[0]}` : ""}`,
+        payload: {
+          action: "tool",
+          tool: "confirm_dining_reservation",
+          params: {
+            restaurant,
+            spoc_name: spoc?.display_name || "Guest",
+            party_size: humans.length,
+            time: input.group.proposed_dates[0],
+          },
+        },
       });
-      return { handled: true, agentMessageId: msg?.id };
+      return { handled: true };
     }
 
     if (

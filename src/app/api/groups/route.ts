@@ -18,7 +18,17 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
   const groups = await listGroupsForUser(user.id);
-  return NextResponse.json({ groups });
+  let unread: Record<string, number> = {};
+  try {
+    const { unreadCounts } = await import("@/lib/groups/chat-extras");
+    unread = await unreadCounts(
+      user.id,
+      groups.map((g) => g.id),
+    );
+  } catch {
+    // badges are best-effort
+  }
+  return NextResponse.json({ groups, unread });
 }
 
 export async function POST(req: Request) {

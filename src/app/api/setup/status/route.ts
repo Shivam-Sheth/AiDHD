@@ -20,16 +20,37 @@ async function tableOk(table: string): Promise<boolean> {
 }
 
 export async function GET() {
-  const profiles = await tableOk("profiles");
-  const travelers = await tableOk("traveler_profiles");
-  const groups = await tableOk("groups");
-  const ok = profiles && travelers && groups;
+  const [profiles, travelers, groups, reactions, approvals, calendar, smsLinks, notifications] =
+    await Promise.all([
+      tableOk("profiles"),
+      tableOk("traveler_profiles"),
+      tableOk("groups"),
+      tableOk("message_reactions"),
+      tableOk("action_approvals"),
+      tableOk("calendar_connections"),
+      tableOk("sms_links"),
+      tableOk("notifications"),
+    ]);
+  const v1 = profiles && travelers && groups;
+  const v2 = reactions && approvals && calendar && smsLinks && notifications;
+  const ok = v1 && v2;
   return NextResponse.json({
     ok,
-    tables: { profiles, traveler_profiles: travelers, groups },
+    tables: {
+      profiles,
+      traveler_profiles: travelers,
+      groups,
+      message_reactions: reactions,
+      action_approvals: approvals,
+      calendar_connections: calendar,
+      sms_links: smsLinks,
+      notifications,
+    },
     project: baseUrl(),
     message: ok
       ? "All tables present"
-      : "Run supabase/ALL.sql in the SQL editor, then recheck",
+      : v1
+        ? "Base schema present — run supabase/upgrade_v2.sql for chat features, approvals, calendar, and SMS"
+        : "Run supabase/ALL.sql then supabase/upgrade_v2.sql in the SQL editor, then recheck",
   });
 }

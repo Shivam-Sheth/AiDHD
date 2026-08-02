@@ -28,6 +28,25 @@ export default function AuthCallbackPage() {
         headers: { Authorization: `Bearer ${data.session.access_token}` },
       }).catch(() => {});
 
+      // Mirror into the local group session so group APIs work in both modes.
+      try {
+        const { writeLocalGroupUser } = await import(
+          "@/lib/groups/client-session"
+        );
+        const u = data.session.user;
+        const meta = u.user_metadata as
+          | { full_name?: string; name?: string }
+          | undefined;
+        writeLocalGroupUser({
+          id: u.id,
+          name:
+            meta?.full_name || meta?.name || u.email?.split("@")[0] || "Member",
+          email: u.email || "",
+        });
+      } catch {
+        // non-fatal
+      }
+
       if (!cancelled) router.replace("/agent");
     }
 

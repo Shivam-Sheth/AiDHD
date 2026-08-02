@@ -16,6 +16,7 @@ const OAUTH_ERRORS: Record<string, string> = {
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const [mode, setMode] = useState<"signup" | "signin">("signup");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -23,12 +24,13 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(
     () => OAUTH_ERRORS[params.get("error") || ""] || null,
   );
+  const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
+    if (mode === "signup" && !name.trim()) {
       setError("Enter your name.");
       return;
     }
@@ -40,14 +42,110 @@ export function LoginForm() {
       setError("Enter your password.");
       return;
     }
+    if (mode === "signup" && password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     setError(null);
+    setNotice(null);
     setSubmitting(true);
-    writeLocalGroupUser({
-      id: `usr_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
-      name: name.trim(),
-      email: email.trim(),
-    });
-    router.push("/groups");
+
+    try {
+      // Real Supabase email/password auth when configured.
+      if (supabase) {
+        if (mode === "signup") {
+          const { data, error: signUpError } = await supabase.auth.signUp({
+            email: email.trim(),
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/auth/callback`,
+              data: {
+                full_name: name.trim(),
+                ...(phone.trim() ? { phone: phone.trim() } : {}),
+              },
+            },
+          });
+          if (signUpError) {
+            if (/already registered/i.test(signUpError.message)) {
+              setError("That email already has an account — sign in instead.");
+              setMode("signin");
+            } else {
+              setError(signUpError.message);
+            }
+            return;
+          }
+          if (!data.session) {
+            // Email confirmation is on for this project.
+            setNotice(
+              "Check your inbox — confirm your email, then sign in here.",
+            );
+            setMode("signin");
+            return;
+          }
+          await finishSupabaseSession(data.session.access_token, {
+            id: data.session.user.id,
+            name: name.trim() || data.session.user.email || "Member",
+            email: data.session.user.email || email.trim(),
+            phone: phone.trim() || undefined,
+          });
+          return;
+        }
+
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+        if (signInError || !data.session) {
+          setError(
+            signInError?.message === "Invalid login credentials"
+              ? "Wrong email or password."
+              : signInError?.message || "Sign-in failed. Try again.",
+          );
+          return;
+        }
+        const meta = data.session.user.user_metadata as
+          | { full_name?: string; name?: string }
+          | undefined;
+        await finishSupabaseSession(data.session.access_token, {
+          id: data.session.user.id,
+          name:
+            meta?.full_name ||
+            meta?.name ||
+            data.session.user.email?.split("@")[0] ||
+            "Member",
+          email: data.session.user.email || email.trim(),
+        });
+        return;
+      }
+
+      // Demo fallback when Supabase isn't configured.
+      writeLocalGroupUser({
+        id: `usr_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
+        name: name.trim() || email.split("@")[0] || "Member",
+        email: email.trim(),
+      });
+      router.push(params.get("next") || "/groups");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function finishSupabaseSession(
+    accessToken: string,
+    user: { id: string; name: string; email: string; phone?: string },
+  ) {
+    // Mirror into the local session so group APIs work in either auth mode.
+    writeLocalGroupUser({ id: user.id, name: user.name, email: user.email });
+    await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(user.phone ? { phone: user.phone } : {}),
+    }).catch(() => {});
+    router.push(params.get("next") || "/groups");
   }
 
   async function handleGoogleSignIn() {
@@ -88,30 +186,34 @@ export function LoginForm() {
       <main className="mx-auto flex max-w-3xl justify-center px-5 pb-24 pt-14 sm:px-6">
         <div className="w-full max-w-sm animate-fade-in">
           <p className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-ink">
-            Join us
+            {mode === "signup" ? "Join us" : "Welcome back"}
           </p>
           <h1 className="font-display mt-3 text-4xl font-bold leading-[1.1] tracking-tight text-ink">
-            Create your account
+            {mode === "signup" ? "Create your account" : "Sign in"}
           </h1>
           <p className="mt-4 text-base leading-relaxed text-muted">
-            Name and email are required — phone number is optional.
+            {mode === "signup"
+              ? "Name and email are required — phone number is optional."
+              : "Use the email and password you signed up with."}
           </p>
 
           <form onSubmit={handleSubmit} className="animate-slide-up mt-10 space-y-4">
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-ink-700">
-                Name
-              </span>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Jordan Lee"
-                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
-                autoComplete="name"
-                autoFocus
-              />
-            </label>
+            {mode === "signup" && (
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-ink-700">
+                  Name
+                </span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Jordan Lee"
+                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
+                  autoComplete="name"
+                  autoFocus
+                />
+              </label>
+            )}
 
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-ink-700">
@@ -127,28 +229,40 @@ export function LoginForm() {
               />
             </label>
 
+            {mode === "signup" && (
+              <label className="block">
+                <span className="mb-1.5 flex items-baseline justify-between">
+                  <span className="text-sm font-medium text-ink-700">
+                    Phone number
+                  </span>
+                  <span className="text-xs font-medium text-faint">
+                    Optional
+                  </span>
+                </span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 (555) 123-4567"
+                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
+                  autoComplete="tel"
+                />
+              </label>
+            )}
+
             <label className="block">
               <span className="mb-1.5 flex items-baseline justify-between">
                 <span className="text-sm font-medium text-ink-700">
-                  Phone number
+                  Password
                 </span>
-                <span className="text-xs font-medium text-faint">
-                  Optional
-                </span>
-              </span>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 (555) 123-4567"
-                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
-                autoComplete="tel"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-ink-700">
-                Password
+                {mode === "signin" && (
+                  <Link
+                    href="/reset-password"
+                    className="text-xs font-medium text-muted hover:text-ink"
+                  >
+                    Forgot password?
+                  </Link>
+                )}
               </span>
               <input
                 type="password"
@@ -156,7 +270,9 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
-                autoComplete="current-password"
+                autoComplete={
+                  mode === "signup" ? "new-password" : "current-password"
+                }
               />
             </label>
 
@@ -165,14 +281,57 @@ export function LoginForm() {
                 {error}
               </p>
             )}
+            {notice && (
+              <p className="rounded-lg bg-subtle px-3 py-2 text-sm text-ink-700">
+                {notice}
+              </p>
+            )}
 
             <button
               type="submit"
               disabled={submitting}
               className="inline-flex w-full items-center justify-center rounded-xl bg-ink px-6 py-3 font-display text-base font-semibold text-inverse shadow-card transition hover:bg-ink disabled:cursor-wait disabled:opacity-60"
             >
-              {submitting ? "Signing in…" : "Sign in"}
+              {submitting
+                ? mode === "signup"
+                  ? "Creating account…"
+                  : "Signing in…"
+                : mode === "signup"
+                  ? "Create account"
+                  : "Sign in"}
             </button>
+
+            <p className="text-center text-sm text-muted">
+              {mode === "signup" ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("signin");
+                      setError(null);
+                    }}
+                    className="font-medium text-ink underline-offset-2 hover:underline"
+                  >
+                    Sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  New here?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("signup");
+                      setError(null);
+                    }}
+                    className="font-medium text-ink underline-offset-2 hover:underline"
+                  >
+                    Create an account
+                  </button>
+                </>
+              )}
+            </p>
           </form>
 
           <div className="mt-6 flex items-center gap-3">

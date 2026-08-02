@@ -214,6 +214,7 @@ export async function executeAgentTool(
             price_per_person: o.price_per_person,
             currency: o.currency,
             source,
+            duffel_passenger_id: o.duffel_passenger_id,
           };
         };
         const offers = fl.offers.slice(0, 5).map((o) => mapOffer(o, fl.source));
@@ -474,6 +475,46 @@ export async function executeAgentTool(
             summary: "Need a positive amount (USD) to start Prava payment.",
           };
         }
+
+        // Only meaningful for category "flight" — carries the Duffel offer +
+        // passenger identity through to /api/checkout/execute once Prava
+        // approval completes, so that leg can actually charge Duffel instead
+        // of only recording Prava enrollment.
+        const flightOfferId = str(parameters.flight_offer_id) || undefined;
+        const duffelPassengerId = str(parameters.duffel_passenger_id) || undefined;
+        const givenName = str(parameters.passenger_given_name) || undefined;
+        const familyName = str(parameters.passenger_family_name) || undefined;
+        const bornOn = str(parameters.passenger_born_on) || undefined;
+        const genderRaw = str(parameters.passenger_gender).toLowerCase();
+        const gender = genderRaw === "m" || genderRaw === "f" ? genderRaw : undefined;
+        const titleRaw = str(parameters.passenger_title).toLowerCase();
+        const title =
+          titleRaw === "mr" || titleRaw === "ms" || titleRaw === "mrs" || titleRaw === "miss"
+            ? titleRaw
+            : undefined;
+        const phone = str(parameters.passenger_phone) || undefined;
+        const passenger =
+          category === "flight" &&
+          flightOfferId &&
+          duffelPassengerId &&
+          givenName &&
+          familyName &&
+          bornOn &&
+          gender &&
+          title &&
+          phone
+            ? {
+                id: duffelPassengerId,
+                given_name: givenName,
+                family_name: familyName,
+                email,
+                phone_number: phone,
+                born_on: bornOn,
+                gender,
+                title,
+              }
+            : undefined;
+
         const session = await createPravaSession({
           user_id: str(parameters.user_id) || `agent_${Date.now()}`,
           user_email: email,
@@ -509,6 +550,8 @@ export async function executeAgentTool(
               merchant,
               category,
               mode: session.mode,
+              flight_offer_id: category === "flight" ? flightOfferId : undefined,
+              passenger,
             },
           },
         };
@@ -568,6 +611,14 @@ FLOW
    conversation. Do not re-run a search tool and do not ask a confirmation
    question first — state the total in your reply alongside opening Prava, not
    before it.
+   EXCEPTION for flights: a real airline charge needs the passenger's legal
+   name (as on ID), date of birth, gender, title, and phone. If any are
+   missing, ask for them in that same turn BEFORE calling create_payment —
+   this is booking detail, not a secret, so it's fine to collect by voice/chat
+   (unlike card/passport numbers, see IDENTITY above). Once you have them,
+   pass flight_offer_id + duffel_passenger_id from the chosen search_flights
+   offer, plus passenger_given_name/family_name/born_on/gender/title/phone,
+   into create_payment alongside the usual amount/merchant/category="flight".
 5) If vault missing for ticketing, still show offers; say booking finalizes after vault + Prava
 
 EDGE CASES
@@ -650,6 +701,18 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
       amount: prop("USD total amount", "number"),
       category: prop("flight | hotel | ticket | dining | club | movie | trip"),
       email: prop("Payer email"),
+      flight_offer_id: prop(
+        "Only for category=flight: the exact offer id from the most recent search_flights result being booked",
+      ),
+      duffel_passenger_id: prop(
+        "Only for category=flight: the duffel_passenger_id from that same search_flights offer",
+      ),
+      passenger_given_name: prop("Only for category=flight: passenger's legal first name, as on ID"),
+      passenger_family_name: prop("Only for category=flight: passenger's legal last name, as on ID"),
+      passenger_born_on: prop("Only for category=flight: passenger date of birth, YYYY-MM-DD"),
+      passenger_gender: prop("Only for category=flight: passenger gender, 'm' or 'f'"),
+      passenger_title: prop("Only for category=flight: 'mr' | 'ms' | 'mrs' | 'miss'"),
+      passenger_phone: prop("Only for category=flight: passenger phone number, e.g. +15555550100"),
     }, ["amount", "merchant"]),
     client("show_results", "Optional nudge that results are on screen.", {
       kind: prop("flights | hotels | tickets | dining | clubs | movies | payment | message"),

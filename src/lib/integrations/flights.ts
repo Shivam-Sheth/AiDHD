@@ -161,6 +161,8 @@ async function searchFlightsOneWay(input: {
               id: string;
               total_amount?: string;
               owner?: { name?: string; iata_code?: string };
+              /** Echoed from the offer_request — required unchanged in /air/orders' passengers[].id. */
+              passengers?: Array<{ id?: string }>;
               slices?: Array<{
                 segments?: Array<{
                   originating_airport_iata_code?: string;
@@ -193,6 +195,7 @@ async function searchFlightsOneWay(input: {
             price_per_person: Number(o.total_amount || 199),
             currency: "USD",
             tags: ["live", "duffel"],
+            duffel_passenger_id: o.passengers?.[0]?.id,
           };
         });
         if (offers.length) return { offers: offers.map(withIata), source: "duffel" };

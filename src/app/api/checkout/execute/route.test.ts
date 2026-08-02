@@ -97,7 +97,18 @@ describe("POST /api/checkout/execute", () => {
     const json = JSON.parse(rawBody);
 
     expect(res.status).toBe(200);
-    expect(json).toEqual({ ok: true, order_id: "ord_123", confirmation_id: "ABCDEF" });
+    expect(json.ok).toBe(true);
+    expect(json.order_id).toBe("ord_123");
+    expect(json.confirmation_id).toBe("ABCDEF");
+    expect(json.ui).toEqual({
+      kind: "receipt",
+      payload: expect.objectContaining({
+        confirmation_id: "ABCDEF",
+        session_id: "sess_test",
+        token_ref: "•••• leak",
+        duffel_order_id: "ord_123",
+      }),
+    });
     expect(rawBody).not.toContain(FIXTURE_TOKEN);
     expect(rawBody).not.toContain(FIXTURE_CVV);
     expect(mockedReport).toHaveBeenCalledWith("sess_test", "APPROVED");

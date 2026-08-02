@@ -1,4 +1,5 @@
 import { getPaymentResult, type PravaPaymentResult } from "../integrations/prava";
+import { logInfo } from "./debug-log";
 
 export const DEFAULT_POLL_INTERVAL_MS = 750;
 export const DEFAULT_POLL_TIMEOUT_MS = 30_000;
@@ -25,15 +26,21 @@ export async function pollForCompletedPayment(
   const timeoutMs = opts.timeoutMs ?? DEFAULT_POLL_TIMEOUT_MS;
   const deadline = Date.now() + timeoutMs;
 
+  let attempt = 1;
   let result = await getPaymentResult(sessionId);
+  logInfo("poll", `attempt ${attempt} status=${result.status}`);
   while (PENDING_STATUSES.has(result.status) && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, intervalMs));
+    attempt += 1;
     result = await getPaymentResult(sessionId);
+    logInfo("poll", `attempt ${attempt} status=${result.status}`);
   }
 
   if (result.status === "completed") {
+    logInfo("poll", `resolved completed after ${attempt} attempt(s)`);
     return { ok: true, result };
   }
   const reason = PENDING_STATUSES.has(result.status) ? "timeout" : "declined";
+  logInfo("poll", `gave up after ${attempt} attempt(s): ${reason} (last status: ${result.status})`);
   return { ok: false, reason, last_status: result.status };
 }

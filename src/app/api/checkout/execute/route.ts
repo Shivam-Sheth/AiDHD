@@ -6,6 +6,7 @@ import {
   type DuffelBillingAddress,
   type DuffelOrderPassenger,
 } from "@/lib/checkout/duffel-payment";
+import { logInfo } from "@/lib/checkout/debug-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +55,14 @@ export async function POST(req: Request) {
   }
 
   const { session_id, merchant, amount, offer_id, passengers } = body;
+  logInfo("checkout execute", "incoming request", {
+    session_id,
+    merchant,
+    amount,
+    currency: body.currency,
+    offer_id,
+    passenger_count: passengers?.length ?? 0,
+  });
   if (!session_id || !merchant || amount == null || !offer_id || !passengers?.length) {
     return NextResponse.json(
       { ok: false, error: "session_id, merchant, amount, offer_id, passengers required" },
@@ -81,6 +90,8 @@ export async function POST(req: Request) {
       { status: 502 },
     );
   }
+  // Last 4 digits only — same redaction pattern as prava/complete/route.ts.
+  const tokenRef = `•••• ${token.slice(-4)}`;
 
   // 2. EXECUTE CHECKOUT + 3. REPORT THE OUTCOME --------------------------
   // --- CREDENTIAL-HANDLING BOUNDARY ---
@@ -88,7 +99,10 @@ export async function POST(req: Request) {
   // console.*, logger, or Sentry/monitoring calls inside this block, and
   // don't spread `polled.result` into anything logged/persisted/returned —
   // the card fields may only reach payDuffelFlightOrder's `card` argument
-  // and then fall out of scope when this block ends.
+  // and then fall out of scope when this block ends. (payDuffelFlightOrder's
+  // own request/response logging is already redacted at the source — see
+  // debug-log.ts — so no additional logging belongs here.)
+  logInfo("checkout execute", "entering credential-handling boundary", { session_id, offer_id });
   let outcome: CheckoutOutcome = {
     ok: false,
     error_code: "unreached",
@@ -126,18 +140,38 @@ export async function POST(req: Request) {
     await reportPaymentStatus(session_id, outcome.ok ? "APPROVED" : "DECLINED").catch(() => {});
   }
   // --- END CREDENTIAL-HANDLING BOUNDARY ---
+  logInfo("checkout execute", "left credential-handling boundary", { session_id, ok: outcome.ok });
 
   if (!outcome.ok) {
-    console.error("[checkout execute]", session_id, outcome.error_code);
+    console.error("[checkout execute]", session_id, outcome.error_code, outcome.error_message);
     return NextResponse.json(
       { ok: false, error_code: outcome.error_code, error: outcome.error_message },
       { status: 402 },
     );
   }
 
+  const confirmation_id = outcome.booking_reference;
+  const summary = `Prava session ${session_id} → one-time card ${tokenRef} → Duffel order ${outcome.order_id} for $${Number(amount).toFixed(2)} at ${merchant}. Confirmation ${confirmation_id}.`;
+  logInfo("checkout execute", "success", { session_id, order_id: outcome.order_id, confirmation_id });
+
   return NextResponse.json({
     ok: true,
     order_id: outcome.order_id,
-    confirmation_id: outcome.booking_reference,
+    confirmation_id,
+    summary,
+    ui: {
+      kind: "receipt",
+      payload: {
+        confirmation_id,
+        session_id,
+        mandate_id: session_id,
+        token_ref: tokenRef,
+        merchant,
+        amount: Number(amount),
+        mode: "live",
+        summary,
+        duffel_order_id: outcome.order_id,
+      },
+    },
   });
 }

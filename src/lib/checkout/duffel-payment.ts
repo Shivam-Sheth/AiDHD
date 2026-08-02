@@ -1,4 +1,5 @@
 import { hasDuffel } from "../integrations/config";
+import { logRequest, logResponse, redactCard } from "./debug-log";
 
 /**
  * Pays a Duffel flight order with a raw card (e.g. Prava's one-time virtual
@@ -58,35 +59,35 @@ export type DuffelOrderPassenger = {
 
 type DuffelErrorBody = { errors?: Array<{ message?: string }> };
 
-async function firstError(res: Response): Promise<string> {
-  const json = (await res.json().catch(() => null)) as DuffelErrorBody | null;
-  return json?.errors?.[0]?.message || `Duffel request failed (${res.status})`;
-}
-
 export async function createDuffelCard(
   card: DuffelCard,
   billing_address: DuffelBillingAddress,
 ): Promise<{ ok: true; card_id: string } | { ok: false; error: string }> {
-  const res = await fetch(`${CARDS_HOST}/payments/cards`, {
+  const url = `${CARDS_HOST}/payments/cards`;
+  const reqBody = {
+    data: {
+      number: card.number,
+      cvc: card.cvc,
+      expiry_month: card.expiry_month,
+      expiry_year: card.expiry_year,
+      name: card.cardholder_name,
+      address_line_1: billing_address.line1,
+      address_city: billing_address.city,
+      address_region: billing_address.region,
+      address_postal_code: billing_address.postal_code,
+      address_country_code: billing_address.country_code,
+      multi_use: false,
+    },
+  };
+  // Logged redacted — number/cvc never appear in full; see debug-log.ts.
+  logRequest("duffel", "POST", url, { data: redactCard(reqBody.data) });
+  const res = await fetch(url, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({
-      data: {
-        number: card.number,
-        cvc: card.cvc,
-        expiry_month: card.expiry_month,
-        expiry_year: card.expiry_year,
-        name: card.cardholder_name,
-        address_line_1: billing_address.line1,
-        address_city: billing_address.city,
-        address_region: billing_address.region,
-        address_postal_code: billing_address.postal_code,
-        address_country_code: billing_address.country_code,
-        multi_use: false,
-      },
-    }),
+    body: JSON.stringify(reqBody),
   });
   const json = (await res.json().catch(() => null)) as { data?: { id?: string } } & DuffelErrorBody | null;
+  logResponse("duffel", "POST", url, res.status, json);
   if (!res.ok || !json?.data?.id) {
     return { ok: false, error: json?.errors?.[0]?.message || `Duffel card creation failed (${res.status})` };
   }
@@ -103,21 +104,25 @@ export async function createThreeDSecureSession(
   card_id: string,
   resource_id: string,
 ): Promise<{ ok: true; session_id: string; status: string } | { ok: false; error: string }> {
-  const res = await fetch(`${API_HOST}/payments/three_d_secure_sessions`, {
+  const url = `${API_HOST}/payments/three_d_secure_sessions`;
+  const reqBody = {
+    data: {
+      card_id,
+      resource_id,
+      cardholder_present: false,
+      exception: "secure_corporate_payment",
+    },
+  };
+  logRequest("duffel", "POST", url, reqBody);
+  const res = await fetch(url, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({
-      data: {
-        card_id,
-        resource_id,
-        cardholder_present: false,
-        exception: "secure_corporate_payment",
-      },
-    }),
+    body: JSON.stringify(reqBody),
   });
   const json = (await res.json().catch(() => null)) as
     | ({ data?: { id?: string; status?: string } } & DuffelErrorBody)
     | null;
+  logResponse("duffel", "POST", url, res.status, json);
   if (!res.ok || !json?.data?.id) {
     return { ok: false, error: json?.errors?.[0]?.message || `3DS session failed (${res.status})` };
   }
@@ -156,29 +161,35 @@ export async function payDuffelFlightOrder(input: {
     };
   }
 
-  const res = await fetch(`${API_HOST}/air/orders`, {
+  const ordersUrl = `${API_HOST}/air/orders`;
+  const ordersReqBody = {
+    data: {
+      type: "instant",
+      selected_offers: [input.offer_id],
+      passengers: input.passengers,
+      payments: [
+        {
+          type: "card",
+          currency: input.currency,
+          amount: input.amount.toFixed(2),
+          three_d_secure_session_id: session.session_id,
+        },
+      ],
+    },
+  };
+  logRequest("duffel", "POST", ordersUrl, ordersReqBody);
+  const res = await fetch(ordersUrl, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({
-      data: {
-        type: "instant",
-        selected_offers: [input.offer_id],
-        passengers: input.passengers,
-        payments: [
-          {
-            type: "card",
-            currency: input.currency,
-            amount: input.amount.toFixed(2),
-            three_d_secure_session_id: session.session_id,
-          },
-        ],
-      },
-    }),
+    body: JSON.stringify(ordersReqBody),
   });
-  if (!res.ok) return { ok: false, failure_reason: await firstError(res) };
-  const json = (await res.json().catch(() => null)) as {
-    data?: { id?: string; booking_reference?: string };
-  } | null;
+  const json = (await res.json().catch(() => null)) as
+    | ({ data?: { id?: string; booking_reference?: string } } & DuffelErrorBody)
+    | null;
+  logResponse("duffel", "POST", ordersUrl, res.status, json);
+  if (!res.ok) {
+    return { ok: false, failure_reason: json?.errors?.[0]?.message || `Duffel request failed (${res.status})` };
+  }
   if (!json?.data?.id) {
     return { ok: false, failure_reason: "Duffel order creation returned no order id" };
   }

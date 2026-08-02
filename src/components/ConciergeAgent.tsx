@@ -34,6 +34,19 @@ type FlightCard = {
   cabin: string;
   price_per_person: number;
   source: string;
+  /** Duffel-generated passenger id from the offer_request — needed to book this offer for real. */
+  duffel_passenger_id?: string;
+};
+
+type CheckoutPassenger = {
+  id: string;
+  given_name: string;
+  family_name: string;
+  email: string;
+  phone_number: string;
+  born_on: string;
+  gender: "m" | "f";
+  title: "mr" | "ms" | "mrs" | "miss";
 };
 
 type HotelCard = {
@@ -140,6 +153,9 @@ type UiCard =
         merchant: string;
         mode: string;
         category?: string;
+        /** category="flight" only — carries the Duffel offer through to a real charge. */
+        flight_offer_id?: string;
+        passenger?: CheckoutPassenger;
       };
     }
   | {
@@ -153,6 +169,8 @@ type UiCard =
         amount: number;
         mode: string;
         summary: string;
+        /** Present only when this leg actually charged Duffel (see /api/checkout/execute). */
+        duffel_order_id?: string;
       };
     }
   | { kind: "vendor"; payload: unknown }
@@ -176,7 +194,13 @@ type UiCard =
 
 type ChatLine = { role: "user" | "assistant"; text: string };
 
-type LastOffer = { kind: string; merchant: string; amount: number } | null;
+type LastOffer = {
+  kind: string;
+  merchant: string;
+  amount: number;
+  flight_offer_id?: string;
+  duffel_passenger_id?: string;
+} | null;
 
 /**
  * Real price of the most recently shown offer, keyed off whatever card is
@@ -192,6 +216,8 @@ function deriveLastOffer(cards: UiCard[]): LastOffer {
           kind: "flights",
           merchant: `${top.airline} ${top.from}→${top.to} flight`,
           amount: top.price_per_person,
+          flight_offer_id: top.id,
+          duffel_passenger_id: top.duffel_passenger_id,
         };
       }
     } else if (c.kind === "hotels") {
@@ -568,15 +594,33 @@ function ConciergeInner({
     if (!payment) return;
     setCompleting(true);
     try {
-      const res = await fetch("/api/prava/complete", {
+      // Flights with a real offer + passenger attached actually spend the
+      // Prava card against Duffel; everything else (no merchant payment API
+      // wired up yet) only records the Prava enrollment, same as before.
+      const canChargeDuffel =
+        payment.payload.category === "flight" &&
+        Boolean(payment.payload.flight_offer_id) &&
+        Boolean(payment.payload.passenger);
+      const endpoint = canChargeDuffel ? "/api/checkout/execute" : "/api/prava/complete";
+      const body = canChargeDuffel
+        ? {
+            session_id: payment.payload.session_id,
+            merchant: payment.payload.merchant,
+            amount: payment.payload.amount,
+            currency: "USD",
+            offer_id: payment.payload.flight_offer_id,
+            passengers: [payment.payload.passenger],
+          }
+        : {
+            session_id: payment.payload.session_id,
+            merchant: payment.payload.merchant,
+            amount: payment.payload.amount,
+            category: payment.payload.category || "trip",
+          };
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_id: payment.payload.session_id,
-          merchant: payment.payload.merchant,
-          amount: payment.payload.amount,
-          category: payment.payload.category || "trip",
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -701,6 +745,14 @@ function ConciergeInner({
     if ((!Number.isFinite(amt) || amt <= 0) && lastOffer) {
       p.amount = lastOffer.amount;
       if (!p.merchant) p.merchant = lastOffer.merchant;
+    }
+    // Same reasoning as the amount/merchant backfill above: the voice LLM
+    // reliably asks for passenger details but can forget to echo the offer
+    // ids back verbatim, and those must match exactly for Duffel to accept
+    // the order — so fill them from the flight card actually on screen.
+    if (p.category === "flight" && lastOffer?.kind === "flights") {
+      if (!p.flight_offer_id) p.flight_offer_id = lastOffer.flight_offer_id;
+      if (!p.duffel_passenger_id) p.duffel_passenger_id = lastOffer.duffel_passenger_id;
     }
     return runTool("create_payment", p);
   });

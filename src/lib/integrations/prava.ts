@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { hasPrava } from "./config";
+import { logRequest, logResponse, logInfo, redactPaymentResult } from "../checkout/debug-log";
 
 export interface PravaSessionResult {
   session_id: string;
@@ -47,34 +48,37 @@ export async function createPravaSession(input: {
   if (hasPrava()) {
     try {
       const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
-      const res = await fetch("https://sandbox.api.prava.space/v1/sessions", {
+      const url = "https://sandbox.api.prava.space/v1/sessions";
+      const reqBody = {
+        user_id: input.user_id,
+        user_email: input.user_email,
+        total_amount: input.amount.toFixed(2),
+        currency: input.currency,
+        purchase_context: [
+          {
+            merchant_details: {
+              name: input.merchant,
+              url: input.merchant_url || "https://ai-dhd.vercel.app",
+              country_code_iso2: "US",
+            },
+            product_details: [
+              {
+                description: `AiDHD ${input.category} booking`,
+                unit_price: input.amount.toFixed(2),
+                quantity: 1,
+              },
+            ],
+          },
+        ],
+      };
+      logRequest("prava", "POST", url, reqBody);
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${secret}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          user_id: input.user_id,
-          user_email: input.user_email,
-          total_amount: input.amount.toFixed(2),
-          currency: input.currency,
-          purchase_context: [
-            {
-              merchant_details: {
-                name: input.merchant,
-                url: input.merchant_url || "https://ai-dhd.vercel.app",
-                country_code_iso2: "US",
-              },
-              product_details: [
-                {
-                  description: `AiDHD ${input.category} booking`,
-                  unit_price: input.amount.toFixed(2),
-                  quantity: 1,
-                },
-              ],
-            },
-          ],
-        }),
+        body: JSON.stringify(reqBody),
       });
 
       const data = (await res.json()) as {
@@ -87,6 +91,7 @@ export async function createPravaSession(input: {
         error?: string;
         detail?: string;
       };
+      logResponse("prava", "POST", url, res.status, data);
 
       if (res.ok && data.session_id) {
         const iframe =
@@ -113,11 +118,13 @@ export async function createPravaSession(input: {
           `Prava session failed (${res.status})`,
       };
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Prava request failed";
+      logInfo("prava", "POST /v1/sessions threw", { message });
       return {
         session_id: `sess_err_${randomUUID().slice(0, 8)}`,
         session_token: "",
         mode: "live",
-        error: e instanceof Error ? e.message : "Prava request failed",
+        error: message,
       };
     }
   }
@@ -263,13 +270,15 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
       mode: "mock",
     };
   }
+  const url = `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/payment-result`;
   try {
     const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
-    const res = await fetch(
-      `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/payment-result`,
-      { headers: { Authorization: `Bearer ${secret}` } },
-    );
-    if (!res.ok) return { status: "failed", mode: "live" };
+    logRequest("prava", "GET", url);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${secret}` } });
+    if (!res.ok) {
+      logResponse("prava", "GET", url, res.status);
+      return { status: "failed", mode: "live" };
+    }
     const data = (await res.json()) as {
       status?: string;
       transactions?: Array<{
@@ -286,7 +295,7 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
     // docs.prava.space's PaymentResult schema — never at the response's top
     // level, despite that being a natural first guess.
     const item = data.transactions?.[0]?.line_items?.[0];
-    return {
+    const result: PravaPaymentResult = {
       status: data.status || "awaiting_result",
       token: item?.token || undefined,
       dynamic_cvv: item?.dynamic_cvv || undefined,
@@ -294,7 +303,13 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
       expiry_year: item?.expiry_year || undefined,
       mode: "live",
     };
-  } catch {
+    // Logged redacted — see debug-log.ts; token/dynamic_cvv never appear here in full.
+    logResponse("prava", "GET", url, res.status, redactPaymentResult(result));
+    return result;
+  } catch (e) {
+    logInfo("prava", "GET /payment-result threw", {
+      message: e instanceof Error ? e.message : "unknown",
+    });
     return { status: "failed", mode: "live" };
   }
 }
@@ -311,19 +326,19 @@ export async function reportPaymentStatus(
   if (!hasPrava() || sessionId.startsWith("sess_mock") || sessionId.startsWith("sess_err")) {
     return { ok: true };
   }
+  const url = `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/report-status`;
   try {
     const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
-    const res = await fetch(
-      `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/report-status`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${secret}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
+    logRequest("prava", "POST", url, { status });
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ status }),
+    });
+    logResponse("prava", "POST", url, res.status);
     return { ok: res.ok };
   } catch {
     return { ok: false };

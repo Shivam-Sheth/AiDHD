@@ -1,38 +1,19 @@
 import { NextResponse } from "next/server";
 import { getPaymentResult, reportPaymentStatus } from "@/lib/integrations/prava";
 import { sendLinqChatMessage } from "@/lib/integrations/linq";
-import { hasDuffel } from "@/lib/integrations/config";
-import {
-  payDuffelFlightOrder,
-  type DuffelBillingAddress,
-  type DuffelOrderPassenger,
-} from "@/lib/checkout/duffel-payment";
+import { logInfo } from "@/lib/checkout/debug-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// TODO: source from the organizer's traveler profile once one exists —
-// vault/traveler-store.ts's TravelerProfile has no address fields today.
-const FALLBACK_BILLING_ADDRESS: DuffelBillingAddress = {
-  line1: "1 Market St",
-  city: "San Francisco",
-  region: "CA",
-  postal_code: "94105",
-  country_code: "US",
-};
-
 /**
- * Called right after @prava-sdk/core's collectPAN() succeeds in the browser.
- * Real flow: GET payment-result (poll briefly — it can read "awaiting_result"
- * for a moment) → POST report-status (mandatory, closes the loop with Prava).
- *
- * The one-time virtual card returned here gets charged for real when the leg
- * is a flight with a Duffel offer attached (category "flight" + duffel_offer_id
- * + passengers, see payDuffelFlightOrder) — Duffel has no checkout page to
- * automate, so this pays via their REST API directly, not browser automation.
- * Everything else (dining/tickets/hotels — no merchant payment API wired yet)
- * still only reports the Prava enrollment succeeding; see browser-harness.ts
- * for the intended path once a merchant needs UI-driven checkout.
+ * Called right after @prava-sdk/core's collectPAN() succeeds in the browser,
+ * for any leg that ISN'T a Duffel-payable flight (see /api/checkout/execute
+ * for that path — it owns the real Duffel charge, including the same
+ * poll-for-completed step this route also does). This route only ever closes
+ * out the Prava enrollment; no merchant payment API is wired up yet for
+ * dining/tickets/hotels — see browser-harness.ts for the intended path once
+ * one of those needs UI-driven checkout.
  */
 export async function POST(req: Request) {
   let body: {
@@ -42,16 +23,19 @@ export async function POST(req: Request) {
     currency?: string;
     category?: string;
     linq_chat_id?: string;
-    duffel_offer_id?: string;
-    passengers?: DuffelOrderPassenger[];
-    billing_address?: DuffelBillingAddress;
-    cardholder_name?: string;
   };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+
+  logInfo("prava complete", "incoming request", {
+    session_id: body.session_id,
+    merchant: body.merchant,
+    amount: body.amount,
+    category: body.category,
+  });
 
   if (!body.session_id || !body.merchant || body.amount == null) {
     return NextResponse.json(
@@ -61,10 +45,14 @@ export async function POST(req: Request) {
   }
 
   const PENDING_STATUSES = new Set(["pending", "processing", "awaiting_result"]);
+  let attempt = 1;
   let result = await getPaymentResult(body.session_id);
+  logInfo("prava complete", `poll attempt ${attempt} status=${result.status}`);
   for (let i = 0; i < 5 && PENDING_STATUSES.has(result.status); i++) {
     await new Promise((r) => setTimeout(r, 1000));
+    attempt += 1;
     result = await getPaymentResult(body.session_id);
+    logInfo("prava complete", `poll attempt ${attempt} status=${result.status}`);
   }
 
   if (result.status !== "completed") {
@@ -75,62 +63,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // Only flight legs with an offer + passengers attached actually get
-  // charged against a real merchant right now — everything else falls back
-  // to reporting the Prava enrollment as the outcome, same as before.
-  const canPayDuffel =
-    result.mode === "live" &&
-    hasDuffel() &&
-    body.category === "flight" &&
-    Boolean(body.duffel_offer_id) &&
-    Boolean(body.passengers?.length) &&
-    Boolean(result.token && result.dynamic_cvv && result.expiry_month && result.expiry_year);
+  await reportPaymentStatus(body.session_id, "APPROVED");
 
-  let duffelOrder: { order_id: string; booking_reference: string } | null = null;
-  let duffelFailure: string | null = null;
-
-  if (canPayDuffel) {
-    const passengers = body.passengers!;
-    const paid = await payDuffelFlightOrder({
-      offer_id: body.duffel_offer_id!,
-      amount: Number(body.amount),
-      currency: body.currency || "USD",
-      passengers,
-      card: {
-        number: result.token!,
-        cvc: result.dynamic_cvv!,
-        expiry_month: result.expiry_month!,
-        expiry_year: result.expiry_year!,
-        cardholder_name:
-          body.cardholder_name || `${passengers[0].given_name} ${passengers[0].family_name}`,
-      },
-      billing_address: body.billing_address || FALLBACK_BILLING_ADDRESS,
-    });
-    if (paid.ok) {
-      duffelOrder = paid;
-    } else {
-      duffelFailure = paid.failure_reason;
-    }
-  }
-
-  // Report the REAL outcome to Prava: if we attempted a merchant charge, its
-  // result decides APPROVED/DECLINED; otherwise enrollment succeeding is the
-  // only signal we have (unchanged from before Duffel wiring).
-  const merchantChargeOk = !canPayDuffel || duffelOrder != null;
-  await reportPaymentStatus(body.session_id, merchantChargeOk ? "APPROVED" : "DECLINED");
-
-  if (canPayDuffel && !duffelOrder) {
-    return NextResponse.json(
-      { ok: false, error: `Duffel order failed: ${duffelFailure}` },
-      { status: 402 },
-    );
-  }
-
-  const confirmation_id = duffelOrder?.booking_reference || `AIDHD-${Date.now().toString(36).toUpperCase()}`;
+  const confirmation_id = `AIDHD-${Date.now().toString(36).toUpperCase()}`;
   const tokenRef = result.token ? `•••• ${result.token.slice(-4)}` : "mock";
-  const summary = duffelOrder
-    ? `Prava session ${body.session_id} → one-time card ${tokenRef} → Duffel order ${duffelOrder.order_id} for $${Number(body.amount).toFixed(2)} at ${body.merchant}. Confirmation ${confirmation_id}.`
-    : result.mode === "live"
+  const summary =
+    result.mode === "live"
       ? `Prava session ${body.session_id} → one-time card ${tokenRef} for $${Number(body.amount).toFixed(2)} at ${body.merchant}. Confirmation ${confirmation_id}.`
       : `Mock checkout ${confirmation_id} for $${Number(body.amount).toFixed(2)} at ${body.merchant} (set PRAVA_SECRET_KEY + PRAVA_PUBLISHABLE_KEY for live Collect).`;
 

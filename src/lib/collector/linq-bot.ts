@@ -321,7 +321,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       merchant: `AiDHD ${origin}→${destination}`,
       amount,
       category: "flight",
-      email: "traveler@aidhd.app",
+      email: "ameyagarwal10@gmail.com",
     });
     const data = pay.data as
       | { session_id?: string; iframe_url?: string }

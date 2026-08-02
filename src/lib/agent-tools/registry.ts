@@ -508,7 +508,7 @@ export async function executeAgentTool(
         const category = str(parameters.category) || "trip";
         const email =
           str(parameters.email || parameters.user_email) ||
-          "traveler@aidhd.app";
+          "ameyagarwal10@gmail.com";
         if (amount == null || amount <= 0) {
           return {
             ok: false,

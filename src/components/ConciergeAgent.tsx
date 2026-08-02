@@ -664,7 +664,7 @@ function ConciergeInner({
               merchant: payment.payload.merchant,
               amount: payment.payload.amount,
               variant_id: payment.payload.shopify_variant_id,
-              email: payment.payload.email || "traveler@aidhd.app",
+              email: payment.payload.email || "ameyagarwal10@gmail.com",
             }
           : {
               session_id: payment.payload.session_id,

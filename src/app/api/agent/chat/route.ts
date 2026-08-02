@@ -71,7 +71,17 @@ export async function POST(req: Request) {
     const lower = userMessage.toLowerCase();
     let name = "search_hotels";
     let params: Record<string, unknown> = { city: "Chicago" };
-    if (/flight|fly|airline/.test(lower)) {
+    const wantsToPay = /pay|book|mandate|prava/.test(lower);
+    const payableOffer =
+      typeof body.last_offer?.amount === "number" && body.last_offer.amount > 0;
+    if (wantsToPay && payableOffer) {
+      // Checked before the flight/hotel/etc. keyword branches below — a phrase
+      // like "book this flight" contains "flight" too, and would otherwise be
+      // reinterpreted as a brand-new search instead of paying for the offer
+      // already shown.
+      name = "create_payment";
+      params = paymentParamsFromLastOffer(body.last_offer);
+    } else if (/flight|fly|airline/.test(lower)) {
       name = "search_flights";
       params = {
         origin: /chicago|ord/i.test(lower) ? "Chicago" : "Chicago",
@@ -224,7 +234,16 @@ Or answer with ONLY JSON:
       check_in: "2026-09-20",
       check_out: "2026-09-25",
     };
-    if (/flight|fly|airline/.test(lower)) {
+    const wantsToPay = /pay|book|mandate|prava/.test(lower);
+    const payableOffer =
+      typeof body.last_offer?.amount === "number" && body.last_offer.amount > 0;
+    if (wantsToPay && payableOffer) {
+      // Same ordering fix as the no-Gemini branch above — "book this flight"
+      // must not be reinterpreted as a new search when there's already an
+      // offer on screen to charge for.
+      name = "create_payment";
+      params = paymentParamsFromLastOffer(body.last_offer);
+    } else if (/flight|fly|airline/.test(lower)) {
       name = "search_flights";
       params = {
         origin: "Chicago",

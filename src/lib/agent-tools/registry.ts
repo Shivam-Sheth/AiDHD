@@ -562,7 +562,12 @@ FLOW
 1) Intent: outing vs trip, cities, dates, budget, party size
 2) Tool search immediately
 3) Once destination + first travel date are known: call get_weather
-4) On pick: confirm total → create_payment
+4) On pick ("book it", "book this flight", "let's pay", etc. after offers were
+   already shown): call create_payment IMMEDIATELY in that same turn, using the
+   exact price from the most recent matching tool result already in this
+   conversation. Do not re-run a search tool and do not ask a confirmation
+   question first — state the total in your reply alongside opening Prava, not
+   before it.
 5) If vault missing for ticketing, still show offers; say booking finalizes after vault + Prava
 
 EDGE CASES

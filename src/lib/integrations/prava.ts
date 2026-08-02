@@ -58,7 +58,7 @@ export async function createPravaSession(input: {
           {
             merchant_details: {
               name: input.merchant,
-              url: input.merchant_url || "https://ai-dhd.vercel.app",
+              url: input.merchant_url || "https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app",
               country_code_iso2: "US",
             },
             product_details: [

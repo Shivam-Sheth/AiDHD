@@ -573,7 +573,7 @@ export async function executeAgentTool(
         const payUrl =
           session.iframe_url ||
           (session.session_id
-            ? `https://aidhd-omega.vercel.app/pay?session=${encodeURIComponent(session.session_id)}`
+            ? `https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/pay?session=${encodeURIComponent(session.session_id)}`
             : null);
         if (session.error) {
           return {

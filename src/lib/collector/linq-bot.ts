@@ -336,7 +336,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       data?.iframe_url ||
       (data?.session_id
         ? `https://sandbox.collect.prava.space?session=${data.session_id}`
-        : "https://aidhd-omega.vercel.app/agent");
+        : "https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/agent");
     await reply(
       msg.chat_id,
       `if that works, approve $${amount} here (Prava Collect):\n${link}\n\ntext PAID after the passkey and i'll lock it`,
@@ -381,7 +381,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       data?.iframe_url ||
       (data?.session_id
         ? `https://sandbox.collect.prava.space?session=${data.session_id}`
-        : "https://aidhd-omega.vercel.app/agent");
+        : "https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/agent");
     await reply(
       msg.chat_id,
       `wanna hold a table for $${amount}? pay here:\n${link}\n\nthen just text PAID`,
@@ -393,7 +393,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
   if (!/voice|call|agent/i.test(vibe)) {
     await reply(
       msg.chat_id,
-      `want to talk it through live instead? https://aidhd-omega.vercel.app/agent`,
+      `want to talk it through live instead? https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/agent`,
       replies,
     );
   }

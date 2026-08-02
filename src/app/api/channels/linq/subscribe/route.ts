@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let base = "https://aidhd-omega.vercel.app";
+  let base = "https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app";
   try {
     const body = (await req.json()) as { base_url?: string };
     if (body.base_url) base = body.base_url.replace(/\/$/, "");

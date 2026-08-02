@@ -59,7 +59,18 @@ export async function createPravaSession(input: {
           {
             merchant_details: {
               name: input.merchant,
-              url: input.merchant_url || getBaseUrl(),
+              // Prava forwards this to Visa as the merchant's real website —
+              // must be a real public HTTPS URL. getBaseUrl() falls back to
+              // http://localhost:3000 outside Vercel (VERCEL_PROJECT_PRODUCTION_URL
+              // is only set there), which Prava's API rejects — never use the
+              // raw base-url helper here for that reason. Falls back to a
+              // real HTTPS placeholder during local dev instead; on Vercel,
+              // getBaseUrl() itself is always correct.
+              url:
+                input.merchant_url ||
+                (getBaseUrl().startsWith("http://localhost")
+                  ? "https://aidhd-vert.vercel.app"
+                  : getBaseUrl()),
               country_code_iso2: "US",
             },
             product_details: [

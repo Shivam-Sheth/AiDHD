@@ -12,12 +12,41 @@ export const maxDuration = 60;
 
 type ChatMessage = { role: "user" | "assistant" | "tool"; content: string };
 
+/** Price of the most recently shown flight/hotel/ticket/etc. card, sent by the client. */
+type LastOffer = { kind?: string; merchant?: string; amount?: number } | null | undefined;
+
+/** create_payment params derived from the last real offer shown — never a guessed amount. */
+function paymentParamsFromLastOffer(lastOffer: LastOffer): Record<string, unknown> {
+  const category =
+    lastOffer?.kind === "flights"
+      ? "flight"
+      : lastOffer?.kind === "hotels"
+        ? "hotel"
+        : lastOffer?.kind === "tickets"
+          ? "ticket"
+          : lastOffer?.kind === "dining"
+            ? "dining"
+            : lastOffer?.kind === "clubs"
+              ? "club"
+              : lastOffer?.kind === "movies"
+                ? "movie"
+                : "trip";
+  return {
+    merchant: lastOffer?.merchant || "AiDHD trip",
+    amount:
+      typeof lastOffer?.amount === "number" && lastOffer.amount > 0
+        ? lastOffer.amount
+        : undefined,
+    category,
+  };
+}
+
 /**
  * Text concierge with Gemini function-calling — always-on backup / companion
  * to ElevenLabs voice. Same tools as the live agent.
  */
 export async function POST(req: Request) {
-  let body: { messages?: ChatMessage[]; message?: string };
+  let body: { messages?: ChatMessage[]; message?: string; last_offer?: LastOffer };
   try {
     body = await req.json();
   } catch {
@@ -82,7 +111,7 @@ export async function POST(req: Request) {
       params = { keyword: "concert", city: "Chicago" };
     } else if (/pay|book|mandate|prava/.test(lower)) {
       name = "create_payment";
-      params = { merchant: "AiDHD trip", amount: 500, category: "trip" };
+      params = paymentParamsFromLastOffer(body.last_offer);
     } else if (/weather|forecast/.test(lower)) {
       name = "get_weather";
       params = {
@@ -158,10 +187,18 @@ Or answer with ONLY JSON:
       }
 
       if (parsed.tool) {
-        const result = await executeAgentTool(
-          parsed.tool,
-          parsed.parameters || {},
-        );
+        const toolParams = { ...(parsed.parameters || {}) };
+        if (parsed.tool === "create_payment") {
+          const amt = Number(toolParams.amount);
+          // Gemini has no memory of exact prices — if it didn't carry one over
+          // from a prior search result, fall back to the last real offer shown.
+          if (!Number.isFinite(amt) || amt <= 0) {
+            const fallback = paymentParamsFromLastOffer(body.last_offer);
+            if (fallback.amount != null) toolParams.amount = fallback.amount;
+            if (!toolParams.merchant) toolParams.merchant = fallback.merchant;
+          }
+        }
+        const result = await executeAgentTool(parsed.tool, toolParams);
         toolTrace.push({ name: parsed.tool, summary: result.summary });
         if (result.ui) uiCards.push(result.ui);
         scratch += `\n\nTool ${parsed.tool} result: ${result.summary}\nData: ${JSON.stringify(result.data).slice(0, 2500)}\nNow reply to the user with JSON {"reply":"..."} or call another tool.`;
@@ -209,7 +246,7 @@ Or answer with ONLY JSON:
       params = { keyword: "concert", city: "Chicago" };
     } else if (/pay|book|mandate|prava/.test(lower)) {
       name = "create_payment";
-      params = { merchant: "AiDHD trip", amount: 500, category: "trip" };
+      params = paymentParamsFromLastOffer(body.last_offer);
     } else if (/weather|forecast/.test(lower)) {
       name = "get_weather";
       params = {

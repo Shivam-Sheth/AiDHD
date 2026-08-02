@@ -176,6 +176,54 @@ type UiCard =
 
 type ChatLine = { role: "user" | "assistant"; text: string };
 
+type LastOffer = { kind: string; merchant: string; amount: number } | null;
+
+/**
+ * Real price of the most recently shown offer, keyed off whatever card is
+ * newest in `cards`. Used so create_payment always charges what was actually
+ * quoted (a Duffel flight, a hotel stay, etc.) instead of a guessed amount.
+ */
+function deriveLastOffer(cards: UiCard[]): LastOffer {
+  for (const c of cards) {
+    if (c.kind === "flights") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return {
+          kind: "flights",
+          merchant: `${top.airline} ${top.from}→${top.to} flight`,
+          amount: top.price_per_person,
+        };
+      }
+    } else if (c.kind === "hotels") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "hotels", merchant: top.name, amount: top.price_total };
+      }
+    } else if (c.kind === "tickets") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "tickets", merchant: top.event_name, amount: top.price };
+      }
+    } else if (c.kind === "dining") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "dining", merchant: top.name, amount: top.price_per_person };
+      }
+    } else if (c.kind === "clubs") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "clubs", merchant: top.name, amount: top.cover };
+      }
+    } else if (c.kind === "movies") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "movies", merchant: top.title, amount: top.price };
+      }
+    }
+  }
+  return null;
+}
+
 function fmtTime(iso: string) {
   try {
     const d = new Date(iso);
@@ -503,6 +551,8 @@ function ConciergeInner({
   const [placeReviews, setPlaceReviews] = useState<Record<string, PlaceReview[]>>({});
   const [routeInfo, setRouteInfo] = useState<RouteInfoPayload | null>(null);
 
+  const lastOffer = useMemo(() => deriveLastOffer(cards), [cards]);
+
   const pushUi = useCallback((ui: UiCard | UiCard[] | undefined | null) => {
     if (!ui) return;
     const list = Array.isArray(ui) ? ui : [ui];
@@ -637,9 +687,17 @@ function ConciergeInner({
   useConversationClientTool("get_weather", async (params) =>
     runTool("get_weather", params as Record<string, unknown>),
   );
-  useConversationClientTool("create_payment", async (params) =>
-    runTool("create_payment", params as Record<string, unknown>),
-  );
+  useConversationClientTool("create_payment", async (params) => {
+    const p = { ...(params as Record<string, unknown>) };
+    const amt = Number(p.amount);
+    // The voice LLM sometimes forgets the exact price it quoted — backfill
+    // from the last real offer shown on screen rather than let it guess.
+    if ((!Number.isFinite(amt) || amt <= 0) && lastOffer) {
+      p.amount = lastOffer.amount;
+      if (!p.merchant) p.merchant = lastOffer.merchant;
+    }
+    return runTool("create_payment", p);
+  });
 
   const conversation = useConversation({
     onConnect: () => setVoiceError(null),
@@ -777,6 +835,7 @@ function ConciergeInner({
               role: l.role,
               content: l.text,
             })),
+            last_offer: lastOffer,
           }),
         });
         const data = await res.json();

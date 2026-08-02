@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "whatsapp:keepalive": "bash scripts/whatsapp-keepalive.sh"
   },
   "dependencies": {
@@ -31,7 +32,9 @@
     "@types/uuid": "^10.0.0",
     "eslint": "^10.8.0",
     "eslint-config-next": "^0.2.4",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

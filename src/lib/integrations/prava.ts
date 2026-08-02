@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { hasPrava } from "./config";
 import { logRequest, logResponse, logInfo, redactPaymentResult } from "../checkout/debug-log";
+import { getBaseUrl } from "../base-url";
 
 export interface PravaSessionResult {
   session_id: string;
@@ -58,7 +59,7 @@ export async function createPravaSession(input: {
           {
             merchant_details: {
               name: input.merchant,
-              url: input.merchant_url || "https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app",
+              url: input.merchant_url || getBaseUrl(),
               country_code_iso2: "US",
             },
             product_details: [

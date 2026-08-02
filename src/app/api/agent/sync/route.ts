@@ -4,6 +4,7 @@ import {
   elevenLabsToolDefinitions,
 } from "@/lib/agent-tools/registry";
 import { hasElevenLabs } from "@/lib/integrations/config";
+import { getBaseUrl } from "@/lib/base-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let baseUrl = "https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app";
+  let baseUrl = getBaseUrl();
   try {
     const body = (await req.json()) as { base_url?: string };
     if (body.base_url) baseUrl = body.base_url.replace(/\/$/, "");

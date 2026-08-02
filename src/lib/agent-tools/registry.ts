@@ -18,6 +18,7 @@ import { getWeatherForTravel } from "../integrations/weather";
 import { airportCodeForPlace } from "../geo/airports";
 import { airlineIataFromName, airlineLogoUrl } from "../geo/airlines";
 import { googleFlightsUrl } from "../integrations/linq";
+import { getBaseUrl } from "../base-url";
 
 export type AgentToolName =
   | "search_flights"
@@ -573,7 +574,7 @@ export async function executeAgentTool(
         const payUrl =
           session.iframe_url ||
           (session.session_id
-            ? `https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/pay?session=${encodeURIComponent(session.session_id)}`
+            ? `${getBaseUrl()}/pay?session=${encodeURIComponent(session.session_id)}`
             : null);
         if (session.error) {
           return {

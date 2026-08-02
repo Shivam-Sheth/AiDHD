@@ -56,14 +56,14 @@ export async function POST(req: Request) {
   }
 
   if (result.status !== "completed") {
-    await reportPaymentStatus(body.session_id, "DECLINED");
+    await reportPaymentStatus(body.session_id, "DECLINED", result.txn_ref_id);
     return NextResponse.json(
       { ok: false, error: `Payment not completed (status: ${result.status})` },
       { status: 402 },
     );
   }
 
-  await reportPaymentStatus(body.session_id, "APPROVED");
+  await reportPaymentStatus(body.session_id, "APPROVED", result.txn_ref_id);
 
   const confirmation_id = `AIDHD-${Date.now().toString(36).toUpperCase()}`;
   const tokenRef = result.token ? `•••• ${result.token.slice(-4)}` : "mock";

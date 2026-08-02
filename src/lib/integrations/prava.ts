@@ -251,6 +251,8 @@ export interface PravaPaymentResult {
   dynamic_cvv?: string;
   expiry_month?: string;
   expiry_year?: string;
+  /** Line-item reference required by report-status — see reportPaymentStatus below. */
+  txn_ref_id?: string;
   mode: "live" | "mock";
 }
 
@@ -267,6 +269,7 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
       dynamic_cvv: "***",
       expiry_month: "12",
       expiry_year: "29",
+      txn_ref_id: `tli_mock_${randomUUID().slice(0, 8)}`,
       mode: "mock",
     };
   }
@@ -284,6 +287,7 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
       transactions?: Array<{
         status?: string;
         line_items?: Array<{
+          txn_ref_id?: string | null;
           token?: string | null;
           dynamic_cvv?: string | null;
           expiry_month?: string | null;
@@ -301,6 +305,9 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
       dynamic_cvv: item?.dynamic_cvv || undefined,
       expiry_month: item?.expiry_month || undefined,
       expiry_year: item?.expiry_year || undefined,
+      // Required by report-status (POST .../report-status) — pass this back
+      // verbatim, not the session id, per docs.prava.space/api-reference/report-status.
+      txn_ref_id: item?.txn_ref_id || undefined,
       mode: "live",
     };
     // Logged redacted — see debug-log.ts; token/dynamic_cvv never appear here in full.
@@ -318,29 +325,53 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
  * POST /v1/sessions/:id/report-status — mandatory per docs.prava.space:
  * closes the payment lifecycle regardless of whether the downstream merchant
  * charge itself succeeded.
+ *
+ * Body shape is `{ txn_ref_id, txn_status }` (docs.prava.space/api-reference/report-status)
+ * — NOT `{ status }`. `txn_ref_id` is the line-item ref from getPaymentResult's
+ * `PravaPaymentResult.txn_ref_id`, not the session id. Omitting it (as this
+ * function used to) means Prava has nothing to match the report to, so the
+ * session never actually closes even though the request returns 200.
  */
 export async function reportPaymentStatus(
   sessionId: string,
   status: "APPROVED" | "DECLINED",
+  txnRefId?: string,
+  opts?: { authorization_code?: string; response_code?: string },
 ): Promise<{ ok: boolean }> {
   if (!hasPrava() || sessionId.startsWith("sess_mock") || sessionId.startsWith("sess_err")) {
     return { ok: true };
   }
+  if (!txnRefId) {
+    logInfo("prava", "report-status skipped: no txn_ref_id (payment-result never reached awaiting_result/completed with a line item)", {
+      session_id: sessionId,
+    });
+    return { ok: false };
+  }
   const url = `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/report-status`;
+  const reqBody = {
+    txn_ref_id: txnRefId,
+    txn_status: status,
+    ...(opts?.authorization_code ? { authorization_code: opts.authorization_code } : {}),
+    ...(opts?.response_code ? { response_code: opts.response_code } : {}),
+  };
   try {
     const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
-    logRequest("prava", "POST", url, { status });
+    logRequest("prava", "POST", url, reqBody);
     const res = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${secret}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(reqBody),
     });
-    logResponse("prava", "POST", url, res.status);
+    const data = await res.json().catch(() => null);
+    logResponse("prava", "POST", url, res.status, data);
     return { ok: res.ok };
-  } catch {
+  } catch (e) {
+    logInfo("prava", "POST /report-status threw", {
+      message: e instanceof Error ? e.message : "unknown",
+    });
     return { ok: false };
   }
 }

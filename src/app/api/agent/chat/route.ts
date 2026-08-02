@@ -105,6 +105,9 @@ export async function POST(req: Request) {
       // already shown.
       name = "create_payment";
       params = paymentParamsFromLastOffer(body.last_offer);
+    } else if (/what.*\b(buy|purchase)\b|\bshop\b|\bcatalog\b|\bproducts?\b/.test(lower)) {
+      name = "search_products";
+      params = {};
     } else if (/flight|fly|airline/.test(lower)) {
       name = "search_flights";
       params = {
@@ -185,7 +188,7 @@ ${history}
 User: ${userMessage}
 
 You may call tools by returning ONLY JSON:
-{"tool":"search_flights"|"search_hotels"|"search_tickets"|"search_dining"|"search_clubs"|"search_movies"|"lookup_vendor"|"get_weather"|"create_payment","parameters":{...}}
+{"tool":"search_flights"|"search_hotels"|"search_tickets"|"search_dining"|"search_clubs"|"search_movies"|"search_products"|"lookup_vendor"|"get_weather"|"create_payment","parameters":{...}}
 Once a destination city + first travel date are known, call get_weather(city, date) before replying.
 Or answer with ONLY JSON:
 {"reply":"your spoken answer to the user"}
@@ -262,6 +265,9 @@ Or answer with ONLY JSON:
       // offer on screen to charge for.
       name = "create_payment";
       params = paymentParamsFromLastOffer(body.last_offer);
+    } else if (/what.*\b(buy|purchase)\b|\bshop\b|\bcatalog\b|\bproducts?\b/.test(lower)) {
+      name = "search_products";
+      params = {};
     } else if (/flight|fly|airline/.test(lower)) {
       name = "search_flights";
       params = {

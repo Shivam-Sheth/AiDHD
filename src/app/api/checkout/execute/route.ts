@@ -73,6 +73,8 @@ export async function POST(req: Request) {
   // 1. POLL FOR CREDENTIALS ---------------------------------------------
   const polled = await pollForCompletedPayment(session_id);
   if (!polled.ok) {
+    // No txn_ref_id at this point (payment-result never reached a line item) —
+    // reportPaymentStatus no-ops rather than sending a malformed report.
     await reportPaymentStatus(session_id, "DECLINED").catch(() => {});
     return NextResponse.json(
       {
@@ -82,9 +84,9 @@ export async function POST(req: Request) {
       { status: 402 },
     );
   }
-  const { token, dynamic_cvv, expiry_month, expiry_year } = polled.result;
+  const { token, dynamic_cvv, expiry_month, expiry_year, txn_ref_id } = polled.result;
   if (!token || !dynamic_cvv || !expiry_month || !expiry_year) {
-    await reportPaymentStatus(session_id, "DECLINED").catch(() => {});
+    await reportPaymentStatus(session_id, "DECLINED", txn_ref_id).catch(() => {});
     return NextResponse.json(
       { ok: false, error: "Payment completed but credentials were incomplete" },
       { status: 502 },
@@ -137,7 +139,7 @@ export async function POST(req: Request) {
       error_message: e instanceof Error ? e.message : "Checkout failed unexpectedly",
     };
   } finally {
-    await reportPaymentStatus(session_id, outcome.ok ? "APPROVED" : "DECLINED").catch(() => {});
+    await reportPaymentStatus(session_id, outcome.ok ? "APPROVED" : "DECLINED", txn_ref_id).catch(() => {});
   }
   // --- END CREDENTIAL-HANDLING BOUNDARY ---
   logInfo("checkout execute", "left credential-handling boundary", { session_id, ok: outcome.ok });

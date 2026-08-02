@@ -11,6 +11,7 @@ import {
   searchDining,
   searchMovies,
 } from "../integrations/dining";
+import { searchShopifyProducts } from "../integrations/shopify";
 import { createPravaSession } from "../integrations/prava";
 import { lookupVendorTrust } from "../integrations/senso";
 import { getWeatherForTravel } from "../integrations/weather";
@@ -25,6 +26,7 @@ export type AgentToolName =
   | "search_dining"
   | "search_clubs"
   | "search_movies"
+  | "search_products"
   | "lookup_vendor"
   | "create_payment"
   | "get_weather"
@@ -43,6 +45,7 @@ export type AgentToolResult = {
       | "dining"
       | "clubs"
       | "movies"
+      | "products"
       | "payment"
       | "vendor"
       | "weather"
@@ -116,6 +119,18 @@ function clubPhotoUrl(index: number): string {
 
 function moviePhotoUrl(index: number): string {
   const id = MOVIE_PHOTO_IDS[index % MOVIE_PHOTO_IDS.length]!;
+  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=720&q=80`;
+}
+
+const PRODUCT_PHOTO_IDS = [
+  "1441986300917-64674bd600d8",
+  "1472851294608-062f824d29cc",
+  "1523275335684-37898b6baf30",
+  "1483985988355-763728e1935b",
+];
+
+function productPhotoUrl(index: number): string {
+  const id = PRODUCT_PHOTO_IDS[index % PRODUCT_PHOTO_IDS.length]!;
   return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=720&q=80`;
 }
 
@@ -430,6 +445,31 @@ export async function executeAgentTool(
         };
       }
 
+      case "search_products": {
+        const query = str(parameters.query || parameters.keyword);
+        const sp = await searchShopifyProducts({ query: query || undefined, limit: 8 });
+        const offers = sp.offers.slice(0, 6).map((o, i) => ({
+          id: o.id,
+          variant_id: o.variant_id,
+          title: o.title,
+          description: o.description,
+          price: o.price,
+          currency: o.currency,
+          source: sp.source,
+          available: o.available,
+          photo_url: o.image_url || productPhotoUrl(i),
+        }));
+        return {
+          ok: true,
+          summary: `Found ${offers.length} bookable items${query ? ` for "${query}"` : ""} in the catalog (${sp.source}). From ~$${Math.round(offers[0]?.price ?? 0)}. Cards are on screen.`,
+          data: { offers, source: sp.source },
+          ui: {
+            kind: "products",
+            payload: { offers, label: query || "Catalog", source: sp.source },
+          },
+        };
+      }
+
       case "get_weather": {
         const city = str(parameters.city || parameters.destination);
         const date = str(
@@ -493,6 +533,13 @@ export async function executeAgentTool(
             ? titleRaw
             : undefined;
         const phone = str(parameters.passenger_phone) || undefined;
+
+        // Only meaningful for category "product" — carries the Shopify variant
+        // through to /api/checkout/shopify-execute once Prava approval
+        // completes, so a real cart+checkout gets built for that variant
+        // instead of only recording Prava enrollment.
+        const shopifyVariantId = str(parameters.shopify_variant_id) || undefined;
+
         const passenger =
           category === "flight" &&
           flightOfferId &&
@@ -549,9 +596,11 @@ export async function executeAgentTool(
               amount,
               merchant,
               category,
+              email,
               mode: session.mode,
               flight_offer_id: category === "flight" ? flightOfferId : undefined,
               passenger,
+              shopify_variant_id: category === "product" ? shopifyVariantId : undefined,
             },
           },
         };
@@ -571,7 +620,7 @@ export async function executeAgentTool(
       default:
         return {
           ok: false,
-          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, lookup_vendor, get_weather, or create_payment.`,
+          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, search_products, lookup_vendor, get_weather, or create_payment.`,
         };
     }
   } catch (e) {
@@ -595,6 +644,9 @@ IDENTITY
 CAPABILITIES
 - Flights (round-trip: ALWAYS pass return_date YYYY-MM-DD in the same search_flights call)
 - Hotels, tickets, dinner, clubs, movies
+- search_products → the actual Shopify catalog the group's card gets charged against at checkout.
+  Use this whenever nothing more specific (flight/hotel/ticket/dining) fits, or the user asks
+  "what can I buy/book" generally.
 - get_weather(city, date) → call this right after a destination city + first travel date is established
   (e.g., right after search_flights or search_hotels). Mention the outlook briefly and clearly flag
   any extreme weather caution shown on the card.
@@ -619,6 +671,10 @@ FLOW
    pass flight_offer_id + duffel_passenger_id from the chosen search_flights
    offer, plus passenger_given_name/family_name/born_on/gender/title/phone,
    into create_payment alongside the usual amount/merchant/category="flight".
+   EXCEPTION for search_products picks: pass shopify_variant_id from the chosen
+   search_products offer into create_payment alongside category="product" —
+   without it the leg only records Prava enrollment and nothing is actually
+   ordered.
 5) If vault missing for ticketing, still show offers; say booking finalizes after vault + Prava
 
 EDGE CASES
@@ -684,6 +740,9 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
       city: prop("City name"),
       title: prop("Optional movie title keyword"),
     }, ["city"]),
+    client("search_products", "Search the connected Shopify catalog for bookable/purchasable items.", {
+      query: prop("Optional free-text search — omit to browse the full catalog"),
+    }, []),
     client("lookup_vendor", "Look up vendor trust / reputation score.", {
       vendor: prop("Merchant or venue name"),
     }, ["vendor"]),
@@ -699,8 +758,11 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
     client("create_payment", "Start Prava payment and open on-screen checkout.", {
       merchant: prop("What they are paying for"),
       amount: prop("USD total amount", "number"),
-      category: prop("flight | hotel | ticket | dining | club | movie | trip"),
+      category: prop("flight | hotel | ticket | dining | club | movie | product | trip"),
       email: prop("Payer email"),
+      shopify_variant_id: prop(
+        "Only for category=product: the variant_id from the chosen search_products offer",
+      ),
       flight_offer_id: prop(
         "Only for category=flight: the exact offer id from the most recent search_flights result being booked",
       ),

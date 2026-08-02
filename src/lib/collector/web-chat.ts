@@ -385,7 +385,7 @@ export async function handleCollectorMessage(
   userId: string,
   text: string,
 ): Promise<{ session: CollectorSession; response?: Response; allIn: boolean }> {
-  let session = getCollector(eventId, userId) ?? startCollector(eventId, userId);
+  const session = getCollector(eventId, userId) ?? startCollector(eventId, userId);
   session.messages.push(msg("user", text));
   const event = getEvent(eventId);
   const isTrip = event?.type === "trip";

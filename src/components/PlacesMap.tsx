@@ -5,8 +5,68 @@ import { useEffect, useRef, useState } from "react";
 /**
  * No @types/google.maps in this project — the Maps JS SDK attaches `google`
  * to window at runtime, so we type it loosely rather than pull in a new dep.
+ * These are minimal structural shapes for only the calls this file makes,
+ * not a full Maps JS API surface.
  */
-type GoogleNamespace = typeof globalThis & { google?: any };
+type GoogleLatLng = { lat: number; lng: number };
+
+interface GoogleMap {
+  setCenter(pos: GoogleLatLng): void;
+  setZoom(zoom: number): void;
+  fitBounds(bounds: GoogleLatLngBounds, padding?: number): void;
+}
+
+interface GoogleMarker {
+  setMap(map: GoogleMap | null): void;
+  getIcon(): Record<string, unknown> | undefined;
+  setIcon(icon: Record<string, unknown>): void;
+  setZIndex(zIndex: number): void;
+}
+
+interface GoogleLatLngBounds {
+  extend(pos: GoogleLatLng): void;
+}
+
+interface GooglePolyline {
+  setPath(path: unknown): void;
+  setMap(map: GoogleMap | null): void;
+}
+
+interface GoogleGeocoderResult {
+  place_id?: string;
+  geometry: { location: { lat(): number; lng(): number } };
+}
+
+interface GoogleGeocoder {
+  geocode(
+    request: { address: string },
+    callback: (results: GoogleGeocoderResult[] | null, status: string) => void,
+  ): void;
+}
+
+interface GooglePlaceReview {
+  text?: string;
+  rating?: number;
+  authorAttribution?: { displayName?: string };
+}
+
+interface GooglePlace {
+  reviews?: GooglePlaceReview[];
+  fetchFields(opts: { fields: string[] }): Promise<void>;
+}
+
+interface GoogleMapsNamespace {
+  Map: new (el: HTMLElement, opts: Record<string, unknown>) => GoogleMap;
+  Marker: new (opts: Record<string, unknown>) => GoogleMarker;
+  Geocoder: new () => GoogleGeocoder;
+  LatLngBounds: new () => GoogleLatLngBounds;
+  Polyline: new (opts: Record<string, unknown>) => GooglePolyline;
+  SymbolPath: { CIRCLE: unknown };
+  geometry?: { encoding: { decodePath(encoded: string): unknown } };
+  places?: { Place: new (opts: { id: string }) => GooglePlace };
+}
+
+type GoogleNamespace = typeof globalThis & { google?: { maps: GoogleMapsNamespace } };
 
 export type PlaceReview = { author: string; text: string; rating?: number };
 
@@ -49,7 +109,7 @@ type Props = {
 };
 
 type MarkerEntry = {
-  marker: any;
+  marker: GoogleMarker;
   position: { lat: number; lng: number };
   isAnchor: boolean;
 };
@@ -77,13 +137,13 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
 }
 
 function geocodeOnce(
-  geocoder: any,
+  geocoder: GoogleGeocoder,
   query: string,
 ): Promise<{ lat: number; lng: number; placeId: string | null } | null> {
   return new Promise((resolve) => {
     geocoder.geocode(
       { address: query },
-      (results: any[] | null, status: string) => {
+      (results, status) => {
         const hit = results?.[0];
         if (status !== "OK" || !hit) return resolve(null);
         const loc = hit.geometry.location;
@@ -127,7 +187,7 @@ async function resolvePlaceExtras(
   onResolved(place.id, { placeId: pos.placeId, lat: pos.lat, lng: pos.lng, reviews });
 }
 
-function fitToMarkers(map: any, markers: Map<string, MarkerEntry>) {
+function fitToMarkers(map: GoogleMap, markers: Map<string, MarkerEntry>) {
   const google = (window as GoogleNamespace).google;
   if (!google || markers.size === 0) return;
   const bounds = new google.maps.LatLngBounds();
@@ -137,16 +197,16 @@ function fitToMarkers(map: any, markers: Map<string, MarkerEntry>) {
 
 async function syncMarkers(ctx: {
   places: MapPlace[];
-  map: any;
-  geocoder: any;
+  map: GoogleMap | null;
+  geocoder: GoogleGeocoder | null;
   markers: Map<string, MarkerEntry>;
   anchorAppliedIdRef: React.MutableRefObject<string | null>;
   resolvedRef: React.MutableRefObject<Set<string>>;
   onResolved: (id: string, info: ResolvedPlaceInfo) => void;
 }) {
   const { places, map, geocoder, markers, anchorAppliedIdRef, resolvedRef, onResolved } = ctx;
-  if (!map || !geocoder) return;
   const google = (window as GoogleNamespace).google;
+  if (!map || !geocoder || !google) return;
 
   const currentIds = new Set(places.map((p) => p.id));
   for (const [id, entry] of markers) {
@@ -218,8 +278,8 @@ async function syncRoute(ctx: {
   hoveredId: string | null;
   places: MapPlace[];
   markers: Map<string, MarkerEntry>;
-  map: any;
-  polyline: any;
+  map: GoogleMap | null;
+  polyline: GooglePolyline | null;
   cache: Map<string, RouteInfoPayload>;
   latestHoverRef: React.MutableRefObject<string | null>;
   onRouteInfo: (info: RouteInfoPayload | null) => void;
@@ -292,20 +352,24 @@ export function PlacesMap({
   onRouteInfo,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const geocoderRef = useRef<any>(null);
+  const mapRef = useRef<GoogleMap | null>(null);
+  const geocoderRef = useRef<GoogleGeocoder | null>(null);
   const markersRef = useRef<Map<string, MarkerEntry>>(new Map());
   const anchorAppliedIdRef = useRef<string | null>(null);
-  const polylineRef = useRef<any>(null);
+  const polylineRef = useRef<GooglePolyline | null>(null);
   const routeCacheRef = useRef<Map<string, RouteInfoPayload>>(new Map());
   const resolvedRef = useRef<Set<string>>(new Set());
   const latestHoverRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
 
   const onResolvedRef = useRef(onResolved);
-  onResolvedRef.current = onResolved;
   const onRouteInfoRef = useRef(onRouteInfo);
-  onRouteInfoRef.current = onRouteInfo;
+  useEffect(() => {
+    onResolvedRef.current = onResolved;
+  }, [onResolved]);
+  useEffect(() => {
+    onRouteInfoRef.current = onRouteInfo;
+  }, [onRouteInfo]);
 
   useEffect(() => {
     if (!apiKey) return;
@@ -314,6 +378,7 @@ export function PlacesMap({
       .then(() => {
         if (cancelled || !containerRef.current) return;
         const google = (window as GoogleNamespace).google;
+        if (!google) return;
         mapRef.current = new google.maps.Map(containerRef.current, {
           center: DEFAULT_CENTER,
           zoom: 12,
@@ -333,7 +398,6 @@ export function PlacesMap({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
   useEffect(() => {
@@ -347,7 +411,6 @@ export function PlacesMap({
       resolvedRef,
       onResolved: (id, info) => onResolvedRef.current?.(id, info),
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, places]);
 
   useEffect(() => {

@@ -125,6 +125,23 @@
   --shadow-xs-v: 0 1px 2px rgb(0 0 0 / 0.05);
   --shadow-card-v: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px rgb(0 0 0 / 0.06);
   --shadow-lifted-v: 0 2px 4px rgb(0 0 0 / 0.06), 0 12px 28px rgb(0 0 0 / 0.1);
+  --accent: #092b52;
+  --accent-hover: #0d9488;
+  --accent-soft: #ccfbf1;
+  --accent-shadow: rgb(15 118 110 / 0.22);
+
+  /* "Night road" — the landing hero/footer-CTA palette. Dusk-to-night gradient
+     base with a warm coral accent for primary CTAs; teal above stays the
+     functional accent used through the rest of the product. */
+  --night: #0a0b1f;
+  --night-soft: #14173a;
+  --dusk: #2c2a6b;
+  --dusk-soft: #4a3d8f;
+  --star: #eef1ff;
+  --coral: #ff7a52;
+  --coral-hover: #ff9268;
+  --coral-soft: #ffe4d6;
+  --coral-shadow: rgb(255 122 82 / 0.35);
 }
 
 html {
@@ -139,6 +156,14 @@ body {
   background: var(--canvas);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+/* Browsers don't set cursor: pointer on <button> by default (unlike <a>),
+   so every clickable button needs it explicitly. Disabled buttons keep the
+   default/not-allowed cursor from their own styles instead. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
 }
 
 /* Display type is the same family as body — the distinction is optical size,
@@ -249,5 +274,62 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+/* Static "no-WebGL / reduced motion" backdrop for the hero — same night-road
+   palette as the Three.js scene so the fallback never looks like a broken load. */
+.bg-night-road {
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgb(255 122 82 / 0.16), transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 0%, var(--dusk) 0%, transparent 60%),
+    linear-gradient(180deg, var(--night) 0%, var(--night-soft) 55%, var(--night) 100%);
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.animate-twinkle {
+  animation: twinkle 3.2s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Track repeats the logo list COPIES (8) times in LogoMarquee.tsx — one
+       copy is 1/8 of the total width, so -12.5% slides exactly one copy over. */
+    transform: translateX(-12.5%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 26s linear infinite;
+}
+
+/* Pause the track under the cursor. Without this, :hover keeps re-evaluating
+   against whatever's currently under the (stationary) cursor as the track
+   slides past it, so the highlighted logo drifts away from the one actually
+   pointed at. Pausing freezes the track so hover locks to the right item. */
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
   }
 }

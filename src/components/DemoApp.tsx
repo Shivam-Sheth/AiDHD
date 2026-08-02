@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PlacesMap } from "@/components/PlacesMap";
@@ -116,11 +115,7 @@ export function DemoApp({
     void (async () => {
       try {
         await j("/api/demo/reset", { method: "POST" });
-        const [health, data] = await Promise.all([
-          j<{ integrations: Record<string, string> }>("/api/health"),
-          j<Snapshot>(`/api/events/${eventId}`),
-        ]);
-        setIntegrations(health.integrations);
+        const data = await j<Snapshot>(`/api/events/${eventId}`);
         setSnap(data);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load");
@@ -311,7 +306,7 @@ export function DemoApp({
 
       <HowItWorks />
 
-<TripsOutings />
+      <TripsOutings />
 
       <FooterCTA
         busy={busy}

@@ -58,3 +58,7 @@ yarn-error.log*
 next-env.d.ts
 
 package-lock.json
+
+# local demo/scratch artifacts
+demo.html
+*.mov

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 import {
   CONCIERGE_SYSTEM_PROMPT,
   executeAgentTool,
 } from "@/lib/agent-tools/registry";
-import { hasGemini } from "@/lib/integrations/config";
+import { hasOpenAI } from "@/lib/integrations/config";
+import { findPlacesInOrder } from "@/lib/geo/airports";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,7 +43,30 @@ function paymentParamsFromLastOffer(lastOffer: LastOffer): Record<string, unknow
 }
 
 /**
- * Text concierge with Gemini function-calling — always-on backup / companion
+ * Origin/destination for the no-LLM heuristic paths below — ordered by where
+ * each city is actually mentioned in the message (not hardcoded), falling
+ * back to sensible demo defaults only when nothing was recognized at all.
+ */
+function flightRouteFromText(text: string): { origin: string; destination: string } {
+  const places = findPlacesInOrder(text);
+  if (places.length >= 2) {
+    return { origin: places[0].city, destination: places[1].city };
+  }
+  if (places.length === 1) {
+    // Only one city mentioned — the word right before it decides its role.
+    // "fly to Bali" (destination) is far more common than "flying from
+    // Bali" (origin), so destination is the default when there's no "from".
+    const before = text.slice(Math.max(0, places[0].index - 8), places[0].index);
+    const isOrigin = /\bfrom\s*$/i.test(before);
+    return isOrigin
+      ? { origin: places[0].city, destination: "Bali" }
+      : { origin: "Chicago", destination: places[0].city };
+  }
+  return { origin: "Chicago", destination: "Bali" };
+}
+
+/**
+ * Text concierge with OpenAI function-calling — always-on backup / companion
  * to ElevenLabs voice. Same tools as the live agent.
  */
 export async function POST(req: Request) {
@@ -66,7 +90,7 @@ export async function POST(req: Request) {
   const uiCards: unknown[] = [];
   const toolTrace: Array<{ name: string; summary: string }> = [];
 
-  if (!hasGemini()) {
+  if (!hasOpenAI()) {
     // Minimal heuristic without LLM
     const lower = userMessage.toLowerCase();
     let name = "search_hotels";
@@ -84,12 +108,7 @@ export async function POST(req: Request) {
     } else if (/flight|fly|airline/.test(lower)) {
       name = "search_flights";
       params = {
-        origin: /chicago|ord/i.test(lower) ? "Chicago" : "Chicago",
-        destination: /bali|dps/i.test(lower)
-          ? "Bali"
-          : /new york|nyc|jfk/i.test(lower)
-            ? "New York"
-            : "New York",
+        ...flightRouteFromText(userMessage),
         depart_date: "2026-08-11",
         return_date: "2026-08-15",
       };
@@ -151,8 +170,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
     const history = (body.messages || [])
       .slice(-12)
       .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
@@ -173,12 +192,12 @@ Or answer with ONLY JSON:
 `;
 
     for (let i = 0; i < 4; i++) {
-      const response = await ai.models.generateContent({
+      const response = await client.chat.completions.create({
         model,
-        contents: scratch,
-        config: { responseMimeType: "application/json" },
+        response_format: { type: "json_object" },
+        messages: [{ role: "user", content: scratch }],
       });
-      const text = (response.text || "").trim();
+      const text = (response.choices[0]?.message?.content || "").trim();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) break;
       const parsed = JSON.parse(jsonMatch[0]) as {
@@ -192,7 +211,7 @@ Or answer with ONLY JSON:
           reply: parsed.reply,
           ui: uiCards,
           tools: toolTrace,
-          provider: "gemini",
+          provider: "openai",
         });
       }
 
@@ -200,8 +219,8 @@ Or answer with ONLY JSON:
         const toolParams = { ...(parsed.parameters || {}) };
         if (parsed.tool === "create_payment") {
           const amt = Number(toolParams.amount);
-          // Gemini has no memory of exact prices — if it didn't carry one over
-          // from a prior search result, fall back to the last real offer shown.
+          // The model has no memory of exact prices — if it didn't carry one
+          // over from a prior search result, fall back to the last real offer shown.
           if (!Number.isFinite(amt) || amt <= 0) {
             const fallback = paymentParamsFromLastOffer(body.last_offer);
             if (fallback.amount != null) toolParams.amount = fallback.amount;
@@ -223,10 +242,10 @@ Or answer with ONLY JSON:
         "I looked that up — check the cards on the right.",
       ui: uiCards,
       tools: toolTrace,
-      provider: "gemini",
+      provider: "openai",
     });
   } catch (e) {
-    // Gemini quota/errors → still run a best-guess tool so the UI isn't empty
+    // OpenAI quota/errors → still run a best-guess tool so the UI isn't empty
     const lower = userMessage.toLowerCase();
     let name = "search_hotels";
     let params: Record<string, unknown> = {
@@ -238,7 +257,7 @@ Or answer with ONLY JSON:
     const payableOffer =
       typeof body.last_offer?.amount === "number" && body.last_offer.amount > 0;
     if (wantsToPay && payableOffer) {
-      // Same ordering fix as the no-Gemini branch above — "book this flight"
+      // Same ordering fix as the no-OpenAI branch above — "book this flight"
       // must not be reinterpreted as a new search when there's already an
       // offer on screen to charge for.
       name = "create_payment";
@@ -246,8 +265,7 @@ Or answer with ONLY JSON:
     } else if (/flight|fly|airline/.test(lower)) {
       name = "search_flights";
       params = {
-        origin: "Chicago",
-        destination: /bali|dps/i.test(lower) ? "Bali" : "New York",
+        ...flightRouteFromText(userMessage),
         depart_date: "2026-08-11",
         return_date: "2026-08-15",
       };

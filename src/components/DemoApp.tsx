@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PlacesMap } from "@/components/PlacesMap";
+import { SiteHeader } from "@/components/landing/SiteHeader";
+import { Hero } from "@/components/landing/Hero";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { TripsOutings } from "@/components/landing/TripsOutings";
+import { FooterCTA } from "@/components/landing/FooterCTA";
 import type { PackageComponent, PackageData, Snapshot } from "@/lib/types-client";
 
 const EVENT_ID = "evt_demo_friday";
@@ -69,8 +75,11 @@ export function DemoApp({
 }: {
   googleMapsApiKey: string | null;
 }) {
+  const router = useRouter();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [integrations, setIntegrations] = useState<Record<string, string>>({});
+  const [healthLoaded, setHealthLoaded] = useState(false);
+  const [healthError, setHealthError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -87,6 +96,21 @@ export function DemoApp({
     setSnap(data);
     return data;
   }, [eventId]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const health = await j<{ integrations: Record<string, string> }>(
+          "/api/health",
+        );
+        setIntegrations(health.integrations);
+      } catch (e) {
+        setHealthError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        setHealthLoaded(true);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -272,255 +296,34 @@ export function DemoApp({
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-neutral-200/80 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 lg:px-10">
-          <button
-            type="button"
-            onClick={() => scrollTo("top")}
-            className="font-display text-xl font-bold text-neutral-900 transition-colors hover:text-[var(--accent)]"
-          >
-            AiDHD
-          </button>
-          <nav className="hidden items-center gap-8 md:flex">
-            {[
-              ["problem", "Problem"],
-              ["use-cases", "Nights & trips"],
-              ["how-it-works", "How it works"],
-              ["demo", "Demo"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => scrollTo(id)}
-                className="text-sm font-medium text-neutral-600 transition-colors hover:text-[var(--accent)]"
-              >
-                {label}
-              </button>
-            ))}
-            <Link
-              href="/reel"
-              className="text-sm font-medium text-teal-700 transition-colors hover:text-teal-600"
-            >
-              Reel → itinerary
-            </Link>
-            <Link
-              href="/agent"
-              className="text-sm font-medium text-teal-700 transition-colors hover:text-teal-600"
-            >
-              Live agent
-            </Link>
-          </nav>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-neutral-600 transition-colors hover:text-[var(--accent)]"
-            >
-              Sign in
-            </Link>
-            <button
-              type="button"
-              onClick={() => void startDemo()}
-              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[var(--accent-shadow)] transition hover:bg-[var(--accent-hover)]"
-            >
-              Try demo
-            </button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        busy={busy}
+        onScrollTo={scrollTo}
+        onStartPlanning={() => router.push("/agent")}
+      />
 
-      {/* Hero */}
-      <section
-        id="top"
-        className="relative flex min-h-[88vh] items-center overflow-hidden bg-neutral-50 bg-grid-pattern"
-      >
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-teal-50/50 via-transparent to-transparent" />
-        <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-12 px-6 py-16 lg:flex-row lg:gap-16 lg:px-10 lg:py-24">
-          <div className="animate-fade-in flex-1 text-center lg:text-left">
-            <h1 className="font-display text-4xl font-bold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl">
-              AiDHD
-            </h1>
-            <p className="mt-4 text-xl font-semibold text-[var(--accent)] sm:text-2xl">
-              Agentic commerce for group nights & trips
-            </p>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-neutral-600 lg:mx-0">
-              Friends drop budgets in iMessage or WhatsApp. AiDHD discovers live
-              options (Duffel / Ticketmaster), ranks merchants with{" "}
-              <span className="font-semibold text-neutral-800">Senso trust</span>
-              , and completes the spend with{" "}
-              <span className="font-semibold text-neutral-800">Prava</span>{" "}
-              Collect → mandate → scoped token — not a fake pay button.
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2 lg:justify-start">
-              {[
-                "Prava",
-                "Linq iMessage",
-                "Senso trust",
-                "Duffel live",
-                "ElevenLabs voice",
-              ].map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-900"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-            <div className="mt-10 flex flex-wrap justify-center gap-4 lg:justify-start">
-              <Link
-                href="/agent"
-                className="rounded-xl bg-[var(--accent)] px-6 py-3.5 font-semibold text-white shadow-lg shadow-[var(--accent-shadow)] transition hover:bg-[var(--accent-hover)]"
-              >
-                Judge demo · Live Concierge
-              </Link>
-              <button
-                type="button"
-                onClick={() => void startDemo()}
-                className="rounded-xl border-2 border-neutral-300 px-6 py-3.5 font-semibold text-neutral-700 transition hover:border-[var(--accent)] hover:bg-teal-50/50 hover:text-[var(--accent)]"
-              >
-                Group reconcile demo
-              </button>
-            </div>
-            <p className="mx-auto mt-4 max-w-xl text-xs leading-relaxed text-neutral-500 lg:mx-0">
-              Disclosure: scaffold + WhatsApp/Duffel wiring existed before the
-              official build window; Linq v3, live Concierge tools, Senso-ranked
-              packages, Prava complete receipt, and vault work are hackathon
-              build. See docs/SUBMISSION.md.
-            </p>
-          </div>
+      <Hero
+        busy={busy}
+        error={error}
+        onStartPlanning={() => router.push("/agent")}
+        onSeeHowItWorks={() => scrollTo("how-it-works")}
+      />
 
-          <div className="animate-slide-up w-full max-w-lg flex-1">
-            <HeroCard />
-          </div>
-        </div>
-      </section>
+      <HowItWorks />
 
-      {/* Problem */}
-      <section id="problem" className="border-t border-neutral-200 bg-white py-20 lg:py-24">
-        <div className="mx-auto max-w-3xl px-6 text-center lg:px-10">
-          <h2 className="font-display text-3xl font-bold text-neutral-900 sm:text-4xl">
-            Group chat is where plans go to die
-          </h2>
-          <p className="mt-5 text-lg leading-relaxed text-neutral-600">
-            Three budgets. Two vibes. Zero bookings. Whether it&apos;s
-            Ticketmaster + dinner or flights + a hotel for the weekend, someone
-            burns an hour reconciling tabs — then the plan falls apart. AiDHD is
-            the agent that finishes the job.
-          </p>
-        </div>
-      </section>
+<TripsOutings />
 
-      {/* Use cases */}
-      <section
-        id="use-cases"
-        className="border-t border-neutral-200 bg-neutral-50 bg-grid-pattern py-20 lg:py-24"
-      >
-        <div className="mx-auto max-w-6xl px-6 lg:px-10">
-          <h2 className="font-display text-center text-3xl font-bold text-neutral-900 sm:text-4xl">
-            Same product. Two kinds of plans.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-neutral-600">
-            Nights out and multi-day travel share one flow: collect → package →
-            pay per category → book.
-          </p>
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            <article className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-lg shadow-neutral-200/40">
-              <p className="text-xs font-semibold tracking-wider text-[var(--accent)] uppercase">
-                Night out
-              </p>
-              <h3 className="font-display mt-2 text-2xl font-semibold text-neutral-900">
-                Concert + dinner
-              </h3>
-              <p className="mt-3 text-neutral-600 leading-relaxed">
-                Tickets, timing, and a pre-show table that fit everyone&apos;s
-                budget. Live in today&apos;s demo — end-to-end with Prava
-                mandates for ticket and dining.
-              </p>
-              <ul className="mt-4 space-y-1.5 text-sm text-neutral-600">
-                <li>· Ticket tier + venue</li>
-                <li>· Dinner reservation</li>
-                <li>· Separate spend caps per category</li>
-              </ul>
-            </article>
-            <article className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-lg shadow-neutral-200/40">
-              <p className="text-xs font-semibold tracking-wider text-[var(--accent)] uppercase">
-                Travel
-              </p>
-              <h3 className="font-display mt-2 text-2xl font-semibold text-neutral-900">
-                Weekend / multi-day trip
-              </h3>
-              <p className="mt-3 text-neutral-600 leading-relaxed">
-                Flights, hotel, day-by-day itinerary, and at least one dinner —
-                same reconciliation agent, same per-category Prava mandates
-                (flight · hotel · dining · activities).
-              </p>
-              <ul className="mt-4 space-y-1.5 text-sm text-neutral-600">
-                <li>· Flights + hotel stays</li>
-                <li>· Itinerary days that fit the group</li>
-                <li>· Re-mandate only the leg that fails</li>
-              </ul>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section
-        id="how-it-works"
-        className="bg-white py-20 lg:py-28"
-      >
-        <div className="mx-auto max-w-6xl px-6 lg:px-10">
-          <h2 className="font-display text-center text-3xl font-bold text-neutral-900 sm:text-4xl">
-            How it works
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-neutral-600">
-            Three steps from messy group chat to a booked night — or a booked
-            trip.
-          </p>
-          <div className="relative mt-16">
-            <div
-              className="absolute top-8 right-0 left-0 hidden h-0.5 bg-neutral-200 lg:block"
-              style={{ marginLeft: "12.5%", marginRight: "12.5%", width: "75%" }}
-            />
-            <div className="grid gap-10 md:grid-cols-3 lg:gap-6">
-              {[
-                {
-                  n: "1",
-                  t: "Everyone shares a budget + vibe",
-                  d: "Web, WhatsApp, or iMessage — dates, spend caps, and prefs for a night out or a trip.",
-                },
-                {
-                  n: "2",
-                  t: "AiDHD builds 2–3 real plans",
-                  d: "Outings: tickets + dinner. Trips: flights + hotel + itinerary + dining — priced for the group, trust-checked.",
-                },
-                {
-                  n: "3",
-                  t: "You pick. It pays & books.",
-                  d: "Separate Prava limits per category. If a flight or ticket fails, only that mandate is re-asked.",
-                },
-              ].map((s) => (
-                <div
-                  key={s.n}
-                  className="relative flex flex-col items-center text-center"
-                >
-                  <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent)] font-display text-2xl font-bold text-white shadow-lg shadow-[var(--accent-shadow)]">
-                    {s.n}
-                  </div>
-                  <h3 className="mt-6 font-display text-xl font-semibold text-neutral-900">
-                    {s.t}
-                  </h3>
-                  <p className="mt-2 max-w-xs text-neutral-600">{s.d}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <FooterCTA
+        busy={busy}
+        onStartPlanning={() => router.push("/agent")}
+        onScrollTo={scrollTo}
+        integrations={integrations}
+        healthLoaded={healthLoaded}
+        healthError={healthError}
+      />
 
       {/* Demo */}
-      <section id="demo" className="border-t border-neutral-200 bg-white py-20 lg:py-28">
+      {/* <section id="demo" className="border-t border-neutral-200 bg-white py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-6 lg:px-10">
         <div className="mx-auto max-w-3xl">
           <h2 className="font-display text-center text-3xl font-bold text-neutral-900 sm:text-4xl">
@@ -949,69 +752,17 @@ export function DemoApp({
           )}
         </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Footer */}
-      <footer className="border-t border-neutral-200 bg-neutral-50 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
-          <div>
-            <p className="font-display font-bold text-neutral-900">AiDHD</p>
-            <p className="mt-1 text-sm text-neutral-500">
-              Built for Prava&apos;s Agentic Commerce Hackathon
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(integrations).map(([k, v]) => (
-              <span
-                key={k}
-                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide uppercase ${
-                  v === "live" || v === "registered"
-                    ? "bg-teal-50 text-[var(--accent)]"
-                    : "bg-neutral-200/70 text-neutral-500"
-                }`}
-              >
-                {k} {v}
-              </span>
-            ))}
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function HeroCard() {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl shadow-neutral-200/50">
-      <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50/80 px-4 py-3">
-        <div className="h-2 w-2 rounded-full bg-red-400" />
-        <div className="h-2 w-2 rounded-full bg-amber-400" />
-        <div className="h-2 w-2 rounded-full bg-[var(--accent)]" />
-        <span className="ml-2 text-sm font-medium text-neutral-500">
-          Nights & trips — AiDHD
-        </span>
-      </div>
-      <div className="space-y-3 p-4">
-        <div className="rounded-xl bg-neutral-100 p-3">
-          <p className="mb-1 text-xs font-medium tracking-wider text-neutral-500 uppercase">
-            Night out
-          </p>
-          <p className="text-sm text-neutral-700">
-            Brooklyn Steel + dinner — ticket & dining mandates
+      {/* <footer className="border-t border-neutral-200 bg-neutral-50 py-10">
+        <div className="mx-auto max-w-6xl px-6 lg:px-10">
+          <p className="font-display font-bold text-neutral-900">AiDHD</p>
+          <p className="mt-1 text-sm text-neutral-500">
+            Built for Prava&apos;s Agentic Commerce Hackathon
           </p>
         </div>
-        <div className="glow-accent rounded-xl border border-teal-100 bg-teal-50 p-3">
-          <p className="mb-1 text-xs font-medium tracking-wider text-teal-800 uppercase">
-            Also: group travel
-          </p>
-          <p className="text-sm text-neutral-800">
-            NYC → Miami weekend — flights, hotel, itinerary, dinner
-          </p>
-          <p className="mt-2 text-xs font-medium text-[var(--accent)]">
-            Flight · hotel · dining · activity caps → booked
-          </p>
-        </div>
-      </div>
+      </footer> */}
     </div>
   );
 }

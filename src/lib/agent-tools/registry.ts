@@ -12,6 +12,7 @@ import {
   searchMovies,
 } from "../integrations/dining";
 import { createPravaSession } from "../integrations/prava";
+import { lookupMerchantUrl } from "../integrations/merchants";
 import { lookupVendorTrust } from "../integrations/senso";
 import { getWeatherForTravel } from "../integrations/weather";
 import { airportCodeForPlace } from "../geo/airports";
@@ -463,6 +464,8 @@ export async function executeAgentTool(
 
       case "create_payment": {
         const merchant = str(parameters.merchant) || "AiDHD booking";
+        const merchant_url =
+          str(parameters.merchant_url) || lookupMerchantUrl(merchant) || undefined;
         const amount = num(parameters.amount);
         const category = str(parameters.category) || "trip";
         const email =
@@ -478,6 +481,7 @@ export async function executeAgentTool(
           user_id: str(parameters.user_id) || `agent_${Date.now()}`,
           user_email: email,
           merchant,
+          merchant_url,
           amount,
           currency: str(parameters.currency) || "USD",
           category,
@@ -488,12 +492,20 @@ export async function executeAgentTool(
             ? `https://aidhd-omega.vercel.app/pay?session=${encodeURIComponent(session.session_id)}`
             : null);
         if (session.error) {
+          console.log(
+            `[Prava][dev] session create FAILED for "${merchant}" $${amount.toFixed(2)}: ${session.error}`,
+          );
           return {
             ok: false,
             summary: `Prava session error: ${session.error}`,
             data: session,
           };
         }
+        // DEV ONLY: echo the exact Prava payment URL server-side when a selection
+        // triggers checkout, so it can be inspected without wiring UI for it yet.
+        console.log(
+          `[Prava][dev] payment URL for "${merchant}" $${amount.toFixed(2)} (${category}, ${session.mode}): ${payUrl}`,
+        );
         return {
           ok: true,
           summary: `Prava checkout is open on their screen for $${amount.toFixed(2)} to ${merchant} (${session.mode}). Ask them to approve passkey/card there — do not read URLs aloud.`,
@@ -555,7 +567,9 @@ CAPABILITIES
 - get_weather(city, date) → call this right after a destination city + first travel date is established
   (e.g., right after search_flights or search_hotels). Mention the outlook briefly and clearly flag
   any extreme weather caution shown on the card.
-- create_payment → opens Prava on screen (do not read long URLs aloud)
+- create_payment → opens Prava on screen (do not read long URLs aloud).
+  Prava requires the merchant's real website in merchant_url (e.g. https://www.hilton.com/en/
+  for Hilton) — pass it whenever the merchant is a known brand.
 - iMessage users may also be chatting via Linq — keep answers short; confirmations land in-thread
 
 FLOW
@@ -642,6 +656,9 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
     ),
     client("create_payment", "Start Prava payment and open on-screen checkout.", {
       merchant: prop("What they are paying for"),
+      merchant_url: prop(
+        "Merchant's website, e.g. https://www.hilton.com/en/ for Hilton — Prava requires this; include the real site when known, omit only if truly unknown",
+      ),
       amount: prop("USD total amount", "number"),
       category: prop("flight | hotel | ticket | dining | club | movie | trip"),
       email: prop("Payer email"),

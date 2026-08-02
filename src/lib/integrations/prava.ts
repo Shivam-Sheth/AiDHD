@@ -69,7 +69,7 @@ export async function createPravaSession(input: {
               url:
                 input.merchant_url ||
                 (getBaseUrl().startsWith("http://localhost")
-                  ? "https://aidhd-vert.vercel.app"
+                  ? "https://aidhd-vert.vercel.app/agent"
                   : getBaseUrl()),
               country_code_iso2: "US",
             },

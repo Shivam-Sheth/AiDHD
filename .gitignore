@@ -20,6 +20,14 @@
 # production
 /build
 
+# design reference — new-ui extracted locally from origin/new-ui
+/reference/
+
+# local media / supabase CLI cache
+*.mp4
+WhatsApp Video*
+supabase/.temp/
+
 # misc
 .DS_Store
 *.pem

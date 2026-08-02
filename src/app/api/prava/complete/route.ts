@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  bookFlightWithVault,
+  bookGroupFlightWithVault,
+} from "@/lib/integrations/flights";
+import { reserveDining } from "@/lib/integrations/dining";
 import { getPaymentResult, reportPaymentStatus } from "@/lib/integrations/prava";
 import { sendLinqChatMessage } from "@/lib/integrations/linq";
 
@@ -6,15 +11,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Called right after @prava-sdk/core's collectPAN() succeeds in the browser.
- * Real flow: GET payment-result (poll briefly — it can read "awaiting_result"
- * for a moment) → POST report-status (mandatory, closes the loop with Prava).
- *
- * The one-time virtual card returned here isn't submitted to a real merchant
- * checkout yet — Ticketmaster/Duffel integrations in this repo are search /
- * mock-reserve only (disclosed in README) — so we report APPROVED because the
- * enrollment itself succeeded. Swap that for the merchant's real charge
- * outcome once a live checkout call exists.
+ * After Prava Collect succeeds: report status, then optionally issue
+ * flight (Duffel/vault) or dining reservation when offer_id is provided.
  */
 export async function POST(req: Request) {
   let body: {
@@ -24,6 +22,12 @@ export async function POST(req: Request) {
     currency?: string;
     category?: string;
     linq_chat_id?: string;
+    offer_id?: string;
+    user_id?: string;
+    /** One order N vault passports */
+    user_ids?: string[];
+    spoc_name?: string;
+    party_size?: number;
   };
   try {
     body = await req.json();
@@ -54,17 +58,68 @@ export async function POST(req: Request) {
 
   await reportPaymentStatus(body.session_id, "APPROVED");
 
-  const confirmation_id = `AIDHD-${Date.now().toString(36).toUpperCase()}`;
+  const category = (body.category || "trip").toLowerCase();
+  let confirmation_id = `AIDHD-${Date.now().toString(36).toUpperCase()}`;
+  let bookingNote = "";
+  let booking: unknown = null;
+
+  const groupIds = Array.isArray(body.user_ids)
+    ? body.user_ids.filter(Boolean)
+    : [];
+  if (
+    body.offer_id &&
+    (body.user_id || groupIds.length) &&
+    (category === "flight" || category === "trip")
+  ) {
+    const booked =
+      groupIds.length > 1
+        ? await bookGroupFlightWithVault({
+            offerId: body.offer_id,
+            passengers: groupIds.map((userId) => ({ userId })),
+          })
+        : await bookFlightWithVault({
+            offerId: body.offer_id,
+            userId: body.user_id || groupIds[0]!,
+          });
+    if (booked.ok) {
+      confirmation_id = booked.confirmation_id;
+      bookingNote = ` Flight issued (${booked.mode})${groupIds.length > 1 ? ` · ${groupIds.length} pax one order` : ""}.`;
+      booking = booked;
+    } else {
+      bookingNote = ` Payment ok — flight not issued yet: ${booked.failure_reason}`;
+      booking = booked;
+    }
+  } else if (
+    category === "dining" &&
+    (body.offer_id || body.merchant) &&
+    body.spoc_name
+  ) {
+    const reserved = await reserveDining({
+      offerId: body.offer_id || `dining_${body.session_id}`,
+      restaurant: body.merchant,
+      spoc_name: body.spoc_name,
+      party_size: body.party_size || 2,
+    });
+    if (reserved.ok) {
+      confirmation_id = reserved.confirmation_id;
+      bookingNote = ` ${reserved.notes}`;
+      booking = reserved;
+    } else {
+      bookingNote = ` Payment ok — reservation pending: ${reserved.failure_reason}`;
+      booking = reserved;
+    }
+  }
+
   const tokenRef = result.token ? `•••• ${result.token.slice(-4)}` : "mock";
   const summary =
     result.mode === "live"
-      ? `Prava session ${body.session_id} → one-time card ${tokenRef} for $${Number(body.amount).toFixed(2)} at ${body.merchant}. Confirmation ${confirmation_id}.`
-      : `Mock checkout ${confirmation_id} for $${Number(body.amount).toFixed(2)} at ${body.merchant} (set PRAVA_SECRET_KEY + PRAVA_PUBLISHABLE_KEY for live Collect).`;
+      ? `Prava session ${body.session_id} → card ${tokenRef} for $${Number(body.amount).toFixed(2)} at ${body.merchant}. Confirmation ${confirmation_id}.${bookingNote}`
+      : `Checkout ${confirmation_id} for $${Number(body.amount).toFixed(2)} at ${body.merchant}.${bookingNote}`;
 
   if (body.linq_chat_id) {
     await sendLinqChatMessage({
       chat_id: body.linq_chat_id,
-      text: `Booked via Prava · ${confirmation_id}\n${body.merchant} · $${Number(body.amount).toFixed(2)}`,
+      text: `Booked via Prava · ${confirmation_id}\n${body.merchant} · $${Number(body.amount).toFixed(2)}${bookingNote}`,
     });
   }
 
@@ -73,19 +128,20 @@ export async function POST(req: Request) {
     mode: result.mode,
     confirmation_id,
     summary,
+    booking,
+    needs_passport: /passport/i.test(bookingNote),
     ui: {
       kind: "receipt",
       payload: {
         confirmation_id,
         session_id: body.session_id,
-        // No separate "mandate" object in the real API — the session itself
-        // is the scoping unit, so this just mirrors session_id for the UI.
         mandate_id: body.session_id,
         token_ref: tokenRef,
         merchant: body.merchant,
         amount: Number(body.amount),
         mode: result.mode,
         summary,
+        booking,
       },
     },
   });

@@ -1,23 +1,45 @@
-import type { Metadata } from "next";
-import { DM_Sans, Outfit } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
+import { THEME_INIT_SCRIPT } from "@/hooks/useTheme";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "AiDHD — Concierge for group nights & trips",
+  title: "AiDHD — from group chat chaos to booked in minutes",
   description:
-    "Group nights out and weekend trips from the same chat. AiDHD builds costed plans and books with scoped Prava payments per category.",
+    "Everyone drops a budget and a vibe. AiDHD reconciles the mess into a few costed plans and books them — separate Prava limits per category, not one scary lump sum.",
+  applicationName: "AiDHD",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AiDHD",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#08090b",
 };
 
 export default function RootLayout({
@@ -26,9 +48,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${dmSans.variable} h-full`}>
+    <html
+      lang="en"
+      data-theme="dark"
+      className={`${inter.variable} ${jetbrainsMono.variable} h-full`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Applies the stored theme before first paint — see THEME_INIT_SCRIPT. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full antialiased" suppressHydrationWarning>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

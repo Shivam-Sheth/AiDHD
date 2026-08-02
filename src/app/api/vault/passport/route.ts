@@ -7,13 +7,18 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Store passport ciphertext — returns vault ref only (safe for UI). */
+/**
+ * Store passport for flight booking only.
+ * remember:true → AES vault in traveler_profiles
+ * remember:false → RAM one-time stash (30m), never persisted
+ */
 export async function POST(req: Request) {
   let body: {
     user_id?: string;
     passport_number?: string;
     email?: string;
     display_name?: string;
+    remember?: boolean;
   };
   try {
     body = await req.json();
@@ -35,6 +40,7 @@ export async function POST(req: Request) {
     passport_number,
     email: body.email,
     display_name: body.display_name,
+    remember: body.remember !== false,
   });
 
   if (!saved.ok) {
@@ -43,8 +49,12 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
+    remembered: saved.remembered !== false,
     ref: saved.ref,
-    note: "Ciphertext stored. Agent tools only see ref.present — never the number.",
+    note:
+      saved.remembered === false
+        ? "One-time passport held in memory for this booking only."
+        : "Ciphertext stored. Agent tools only see ref.present — never the number.",
   });
 }
 

@@ -22,13 +22,23 @@ import {
   type PlaceReview,
   type RouteInfoPayload,
 } from "@/components/PlacesMap";
+import { FlightTicket } from "@/components/booking/FlightTicket";
+import { VenueTicket } from "@/components/booking/VenueTicket";
+import { SampleMandates } from "@/components/booking/SampleMandates";
+import { PassportGate } from "@/components/vault/PassportGate";
 
 type FlightCard = {
   id: string;
   airline: string;
   airline_logo_url?: string | null;
+  airline_iata?: string | null;
+  flight_number?: string;
+  duration?: string;
+  stops?: number;
   from: string;
+  from_city?: string;
   to: string;
+  to_city?: string;
   depart: string;
   arrive: string;
   cabin: string;
@@ -68,7 +78,10 @@ type DiningCard = {
   neighborhood: string;
   time: string;
   price_per_person: number;
+  party_size?: number;
   photo_url?: string | null;
+  rating?: number;
+  review_count?: number;
   source?: string;
 };
 
@@ -80,6 +93,8 @@ type ClubCard = {
   cover: number;
   open_until: string;
   photo_url?: string | null;
+  rating?: number;
+  review_count?: number;
   source?: string;
 };
 
@@ -140,6 +155,8 @@ type UiCard =
         merchant: string;
         mode: string;
         category?: string;
+        offer_id?: string;
+        user_id?: string;
       };
     }
   | {
@@ -176,164 +193,32 @@ type UiCard =
 
 type ChatLine = { role: "user" | "assistant"; text: string };
 
-function fmtTime(iso: string) {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso.slice(11, 16) || iso;
-    return d.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
-
 function sourceBadge(source?: string) {
   const live =
-    source === "duffel" || source === "ticketmaster" || source === "linq";
+    source === "duffel" ||
+    source === "ticketmaster" ||
+    source === "linq" ||
+    source === "google_places";
   const label =
     source === "duffel"
       ? "Live · Duffel"
-      : source === "ticketmaster"
-        ? "Live · Ticketmaster"
-        : source === "fixture"
-          ? "Fixture"
-          : source || "Lookup";
+      : source === "google_places"
+        ? "Live · Places"
+        : source === "ticketmaster"
+          ? "Live · Ticketmaster"
+          : source === "fixture"
+            ? "Demo inventory"
+            : source || "Lookup";
   return (
     <span
-      className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+      className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
         live
-          ? "bg-emerald-100 text-emerald-900"
-          : "bg-stone-200/80 text-stone-700"
+          ? "bg-success-soft text-success"
+          : "bg-line/80 text-muted"
       }`}
     >
       {label}
     </span>
-  );
-}
-
-function FlightRow({ f }: { f: FlightCard }) {
-  return (
-    <article className="agent-card group relative overflow-hidden rounded-2xl border border-white/10 bg-[#12181f]/90 p-4 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)] backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-amber-400/30">
-      <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white">
-          {f.airline_logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={f.airline_logo_url}
-              alt=""
-              className="h-8 w-8 object-contain"
-            />
-          ) : (
-            <span className="font-display text-xs font-bold text-[#0b3d38]">
-              {f.airline.slice(0, 2).toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate font-display text-sm font-semibold text-white">
-              {f.airline}
-            </p>
-            <p className="font-display text-lg font-bold tabular-nums text-amber-300">
-              ${Math.round(f.price_per_person)}
-              <span className="ml-0.5 text-[10px] font-medium text-white/45">
-                /pp
-              </span>
-            </p>
-          </div>
-          <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <div>
-              <p className="font-display text-xl font-bold tracking-tight text-white">
-                {f.from}
-              </p>
-              <p className="text-xs text-white/55">{fmtTime(f.depart)}</p>
-            </div>
-            <div className="flex flex-col items-center px-1">
-              <div className="h-px w-10 bg-gradient-to-r from-transparent via-amber-300/70 to-transparent" />
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-white/40">
-                {f.cabin}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="font-display text-xl font-bold tracking-tight text-white">
-                {f.to}
-              </p>
-              <p className="text-xs text-white/55">{fmtTime(f.arrive)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ReviewsBlock({ reviews }: { reviews?: PlaceReview[] }) {
-  if (!reviews?.length) return null;
-  return (
-    <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
-        Google reviews
-      </p>
-      {reviews.slice(0, 2).map((r, i) => (
-        <p key={i} className="text-xs leading-relaxed text-white/55">
-          <span className="font-semibold text-white/70">{r.author}</span>
-          {r.rating != null && <span className="text-amber-200"> · ★{r.rating}</span>}
-          {r.text && <span> — {r.text}</span>}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function MediaCard({
-  photo,
-  title,
-  meta,
-  price,
-  priceSuffix,
-  onMouseEnter,
-  onMouseLeave,
-  highlighted,
-  reviews,
-}: {
-  photo?: string | null;
-  title: string;
-  meta: string;
-  price: number;
-  priceSuffix?: string;
-  onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
-  highlighted?: boolean;
-  reviews?: PlaceReview[];
-}) {
-  return (
-    <article
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className={`flex overflow-hidden rounded-2xl border bg-[#12181f]/90 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)] transition ${
-        highlighted ? "border-amber-300/60" : "border-white/10"
-      }`}
-    >
-      {photo && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo} alt="" className="h-28 w-28 shrink-0 object-cover" />
-      )}
-      <div className="flex flex-1 flex-col justify-center p-3">
-        <p className="font-display text-sm font-semibold text-white">{title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-white/50">{meta}</p>
-        <p className="mt-2 font-display text-lg font-bold text-amber-300">
-          ${Math.round(price)}
-          {priceSuffix && (
-            <span className="ml-0.5 text-[10px] font-medium text-white/45">
-              {priceSuffix}
-            </span>
-          )}
-        </p>
-        <ReviewsBlock reviews={reviews} />
-      </div>
-    </article>
   );
 }
 
@@ -349,7 +234,7 @@ function RouteRow({
   const body = (
     <div className="flex flex-col items-center gap-1.5 py-3">
       <span className="text-3xl leading-none">{icon}</span>
-      <span className="text-center text-xs font-medium text-neutral-500">{subtext}</span>
+      <span className="text-center text-xs font-medium text-muted">{subtext}</span>
     </div>
   );
   if (href) {
@@ -358,7 +243,7 @@ function RouteRow({
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="block rounded-2xl transition hover:bg-neutral-200/70"
+        className="block rounded-2xl transition hover:bg-line/70"
       >
         {body}
       </a>
@@ -372,22 +257,22 @@ function RoutePanel({ info }: { info: RouteInfoPayload | null }) {
   const fast = (info?.drive_minutes ?? 999) < 30;
   return (
     <div
-      className={`fixed top-1/2 right-0 z-40 w-72 max-w-[85vw] -translate-y-1/2 rounded-l-3xl bg-neutral-100 px-5 py-6 text-[#12181f] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${
+      className={`fixed top-1/2 right-0 z-40 w-72 max-w-[85vw] -translate-y-1/2 rounded-l-3xl bg-subtle px-5 py-6 text-ink shadow-lifted transition-transform duration-300 ease-out ${
         info ? "translate-x-0" : "pointer-events-none translate-x-full"
       }`}
     >
       {info && (
-        <div className="divide-y divide-neutral-200">
-          <p className="pb-3 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <div className="divide-y divide-line">
+          <p className="pb-3 text-center text-[11px] font-semibold uppercase tracking-wider text-faint">
             Hotel → {info.place}
           </p>
           <div className="flex flex-col items-center gap-1 py-4">
             <p
-              className={`font-display text-5xl font-bold ${fast ? "text-green-600" : "text-orange-500"}`}
+              className={`font-display text-5xl font-bold ${fast ? "text-success" : "text-warning"}`}
             >
               {info.drive_minutes ?? "—"}
             </p>
-            <p className="text-xs font-medium text-neutral-500">minutes</p>
+            <p className="text-xs font-medium text-muted">minutes</p>
           </div>
           <RouteRow
             icon="🚶"
@@ -442,6 +327,8 @@ function ConciergeInner({
   >(null);
   const [completing, setCompleting] = useState(false);
   const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null);
+  const [passportOpen, setPassportOpen] = useState(false);
+  const pendingBookRef = useRef<Record<string, unknown> | null>(null);
 
   /**
    * Flights are a route, not a point on a map — every other card kind has a place to geocode.
@@ -518,6 +405,17 @@ function ConciergeInner({
     if (!payment) return;
     setCompleting(true);
     try {
+      let userId = payment.payload.user_id;
+      if (!userId) {
+        try {
+          const { readLocalGroupUser } = await import(
+            "@/lib/groups/client-session"
+          );
+          userId = readLocalGroupUser()?.id;
+        } catch {
+          /* optional */
+        }
+      }
       const res = await fetch("/api/prava/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -526,6 +424,8 @@ function ConciergeInner({
           merchant: payment.payload.merchant,
           amount: payment.payload.amount,
           category: payment.payload.category || "trip",
+          offer_id: payment.payload.offer_id,
+          user_id: userId,
         }),
       });
       const data = await res.json();
@@ -533,11 +433,22 @@ function ConciergeInner({
         setVoiceError(data.error || "Prava couldn't confirm this payment.");
         return;
       }
+      if (data.needs_passport && payment.payload.offer_id) {
+        pendingBookRef.current = {
+          offer_id: payment.payload.offer_id,
+          user_id: userId,
+        };
+        setPassportOpen(true);
+      }
       if (data.ui) pushUi(data.ui as UiCard);
       setLines((prev) => [
         ...prev,
-        { role: "assistant", text: data.summary || `Confirmed ${data.confirmation_id}.` },
+        {
+          role: "assistant",
+          text: data.summary || `Confirmed ${data.confirmation_id}.`,
+        },
       ]);
+      setPayment(null);
     } catch (e) {
       setVoiceError(
         e instanceof Error ? e.message : "Could not complete Prava checkout",
@@ -545,6 +456,48 @@ function ConciergeInner({
     } finally {
       setCompleting(false);
     }
+  }
+
+  async function bookFlightOffer(f: FlightCard) {
+    const amount = Math.round(f.price_per_person);
+    const summary = await runTool("create_payment", {
+      merchant: `${f.airline} ${f.from}→${f.to}`,
+      amount,
+      category: "flight",
+      offer_id: f.id,
+    });
+    setLines((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        text: String(summary || `Prava open for $${amount} — complete Collect, then we issue the ticket.`),
+      },
+    ]);
+  }
+
+  async function reserveDiningOffer(d: DiningCard, city?: string) {
+    let spoc = "Guest";
+    try {
+      const { readLocalGroupUser } = await import(
+        "@/lib/groups/client-session"
+      );
+      spoc = readLocalGroupUser()?.name || spoc;
+    } catch {
+      /* optional */
+    }
+    const summary = await runTool("confirm_dining_reservation", {
+      restaurant: d.name,
+      offer_id: d.id,
+      spoc_name: spoc,
+      party_size: d.party_size || 2,
+      time: d.time,
+      cuisine: d.cuisine,
+      neighborhood: d.neighborhood || city,
+    });
+    setLines((prev) => [
+      ...prev,
+      { role: "assistant", text: String(summary) },
+    ]);
   }
 
   /** Mounts the real Prava card-collection iframe via the SDK — a bare <iframe src> isn't a supported integration. */
@@ -577,6 +530,24 @@ function ConciergeInner({
   const runTool = useCallback(
     async (name: string, parameters: Record<string, unknown>) => {
       try {
+        // Inject vault user id from party session when the LLM omits it
+        let params = { ...parameters };
+        if (
+          (name === "check_passport_vault" ||
+            name === "confirm_flight_booking" ||
+            name === "create_payment") &&
+          !params.user_id
+        ) {
+          try {
+            const { readLocalGroupUser } = await import(
+              "@/lib/groups/client-session"
+            );
+            const local = readLocalGroupUser();
+            if (local?.id) params = { ...params, user_id: local.id };
+          } catch {
+            /* optional */
+          }
+        }
         const res = await fetch("/api/agent/tools", {
           method: "POST",
           headers: {
@@ -585,7 +556,7 @@ function ConciergeInner({
           },
           body: JSON.stringify({
             tool_name: name,
-            parameters,
+            parameters: params,
             client_session: sessionRef.current,
           }),
         });
@@ -639,6 +610,25 @@ function ConciergeInner({
   );
   useConversationClientTool("create_payment", async (params) =>
     runTool("create_payment", params as Record<string, unknown>),
+  );
+  useConversationClientTool("check_passport_vault", async (params) =>
+    runTool("check_passport_vault", params as Record<string, unknown>),
+  );
+  useConversationClientTool("confirm_flight_booking", async (params) => {
+    const result = await runTool(
+      "confirm_flight_booking",
+      params as Record<string, unknown>,
+    );
+    const text = String(result || "");
+    if (/passport needed|passport missing|PassportGate/i.test(text)) {
+      pendingBookRef.current = params as Record<string, unknown>;
+      setPassportOpen(true);
+      return "Passport form is on screen — remember encrypted or use once. Never ask them to speak the number. After they continue, retry confirm_flight_booking.";
+    }
+    return result;
+  });
+  useConversationClientTool("confirm_dining_reservation", async (params) =>
+    runTool("confirm_dining_reservation", params as Record<string, unknown>),
   );
 
   const conversation = useConversation({
@@ -801,16 +791,32 @@ function ConciergeInner({
 
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-5 pb-28 pt-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] sm:px-6">
+      <PassportGate
+        open={passportOpen}
+        onClose={() => setPassportOpen(false)}
+        onReady={() => {
+          const pending = pendingBookRef.current;
+          if (pending) {
+            void runTool("confirm_flight_booking", pending).then((summary) => {
+              setLines((prev) => [
+                ...prev,
+                { role: "assistant", text: String(summary) },
+              ]);
+            });
+          }
+        }}
+      />
       <section className="flex min-h-[70vh] flex-col">
-        <p className="font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300/90">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-ink">
           Live concierge
         </p>
-        <h1 className="font-display mt-3 max-w-lg text-[2.65rem] font-bold leading-[1.05] tracking-tight text-white sm:text-5xl">
+        <h1 className="font-display mt-3 max-w-lg text-[2.65rem] font-bold leading-[1.05] tracking-tight text-ink sm:text-5xl">
           AiDHD
         </h1>
-        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/65">
+        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-muted">
           Flights, hotels, dinner, clubs, movies, tickets — options land as
-          cards here. When you&apos;re ready, Prava opens for payment.
+          boarding-pass cards. Map + weather join when Places is live. Pay with
+          Prava when you&apos;re ready.
         </p>
 
         <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -818,7 +824,7 @@ function ConciergeInner({
             <button
               type="button"
               onClick={startVoice}
-              className="rounded-2xl bg-amber-300 px-5 py-3 font-display text-sm font-semibold text-[#142019] shadow-[0_10px_30px_-12px_rgba(251,191,36,0.7)] transition hover:bg-amber-200"
+              className="rounded-lg bg-ink px-5 py-3 font-display text-sm font-semibold text-inverse shadow-card transition-colors hover:bg-ink-800"
             >
               Start voice
             </button>
@@ -826,7 +832,7 @@ function ConciergeInner({
             <button
               type="button"
               onClick={stopVoice}
-              className="rounded-2xl border border-rose-300/40 bg-rose-500/15 px-5 py-3 font-display text-sm font-semibold text-rose-100"
+              className="rounded-lg border border-danger/30 bg-danger-soft px-5 py-3 font-display text-sm font-semibold text-danger"
             >
               End · {conversation.isSpeaking ? "speaking" : "listening"}
             </button>
@@ -834,47 +840,47 @@ function ConciergeInner({
           <span
             className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${
               live
-                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
-                : "border-white/10 bg-white/5 text-white/50"
+                ? "border-success/30 bg-success-soft text-success"
+                : "border-line bg-surface text-muted"
             }`}
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${
-                live ? "animate-pulse bg-emerald-300" : "bg-white/30"
+                live ? "animate-pulse bg-success" : "bg-faint"
               }`}
             />
             {live ? "Mic live" : "Text anytime"}
           </span>
         </div>
         {voiceError && (
-          <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+          <p className="mt-3 rounded-xl border border-warning/30 bg-ink/15 px-3 py-2 text-sm text-ink">
             {voiceError}
           </p>
         )}
 
-        <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0c1117]/70 shadow-inner backdrop-blur-md">
+        <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
           <div className="max-h-[380px] flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
             {lines.length === 0 && (
-              <p className="text-sm leading-relaxed text-white/45">
+              <p className="text-sm leading-relaxed text-muted">
                 Try: “Flights Chicago → NYC Aug 11–15” · “Dinner in Chicago” ·
-                “Clubs in Brooklyn” · “Movies tonight” · “Hotels in Bali”
+                “Clubs in Brooklyn” · “Hotels in Bali”
               </p>
             )}
             {lines.map((l, i) => (
               <div
                 key={`${i}-${l.text.slice(0, 16)}`}
-                className={`max-w-[92%] animate-[fade-in_0.35s_ease] ${
+                className={`max-w-[92%] animate-fade-in ${
                   l.role === "user" ? "ml-auto text-right" : ""
                 }`}
               >
-                <span className="font-display text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-faint">
                   {l.role === "user" ? "You" : "AiDHD"}
                 </span>
                 <p
                   className={`mt-1 rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                     l.role === "user"
-                      ? "bg-amber-300/15 text-amber-50"
-                      : "bg-white/5 text-white/85"
+                      ? "bg-ink/15 text-ink"
+                      : "bg-canvas text-ink"
                   }`}
                 >
                   {l.text}
@@ -884,18 +890,18 @@ function ConciergeInner({
           </div>
           <form
             onSubmit={sendText}
-            className="flex gap-2 border-t border-white/10 p-3"
+            className="flex gap-2 border-t border-line p-3"
           >
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Ask for flights, dinner, clubs, movies…"
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-amber-300/40 focus:ring-2 focus:ring-amber-300/15"
+              className="focus-ring flex-1 rounded-xl border border-line bg-canvas px-4 py-3 text-sm text-ink outline-none placeholder:text-faint"
             />
             <button
               type="submit"
               disabled={pending || !draft.trim()}
-              className="rounded-xl bg-white px-4 py-3 font-display text-sm font-semibold text-[#0c1117] disabled:opacity-40"
+              className="rounded-xl bg-ink px-4 py-3 font-display text-sm font-semibold text-canvas disabled:opacity-40"
             >
               {pending ? "…" : "Send"}
             </button>
@@ -904,11 +910,12 @@ function ConciergeInner({
       </section>
 
       <aside className="space-y-5">
+        <SampleMandates />
         {payment && (
-          <div className="animate-[slide-up_0.4s_ease] overflow-hidden rounded-3xl border border-amber-300/25 bg-gradient-to-br from-amber-400/15 to-[#12181f] p-4 shadow-[0_20px_50px_-24px_rgba(251,191,36,0.45)]">
+          <div className="animate-[slide-up_0.4s_ease] overflow-hidden rounded-3xl border border-warning/25 bg-ink p-4 shadow-lifted">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-display text-sm font-semibold text-amber-100">
+                <p className="font-display text-sm font-semibold text-warning-soft">
                   Prava checkout
                 </p>
                 <p className="mt-1 text-sm text-white/70">
@@ -916,7 +923,7 @@ function ConciergeInner({
                   {payment.payload.merchant}
                 </p>
               </div>
-              <span className="rounded-md bg-amber-300/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100">
+              <span className="rounded-md bg-warning/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning-soft">
                 {payment.payload.mode}
               </span>
             </div>
@@ -926,7 +933,7 @@ function ConciergeInner({
               <>
                 <div
                   ref={cardContainerRef}
-                  className="mt-3 min-h-[220px] w-full overflow-hidden rounded-2xl bg-white"
+                  className="mt-3 min-h-[220px] w-full overflow-hidden rounded-2xl bg-surface"
                 />
                 <p className="mt-2 text-[11px] text-white/45">
                   {completing
@@ -941,7 +948,7 @@ function ConciergeInner({
                     href={payment.payload.pay_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-flex rounded-xl bg-amber-300 px-3 py-2 text-sm font-semibold text-[#142019]"
+                    className="mt-3 inline-flex rounded-xl bg-warning px-3 py-2 text-sm font-semibold text-inverse"
                   >
                     Open Prava
                   </a>
@@ -959,7 +966,7 @@ function ConciergeInner({
                   type="button"
                   disabled={completing}
                   onClick={() => void completePayment()}
-                  className="mt-3 w-full rounded-xl bg-amber-300 px-3 py-2.5 font-display text-sm font-semibold text-[#142019] disabled:opacity-50"
+                  className="mt-3 w-full rounded-xl bg-warning px-3 py-2.5 font-display text-sm font-semibold text-inverse disabled:opacity-50"
                 >
                   {completing
                     ? "Finalizing…"
@@ -971,8 +978,8 @@ function ConciergeInner({
         )}
 
         {receipt && (
-          <div className="animate-[slide-up_0.4s_ease] rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-4">
-            <p className="font-display text-sm font-semibold text-emerald-100">
+          <div className="animate-[slide-up_0.4s_ease] rounded-3xl border border-success/30 bg-success/10 p-4">
+            <p className="font-display text-sm font-semibold text-success-soft">
               Transaction complete
             </p>
             <p className="mt-1 text-sm text-white/80">
@@ -992,10 +999,10 @@ function ConciergeInner({
 
         <div>
           <div className="mb-3 flex items-end justify-between gap-2">
-            <h2 className="font-display text-lg font-bold text-white">
+            <h2 className="font-display text-lg font-bold text-ink">
               Results
             </h2>
-            <p className="text-[11px] text-white/40">
+            <p className="text-[11px] text-faint">
               Cards appear when tools run
             </p>
           </div>
@@ -1006,7 +1013,7 @@ function ConciergeInner({
                 apiKey={googleMapsApiKey}
                 places={recommendedPlaces}
                 hoveredId={hoveredPlaceId}
-                variant="dark"
+                variant="light"
                 onResolved={(id, info) =>
                   setPlaceReviews((prev) => ({ ...prev, [id]: info.reviews }))
                 }
@@ -1016,11 +1023,11 @@ function ConciergeInner({
           )}
 
           {cards.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.03] px-5 py-10 text-center">
-              <p className="font-display text-sm font-medium text-white/55">
+            <div className="rounded-3xl border border-dashed border-line bg-surface px-5 py-10 text-center">
+              <p className="font-display text-sm font-medium text-muted">
                 Waiting for a lookup
               </p>
-              <p className="mt-2 text-xs leading-relaxed text-white/35">
+              <p className="mt-2 text-xs leading-relaxed text-faint">
                 Flight, hotel, dinner, club, movie, and ticket cards show up
                 here the moment the agent searches.
               </p>
@@ -1038,7 +1045,7 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink">
                         {c.payload.label || "Flights"}
                       </p>
                       {sourceBadge(c.payload.source)}
@@ -1047,19 +1054,28 @@ function ConciergeInner({
                           href={c.payload.google_flights_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-200 hover:bg-white/15"
+                          className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-line hover:bg-white/15"
                         >
                           Open Google Flights
                         </a>
                       )}
                     </div>
                     {outbound.map((f) => (
-                      <FlightRow key={f.id} f={f} />
+                      <div key={f.id} className="space-y-2">
+                        <FlightTicket f={f} />
+                        <button
+                          type="button"
+                          onClick={() => void bookFlightOffer(f)}
+                          className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-accent-ink"
+                        >
+                          Book · ${Math.round(f.price_per_person)}/pp via Prava
+                        </button>
+                      </div>
                     ))}
                     {inbound.length > 0 && (
                       <>
                         <div className="flex flex-wrap items-center gap-2 pt-2">
-                          <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-sky-200/80">
+                          <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-ink-800">
                             {c.payload.return_label || "Return"}
                           </p>
                           {sourceBadge(
@@ -1067,7 +1083,16 @@ function ConciergeInner({
                           )}
                         </div>
                         {inbound.map((f) => (
-                          <FlightRow key={`ret-${f.id}`} f={f} />
+                          <div key={`ret-${f.id}`} className="space-y-2">
+                            <FlightTicket f={f} />
+                            <button
+                              type="button"
+                              onClick={() => void bookFlightOffer(f)}
+                              className="w-full rounded-xl border border-accent/50 bg-accent/10 py-2.5 text-sm font-semibold text-ink"
+                            >
+                              Book return · ${Math.round(f.price_per_person)}/pp
+                            </button>
+                          </div>
                         ))}
                       </>
                     )}
@@ -1081,58 +1106,32 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink">
                         Stays · {c.payload.label || "by reviews"}
                       </p>
                       {sourceBadge(c.payload.source)}
                     </div>
                     {c.payload.offers.slice(0, 4).map((h) => (
-                      <article
+                      <VenueTicket
                         key={h.id}
+                        kind="hotel"
+                        badge={h.review_rank ? `#${h.review_rank}` : "Stay"}
+                        title={h.name}
+                        meta={`${h.neighborhood} · ${h.nights} night${h.nights === 1 ? "" : "s"} · ${h.check_in} → ${h.check_out}`}
+                        price={h.price_total}
+                        priceSuffix="total"
+                        photo={h.photo_url}
+                        rating={h.rating}
+                        reviewCount={h.review_count}
+                        highlighted={hoveredPlaceId === `hotels-${h.id}`}
+                        reviews={placeReviews[`hotels-${h.id}`]}
                         onMouseEnter={() => setHoveredPlaceId(`hotels-${h.id}`)}
                         onMouseLeave={() =>
                           setHoveredPlaceId((id) =>
                             id === `hotels-${h.id}` ? null : id,
                           )
                         }
-                        className={`overflow-hidden rounded-2xl border bg-[#12181f]/90 transition ${
-                          hoveredPlaceId === `hotels-${h.id}`
-                            ? "border-amber-300/60"
-                            : "border-white/10"
-                        }`}
-                      >
-                        {h.photo_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={h.photo_url}
-                            alt=""
-                            className="h-28 w-full object-cover"
-                          />
-                        )}
-                        <div className="p-4">
-                          <div className="flex justify-between gap-2">
-                            <p className="font-display text-sm font-semibold text-white">
-                              #{h.review_rank} {h.name}
-                            </p>
-                            <p className="font-display text-lg font-bold text-amber-300">
-                              ${Math.round(h.price_total)}
-                            </p>
-                          </div>
-                          <p className="mt-1 text-xs text-white/50">
-                            {h.rating != null && (
-                              <span className="font-semibold text-amber-200">
-                                ★ {h.rating.toFixed(1)}
-                              </span>
-                            )}
-                            {h.review_count != null && (
-                              <span> · {h.review_count} reviews</span>
-                            )}
-                            {" · "}
-                            {h.neighborhood} · {h.nights}n
-                          </p>
-                          <ReviewsBlock reviews={placeReviews[`hotels-${h.id}`]} />
-                        </div>
-                      </article>
+                      />
                     ))}
                   </div>
                 );
@@ -1144,26 +1143,27 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink">
                         {c.payload.label || "Tickets"}
                       </p>
                       {sourceBadge(c.payload.source)}
                     </div>
                     {c.payload.offers.slice(0, 4).map((t) => (
-                      <MediaCard
+                      <VenueTicket
                         key={t.id}
-                        photo={t.photo_url}
+                        kind="ticket"
                         title={t.event_name}
                         meta={`${t.venue} · ${t.date}`}
                         price={t.price}
+                        photo={t.photo_url}
+                        highlighted={hoveredPlaceId === `tickets-${t.id}`}
+                        reviews={placeReviews[`tickets-${t.id}`]}
                         onMouseEnter={() => setHoveredPlaceId(`tickets-${t.id}`)}
                         onMouseLeave={() =>
                           setHoveredPlaceId((id) =>
                             id === `tickets-${t.id}` ? null : id,
                           )
                         }
-                        highlighted={hoveredPlaceId === `tickets-${t.id}`}
-                        reviews={placeReviews[`tickets-${t.id}`]}
                       />
                     ))}
                   </div>
@@ -1176,28 +1176,43 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink">
                         Dinner · {c.payload.label || "picks"}
                       </p>
                       {sourceBadge(c.payload.source)}
                     </div>
                     {c.payload.offers.slice(0, 4).map((d) => (
-                      <MediaCard
-                        key={d.id}
-                        photo={d.photo_url}
-                        title={d.name}
-                        meta={`${d.cuisine} · ${d.neighborhood} · ${fmtTime(d.time)}`}
-                        price={d.price_per_person}
-                        priceSuffix="/pp"
-                        onMouseEnter={() => setHoveredPlaceId(`dining-${d.id}`)}
-                        onMouseLeave={() =>
-                          setHoveredPlaceId((id) =>
-                            id === `dining-${d.id}` ? null : id,
-                          )
-                        }
-                        highlighted={hoveredPlaceId === `dining-${d.id}`}
-                        reviews={placeReviews[`dining-${d.id}`]}
-                      />
+                      <div key={d.id} className="space-y-2">
+                        <VenueTicket
+                          kind="dining"
+                          title={d.name}
+                          meta={`${d.cuisine} · ${d.neighborhood}`}
+                          price={d.price_per_person}
+                          priceSuffix="/pp"
+                          photo={d.photo_url}
+                          rating={d.rating}
+                          reviewCount={d.review_count}
+                          highlighted={hoveredPlaceId === `dining-${d.id}`}
+                          reviews={placeReviews[`dining-${d.id}`]}
+                          onMouseEnter={() =>
+                            setHoveredPlaceId(`dining-${d.id}`)
+                          }
+                          onMouseLeave={() =>
+                            setHoveredPlaceId((id) =>
+                              id === `dining-${d.id}` ? null : id,
+                            )
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void reserveDiningOffer(d, c.payload.label)
+                          }
+                          className="w-full rounded-xl bg-ink py-2.5 text-sm font-semibold text-inverse"
+                        >
+                          Reserve table · under your name
+                        </button>
+                      </div>
                     ))}
                   </div>
                 );
@@ -1209,27 +1224,30 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink">
                         Clubs · {c.payload.label || "nightlife"}
                       </p>
                       {sourceBadge(c.payload.source)}
                     </div>
                     {c.payload.offers.slice(0, 4).map((cl) => (
-                      <MediaCard
+                      <VenueTicket
                         key={cl.id}
-                        photo={cl.photo_url}
+                        kind="club"
                         title={cl.name}
                         meta={`${cl.vibe} · ${cl.neighborhood} · until ${cl.open_until}`}
                         price={cl.cover}
-                        priceSuffix=" cover"
+                        priceSuffix="cover"
+                        photo={cl.photo_url}
+                        rating={cl.rating}
+                        reviewCount={cl.review_count}
+                        highlighted={hoveredPlaceId === `clubs-${cl.id}`}
+                        reviews={placeReviews[`clubs-${cl.id}`]}
                         onMouseEnter={() => setHoveredPlaceId(`clubs-${cl.id}`)}
                         onMouseLeave={() =>
                           setHoveredPlaceId((id) =>
                             id === `clubs-${cl.id}` ? null : id,
                           )
                         }
-                        highlighted={hoveredPlaceId === `clubs-${cl.id}`}
-                        reviews={placeReviews[`clubs-${cl.id}`]}
                       />
                     ))}
                   </div>
@@ -1242,26 +1260,27 @@ function ConciergeInner({
                     className="animate-[fade-in_0.4s_ease] space-y-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink">
                         Movies · {c.payload.label || "showtimes"}
                       </p>
                       {sourceBadge(c.payload.source)}
                     </div>
                     {c.payload.offers.slice(0, 4).map((m) => (
-                      <MediaCard
+                      <VenueTicket
                         key={m.id}
-                        photo={m.photo_url}
+                        kind="movie"
                         title={m.title}
                         meta={`${m.rating} · ${m.theater} · ${m.showtimes.join(" · ")}`}
                         price={m.price}
+                        photo={m.photo_url}
+                        highlighted={hoveredPlaceId === `movies-${m.id}`}
+                        reviews={placeReviews[`movies-${m.id}`]}
                         onMouseEnter={() => setHoveredPlaceId(`movies-${m.id}`)}
                         onMouseLeave={() =>
                           setHoveredPlaceId((id) =>
                             id === `movies-${m.id}` ? null : id,
                           )
                         }
-                        highlighted={hoveredPlaceId === `movies-${m.id}`}
-                        reviews={placeReviews[`movies-${m.id}`]}
                       />
                     ))}
                   </div>
@@ -1272,7 +1291,7 @@ function ConciergeInner({
                 return (
                   <div
                     key={`w-${idx}`}
-                    className="animate-[slide-in-left_0.5s_ease] overflow-hidden rounded-2xl border border-white/10 bg-[#12181f]/90 p-4 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)]"
+                    className="animate-[slide-in-left_0.5s_ease] overflow-hidden rounded-2xl border border-white/10 bg-ink/90 p-4 shadow-card"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -1281,7 +1300,7 @@ function ConciergeInner({
                           <img src={w.icon_url} alt="" className="h-10 w-10" />
                         )}
                         <div>
-                          <p className="font-display text-sm font-semibold text-white">
+                          <p className="font-display text-sm font-semibold text-inverse">
                             {w.place}
                           </p>
                           <p className="text-xs text-white/50">
@@ -1293,7 +1312,7 @@ function ConciergeInner({
                           </p>
                         </div>
                       </div>
-                      <p className="font-display text-lg font-bold text-amber-300">
+                      <p className="font-display text-lg font-bold text-warning">
                         {w.mode === "forecast"
                           ? `${Math.round(w.temp_high ?? 0)}°/${Math.round(w.temp_low ?? 0)}°`
                           : `${Math.round(w.temperature ?? 0)}°F`}
@@ -1303,8 +1322,8 @@ function ConciergeInner({
                     <p
                       className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold ${
                         w.extreme
-                          ? "bg-orange-500 text-white"
-                          : "bg-green-600 text-white"
+                          ? "bg-warning text-inverse"
+                          : "bg-success text-inverse"
                       }`}
                     >
                       {w.extreme
@@ -1319,11 +1338,11 @@ function ConciergeInner({
           </div>
         </div>
 
-        <p className="text-center text-[11px] text-white/30">
+        <p className="text-center text-[11px] text-faint">
           Prefer a reel?{" "}
           <Link
             href="/reel"
-            className="text-amber-200/70 underline-offset-2 hover:underline"
+            className="text-ink underline-offset-2 hover:underline"
           >
             Paste Instagram → plan
           </Link>
@@ -1343,31 +1362,30 @@ export function ConciergeAgent({
   pravaPublishableKey: string | null;
 }) {
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#070b10] text-white">
+    <div className="relative min-h-screen overflow-x-hidden bg-canvas text-ink">
       <div
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(ellipse 90% 55% at 8% -5%, rgba(45, 212, 191, 0.18) 0%, transparent 55%), radial-gradient(ellipse 70% 45% at 95% 5%, rgba(251, 191, 36, 0.14) 0%, transparent 50%), radial-gradient(ellipse 50% 40% at 50% 100%, rgba(56, 189, 248, 0.08) 0%, transparent 55%), linear-gradient(180deg, #070b10 0%, #0c1219 48%, #0a0e14 100%)",
+            "var(--color-canvas)",
         }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.35] bg-grid-pattern"
-        style={{ maskImage: "linear-gradient(180deg, black, transparent 85%)" }}
       />
       <header className="mx-auto flex max-w-6xl items-baseline justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
-          className="font-display text-2xl font-bold tracking-tight text-white"
+          className="font-display text-2xl font-bold tracking-tight text-ink transition hover:text-ink"
         >
           AiDHD
         </Link>
-        <div className="flex gap-5 text-sm text-white/45">
-          <Link href="/reel" className="transition hover:text-amber-200">
+        <div className="flex gap-5 text-sm text-muted">
+          <Link href="/events/new" className="transition hover:text-ink">
+            Plan event
+          </Link>
+          <Link href="/reel" className="transition hover:text-ink">
             Reel → plan
           </Link>
-          <Link href="/" className="transition hover:text-amber-200">
-            Demo
+          <Link href="/" className="transition hover:text-ink">
+            Home
           </Link>
         </div>
       </header>

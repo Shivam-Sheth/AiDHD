@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { writeLocalGroupUser } from "@/lib/groups/client-session";
 import { supabase } from "@/lib/supabase/client";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -41,7 +42,12 @@ export function LoginForm() {
     }
     setError(null);
     setSubmitting(true);
-    router.push("/agent");
+    writeLocalGroupUser({
+      id: `usr_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
+      name: name.trim(),
+      email: email.trim(),
+    });
+    router.push("/groups");
   }
 
   async function handleGoogleSignIn() {
@@ -63,26 +69,17 @@ export function LoginForm() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 10% -10%, #99f6e4 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 100% 0%, #a5f3fc 0%, transparent 50%), linear-gradient(180deg, #f0fdfa 0%, #fafafa 42%, #fafafa 100%)",
-        }}
-      />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-pattern opacity-40" />
-
+    <div className="relative min-h-screen overflow-x-hidden bg-canvas">
       <header className="mx-auto flex max-w-3xl items-baseline justify-between px-5 pt-8 sm:px-6">
         <Link
           href="/"
-          className="font-display text-2xl font-bold tracking-tight text-neutral-900 transition-opacity hover:opacity-70"
+          className="font-display text-2xl font-bold tracking-tight text-ink transition-opacity hover:opacity-70"
         >
           AiDHD
         </Link>
         <Link
           href="/"
-          className="text-sm text-neutral-500 transition-colors hover:text-teal-700"
+          className="text-sm text-muted transition-colors hover:text-ink"
         >
           Back home
         </Link>
@@ -90,19 +87,19 @@ export function LoginForm() {
 
       <main className="mx-auto flex max-w-3xl justify-center px-5 pb-24 pt-14 sm:px-6">
         <div className="w-full max-w-sm animate-fade-in">
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-teal-700">
-            Welcome back
+          <p className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-ink">
+            Join us
           </p>
-          <h1 className="font-display mt-3 text-4xl font-bold leading-[1.1] tracking-tight text-neutral-900">
-            Sign in
+          <h1 className="font-display mt-3 text-4xl font-bold leading-[1.1] tracking-tight text-ink">
+            Create your account
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-neutral-600">
+          <p className="mt-4 text-base leading-relaxed text-muted">
             Name and email are required — phone number is optional.
           </p>
 
           <form onSubmit={handleSubmit} className="animate-slide-up mt-10 space-y-4">
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
+              <span className="mb-1.5 block text-sm font-medium text-ink-700">
                 Name
               </span>
               <input
@@ -110,14 +107,14 @@ export function LoginForm() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jordan Lee"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
                 autoComplete="name"
                 autoFocus
               />
             </label>
 
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
+              <span className="mb-1.5 block text-sm font-medium text-ink-700">
                 Email
               </span>
               <input
@@ -125,17 +122,17 @@ export function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
                 autoComplete="email"
               />
             </label>
 
             <label className="block">
               <span className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-sm font-medium text-neutral-700">
+                <span className="text-sm font-medium text-ink-700">
                   Phone number
                 </span>
-                <span className="text-xs font-medium text-neutral-400">
+                <span className="text-xs font-medium text-faint">
                   Optional
                 </span>
               </span>
@@ -144,13 +141,13 @@ export function LoginForm() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 (555) 123-4567"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
                 autoComplete="tel"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-neutral-700">
+              <span className="mb-1.5 block text-sm font-medium text-ink-700">
                 Password
               </span>
               <input
@@ -158,13 +155,13 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-ink shadow-sm outline-none transition placeholder:text-faint focus:border-ink focus:ring-2 focus:ring-ink/20"
                 autoComplete="current-password"
               />
             </label>
 
             {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
                 {error}
               </p>
             )}
@@ -172,25 +169,25 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex w-full items-center justify-center rounded-xl bg-teal-700 px-6 py-3 font-display text-base font-semibold text-white shadow-md transition hover:bg-teal-600 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center rounded-xl bg-ink px-6 py-3 font-display text-base font-semibold text-inverse shadow-card transition hover:bg-ink disabled:cursor-wait disabled:opacity-60"
             >
               {submitting ? "Signing in…" : "Sign in"}
             </button>
           </form>
 
           <div className="mt-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-neutral-200" />
-            <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+            <div className="h-px flex-1 bg-line" />
+            <span className="text-xs font-medium uppercase tracking-wide text-faint">
               or
             </span>
-            <div className="h-px flex-1 bg-neutral-200" />
+            <div className="h-px flex-1 bg-line" />
           </div>
 
           <button
             type="button"
             onClick={() => void handleGoogleSignIn()}
             disabled={googleBusy}
-            className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-white px-6 py-3 font-display text-base font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:cursor-wait disabled:opacity-60"
+            className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-xl border border-line bg-surface px-6 py-3 font-display text-base font-semibold text-ink-800 shadow-sm transition hover:bg-subtle disabled:cursor-wait disabled:opacity-60"
           >
             <svg viewBox="0 0 18 18" className="h-5 w-5" aria-hidden>
               <path

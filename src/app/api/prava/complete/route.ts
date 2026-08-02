@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPaymentResult, reportPaymentStatus } from "@/lib/integrations/prava";
+import { reportPaymentStatus } from "@/lib/integrations/prava";
+import { pollForCompletedPayment } from "@/lib/checkout/poll-payment-result";
 import { sendLinqChatMessage } from "@/lib/integrations/linq";
 import { logInfo } from "@/lib/checkout/debug-log";
 
@@ -44,24 +45,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const PENDING_STATUSES = new Set(["pending", "processing", "awaiting_result"]);
-  let attempt = 1;
-  let result = await getPaymentResult(body.session_id);
-  logInfo("prava complete", `poll attempt ${attempt} status=${result.status}`);
-  for (let i = 0; i < 5 && PENDING_STATUSES.has(result.status); i++) {
-    await new Promise((r) => setTimeout(r, 1000));
-    attempt += 1;
-    result = await getPaymentResult(body.session_id);
-    logInfo("prava complete", `poll attempt ${attempt} status=${result.status}`);
-  }
-
-  if (result.status !== "completed") {
-    await reportPaymentStatus(body.session_id, "DECLINED", result.txn_ref_id);
+  const polled = await pollForCompletedPayment(body.session_id, { intervalMs: 1000, timeoutMs: 6000 });
+  if (!polled.ok) {
+    await reportPaymentStatus(body.session_id, "DECLINED").catch(() => {});
     return NextResponse.json(
-      { ok: false, error: `Payment not completed (status: ${result.status})` },
+      { ok: false, error: `Payment not completed (${polled.reason}, last status: ${polled.last_status})` },
       { status: 402 },
     );
   }
+  const result = polled.result;
 
   await reportPaymentStatus(body.session_id, "APPROVED", result.txn_ref_id);
 

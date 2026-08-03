@@ -4,7 +4,7 @@
 AiDHD turns group chat chaos into a paid plan: iMessage/WhatsApp prefs → live inventory + Senso trust → Prava Collect mandate → confirmation.
 
 ## Judge path (3 minutes)
-1. Open https://aidhd-omega.vercel.app → **Judge demo · Live Concierge**
+1. Open https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app → **Judge demo · Live Concierge**
 2. Start voice or type: “Round-trip Chicago to New York Aug 11–15”
 3. Confirm Live · Duffel cards + optional Google Flights link
 4. “Pay $X for [airline]” → Prava Collect iframe
@@ -30,6 +30,6 @@ AiDHD turns group chat chaos into a paid plan: iMessage/WhatsApp prefs → live 
 - Linq sandbox: inbound-first; no links on first outbound.
 
 ## Repo / demo
-- Live: https://aidhd-omega.vercel.app/agent
+- Live: https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/agent
 - Sync agent: `POST /api/agent/sync`
 - Linq subscribe: `POST /api/channels/linq/subscribe`

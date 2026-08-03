@@ -47,7 +47,7 @@ export async function requestMandatesForPackage(eventId: string, packageId: stri
 
     const session = await createPravaSession({
       user_id: event.organizer_id,
-      user_email: "maya@aidhd.demo",
+      user_email: "ameyagarwal10@gmail.com",
       merchant: comp.vendor,
       amount: comp.cost,
       currency: comp.currency,
@@ -284,7 +284,7 @@ export async function rerequestFailedMandate(eventId: string) {
 
   const session = await createPravaSession({
     user_id: getEvent(eventId)!.organizer_id,
-    user_email: "maya@aidhd.demo",
+    user_email: "ameyagarwal10@gmail.com",
     merchant: failed.merchant,
     amount: failed.amount_cap,
     currency: failed.currency,

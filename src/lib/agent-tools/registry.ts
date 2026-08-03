@@ -56,6 +56,7 @@ export type AgentToolResult = {
       | "payment"
       | "vendor"
       | "weather"
+      | "products"
       | "message";
     payload: unknown;
   };
@@ -126,6 +127,19 @@ function clubPhotoUrl(index: number): string {
 
 function moviePhotoUrl(index: number): string {
   const id = MOVIE_PHOTO_IDS[index % MOVIE_PHOTO_IDS.length]!;
+  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=720&q=80`;
+}
+
+const PRODUCT_PHOTO_IDS = [
+  "1441986300917-64674bd600d8",
+  "1472851294608-062f824d29cc",
+  "1523275335684-37898b6baf30",
+  "1483985988355-763728e1935b",
+];
+
+/** Fallback art for catalog items with no featured image. */
+function productPhotoUrl(index: number): string {
+  const id = PRODUCT_PHOTO_IDS[index % PRODUCT_PHOTO_IDS.length]!;
   return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=720&q=80`;
 }
 
@@ -482,25 +496,33 @@ export async function executeAgentTool(
           max_price: num(parameters.max_price),
           limit: 5,
         });
-        const offers = products.map((p) => ({
+        // Field names are doubled up on purpose: the concierge UI reads
+        // title/variant_id/available, the chat agents read name/id/in_stock.
+        // The commerce provider hands back a variant id as `id` (see
+        // providers/shopify-provider.ts), which is what a cart line needs.
+        const offers = products.map((p, i) => ({
           id: p.id,
+          variant_id: p.id,
           name: p.title,
+          title: p.title,
           merchant: p.merchant,
           description: p.description,
           price: p.price,
           currency: p.currency,
           options: p.options,
           in_stock: p.in_stock,
+          available: p.in_stock,
           url: p.url,
-          photo_url: p.image_url,
+          source: provider.name,
+          photo_url: p.image_url || productPhotoUrl(i),
         }));
         return {
           ok: true,
           summary: `Found ${offers.length} products for "${query}" via ${provider.name}. Top: ${offers[0]?.name || "n/a"} ~$${Math.round(offers[0]?.price ?? 0)} (${offers[0]?.merchant || ""}). Purchases use the merchant's hosted checkout after approval.`,
           data: { offers, source: provider.name },
           ui: {
-            kind: "message",
-            payload: { text: `${offers.length} products for "${query}"`, offers },
+            kind: "products",
+            payload: { offers, label: query, source: provider.name },
           },
         };
       }

@@ -1,9 +1,12 @@
 /**
- * Request/response tracing for the Prava → merchant checkout flow, for local
+ * Request/response tracing for the Prava → Duffel checkout flow, for local
  * debugging. Card PAN/CVV are always redacted here to last-4/presence-only —
- * see the credential-handling boundary in
- * app/api/checkout/shopify-execute/route.ts for why full values must never
- * reach a logger.
+ * see the credential-handling boundary in app/api/checkout/execute/route.ts
+ * for why full values must never reach a logger.
+ *
+ * Every entry also publishes to an in-memory bus so /debug can show it live
+ * in the browser (see app/api/checkout/debug-stream/route.ts) — same
+ * redaction, just a second sink alongside console.log.
  */
 
 export type DebugLogEntry = {

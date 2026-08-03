@@ -63,6 +63,41 @@ export function lookupPlace(place: string): AirportHit | null {
   return null;
 }
 
+export type OrderedPlaceHit = AirportHit & { index: number };
+
+/**
+ * All known cities mentioned in free text, ordered by where they first
+ * appear in the text (not by KNOWN's array order — "Miami to Chicago" must
+ * come back Miami-then-Chicago even though Chicago is listed earlier above).
+ * Dedupes by IATA, keeping the earliest mention. `index` is the match's
+ * character offset in `text`, so callers can inspect what preceded it (e.g.
+ * "to"/"from") to resolve direction when only one city is mentioned.
+ */
+export function findPlacesInOrder(text: string): OrderedPlaceHit[] {
+  const raw = text.trim();
+  if (!raw) return [];
+  const hits: OrderedPlaceHit[] = [];
+  for (const row of KNOWN) {
+    // Fresh RegExp per call — reusing row.match with a "g" flag would leave
+    // stateful lastIndex on a module-level shared object across calls.
+    const re = new RegExp(row.match.source, "gi");
+    const m = re.exec(raw);
+    if (m) {
+      hits.push({ iata: row.iata, city: row.city, lat: row.lat, lng: row.lng, index: m.index });
+    }
+  }
+  hits.sort((a, b) => a.index - b.index);
+  const seen = new Set<string>();
+  const ordered: OrderedPlaceHit[] = [];
+  for (const hit of hits) {
+    if (!seen.has(hit.iata)) {
+      seen.add(hit.iata);
+      ordered.push(hit);
+    }
+  }
+  return ordered;
+}
+
 /** Prefer known mapping; never invent JFK for unknown cities. */
 export function airportCodeForPlace(place: string): string | null {
   return lookupPlace(place)?.iata ?? null;

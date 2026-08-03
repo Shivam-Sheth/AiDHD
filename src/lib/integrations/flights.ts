@@ -231,6 +231,8 @@ async function searchFlightsOneWay(input: {
                 iata_code?: string;
                 logo_symbol_url?: string;
               };
+              /** Echoed from the offer_request — required unchanged in /air/orders' passengers[].id. */
+              passengers?: Array<{ id?: string }>;
               slices?: Array<{
                 duration?: string;
                 segments?: DuffelSegment[];

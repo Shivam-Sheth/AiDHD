@@ -1,9 +1,9 @@
 /**
  * Headless-browser checkout automation for merchants with no server-to-server
- * payment API. NOT used for Duffel — Duffel is paid via its REST API directly,
- * which is more reliable than driving a UI and is the correct path whenever a
- * merchant offers one. Shopify is the merchant this module targets today —
- * see runShopifyCheckout below.
+ * payment API. NOT used for Duffel — Duffel is paid via its REST API directly
+ * (see duffel-payment.ts), which is more reliable than driving a UI and is
+ * the correct path whenever a merchant offers one. Shopify is the merchant
+ * this module targets today — see runShopifyCheckout below.
  *
  * This is genuinely what Prava's own "Browser Harness" concept means, per
  * their prava-pay agent skill: "use returned credentials immediately at the

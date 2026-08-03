@@ -47,9 +47,16 @@ export async function POST(req: Request) {
   // "awaiting_result" once WE call report-status, so waiting for it here
   // deadlocked every live payment. The real ready signal is the one-time
   // credentials being present. See checkout/poll-payment-result.ts.
-  const polled = await pollForCompletedPayment(body.session_id);
+  // Called right after collectPAN() succeeds in the browser, so the credentials
+  // are usually already there — a short window is enough and keeps the request
+  // well inside the function timeout.
+  const polled = await pollForCompletedPayment(body.session_id, {
+    intervalMs: 1000,
+    timeoutMs: 6000,
+  });
   if (!polled.ok) {
-    await reportPaymentStatus(body.session_id, "DECLINED");
+    // Reporting is best-effort: a failure here must not mask the 402.
+    await reportPaymentStatus(body.session_id, "DECLINED").catch(() => {});
     return NextResponse.json(
       {
         ok: false,

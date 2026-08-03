@@ -1,11 +1,7 @@
 import { randomUUID } from "crypto";
 import { hasPrava } from "./config";
-import {
-  logInfo,
-  logRequest,
-  logResponse,
-  redactPaymentResult,
-} from "../checkout/debug-log";
+import { logRequest, logResponse, logInfo, redactPaymentResult } from "../checkout/debug-log";
+import { getBaseUrl } from "../base-url";
 
 export interface PravaSessionResult {
   session_id: string;
@@ -53,34 +49,48 @@ export async function createPravaSession(input: {
   if (hasPrava()) {
     try {
       const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
-      const res = await fetch("https://sandbox.api.prava.space/v1/sessions", {
+      const url = "https://sandbox.api.prava.space/v1/sessions";
+      const reqBody = {
+        user_id: input.user_id,
+        user_email: input.user_email,
+        total_amount: input.amount.toFixed(2),
+        currency: input.currency,
+        purchase_context: [
+          {
+            merchant_details: {
+              name: input.merchant,
+              // Prava forwards this to Visa as the merchant's real website —
+              // must be a real public HTTPS URL. getBaseUrl() falls back to
+              // http://localhost:3000 outside Vercel (VERCEL_PROJECT_PRODUCTION_URL
+              // is only set there), which Prava's API rejects — never use the
+              // raw base-url helper here for that reason. Falls back to a
+              // real HTTPS placeholder during local dev instead; on Vercel,
+              // getBaseUrl() itself is always correct.
+              url:
+                input.merchant_url ||
+                (getBaseUrl().startsWith("http://localhost")
+                  ? "https://aidhd-vert.vercel.app/agent"
+                  : getBaseUrl()),
+              country_code_iso2: "US",
+            },
+            product_details: [
+              {
+                description: `AiDHD ${input.category} booking`,
+                unit_price: input.amount.toFixed(2),
+                quantity: 1,
+              },
+            ],
+          },
+        ],
+      };
+      logRequest("prava", "POST", url, reqBody);
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${secret}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          user_id: input.user_id,
-          user_email: input.user_email,
-          total_amount: input.amount.toFixed(2),
-          currency: input.currency,
-          purchase_context: [
-            {
-              merchant_details: {
-                name: input.merchant,
-                url: input.merchant_url || "https://ai-dhd.vercel.app",
-                country_code_iso2: "US",
-              },
-              product_details: [
-                {
-                  description: `AiDHD ${input.category} booking`,
-                  unit_price: input.amount.toFixed(2),
-                  quantity: 1,
-                },
-              ],
-            },
-          ],
-        }),
+        body: JSON.stringify(reqBody),
       });
 
       const data = (await res.json()) as {
@@ -93,6 +103,7 @@ export async function createPravaSession(input: {
         error?: string;
         detail?: string;
       };
+      logResponse("prava", "POST", url, res.status, data);
 
       if (res.ok && data.session_id) {
         const iframe =
@@ -119,11 +130,13 @@ export async function createPravaSession(input: {
           `Prava session failed (${res.status})`,
       };
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Prava request failed";
+      logInfo("prava", "POST /v1/sessions threw", { message });
       return {
         session_id: `sess_err_${randomUUID().slice(0, 8)}`,
         session_token: "",
         mode: "live",
-        error: e instanceof Error ? e.message : "Prava request failed",
+        error: message,
       };
     }
   }

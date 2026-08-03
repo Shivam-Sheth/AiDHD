@@ -25,18 +25,22 @@ export function hasWhatsApp() {
   );
 }
 
-export function hasShopify() {
-  return Boolean(
-    process.env.SHOPIFY_STORE_DOMAIN && process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN,
-  );
-}
-
 export function hasTicketmaster() {
   return Boolean(process.env.TICKETMASTER_API_KEY);
 }
 
 export function hasDuffel() {
   return Boolean(process.env.DUFFEL_API_KEY);
+}
+
+/** Storefront API — product search + cart creation (checkoutUrl for the browser-harness leg). */
+export function hasShopify() {
+  return Boolean(process.env.SHOPIFY_STORE_DOMAIN && process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN);
+}
+
+/** Hosted remote browser for checkout/browser-harness.ts — preferred over @sparticuz/chromium when set. */
+export function hasBrowserbase() {
+  return Boolean(process.env.BROWSERBASE_API_KEY);
 }
 
 /** @deprecated Amadeus self-service portal shut down — use Duffel Stays. */
@@ -80,13 +84,14 @@ export function integrationStatus() {
     gemini: hasGemini() ? "live" : "mock",
     openai: hasOpenAI() ? "live" : "standby",
     prava: hasPrava() ? "live" : "mock",
-    shopify: hasShopify() ? "live" : "fixture",
     senso: hasSenso() ? "live" : "mock",
     linq: hasLinq() ? "live" : "mock",
     whatsapp: hasWhatsApp() ? "live" : "mock",
     ticketmaster: hasTicketmaster() ? "live" : "mock",
     duffel: hasDuffel() ? "live" : "fixture",
     duffel_stays: hasDuffel() ? "live" : "fixture",
+    shopify: hasShopify() ? "live" : "fixture",
+    browserbase: hasBrowserbase() ? "live" : "standby",
     elevenlabs: hasElevenLabs() ? "live" : "mock",
     eleven_agents: hasElevenAgentsOutbound() ? "live" : "standby",
     twilio: hasTwilio() ? "live" : "mock",

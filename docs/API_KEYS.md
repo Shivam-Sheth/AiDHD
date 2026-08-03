@@ -5,7 +5,7 @@ yo — if you’re helping with AiDHD for the Prava hackathon, this is the infor
 
 - hackathon: https://agentic-commerce.devfolio.co/
 - repo: https://github.com/Shivam-Sheth/AiDHD
-- live (keyed deploy): https://aidhd-omega.vercel.app
+- live (keyed deploy): https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app
 - after install, hit http://localhost:3000 and check http://localhost:3000/api/health
 - agent subnet card: http://localhost:3000/api/agents
 
@@ -60,9 +60,9 @@ npm run dev
 |---|---|
 | `ELEVENLABS_API_KEY` | https://elevenlabs.io → API keys |
 | `ELEVENLABS_AGENT_ID` | Conversational agent used on **/agent** (real-time lookups + Prava) |
-| Sync tools | After deploy: `curl -X POST https://aidhd-omega.vercel.app/api/agent/sync` |
+| Sync tools | After deploy: `curl -X POST https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/api/agent/sync` |
 
-**Preferred demo:** open https://aidhd-omega.vercel.app/agent → Start voice (or type) → “flights Chicago to Bali” → “pay $780 for United” → Prava panel.
+**Preferred demo:** open https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/agent → Start voice (or type) → “flights Chicago to Bali” → “pay $780 for United” → Prava panel.
 
 Outbound phone templates (`ELEVENLABS_HOTEL_AGENT_ID` / research) are optional legacy.
 
@@ -126,7 +126,7 @@ VOICE_CONFIRM_PHONE=
 ## WhatsApp sandbox
 
 test number looks like `+1 (555) …`  
-webhook (prod): `https://aidhd-omega.vercel.app/api/channels/whatsapp/webhook`  
+webhook (prod): `https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/api/channels/whatsapp/webhook`  
 verify: `aidhd_verify`  
 subscribe: `messages`
 

@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
-import { getPaymentResult, reportPaymentStatus } from "@/lib/integrations/prava";
+import { reportPaymentStatus } from "@/lib/integrations/prava";
+import { pollForCompletedPayment } from "@/lib/checkout/poll-payment-result";
 import { sendLinqChatMessage } from "@/lib/integrations/linq";
+import { logInfo } from "@/lib/checkout/debug-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Called right after @prava-sdk/core's collectPAN() succeeds in the browser.
- * Real flow: GET payment-result (poll briefly — it can read "awaiting_result"
- * for a moment) → POST report-status (mandatory, closes the loop with Prava).
- *
- * The one-time virtual card returned here isn't submitted to a real merchant
- * checkout yet — Ticketmaster/Duffel integrations in this repo are search /
- * mock-reserve only (disclosed in README) — so we report APPROVED because the
- * enrollment itself succeeded. Swap that for the merchant's real charge
- * outcome once a live checkout call exists.
+ * Called right after @prava-sdk/core's collectPAN() succeeds in the browser,
+ * for any leg that ISN'T a Duffel-payable flight (see /api/checkout/execute
+ * for that path — it owns the real Duffel charge, including the same
+ * poll-for-completed step this route also does). This route only ever closes
+ * out the Prava enrollment; no merchant payment API is wired up yet for
+ * dining/tickets/hotels — see browser-harness.ts for the intended path once
+ * one of those needs UI-driven checkout.
  */
 export async function POST(req: Request) {
   let body: {
@@ -31,6 +31,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  logInfo("prava complete", "incoming request", {
+    session_id: body.session_id,
+    merchant: body.merchant,
+    amount: body.amount,
+    category: body.category,
+  });
+
   if (!body.session_id || !body.merchant || body.amount == null) {
     return NextResponse.json(
       { error: "session_id, merchant, amount required" },
@@ -38,21 +45,17 @@ export async function POST(req: Request) {
     );
   }
 
-  let result = await getPaymentResult(body.session_id);
-  for (let i = 0; i < 5 && result.status === "awaiting_result"; i++) {
-    await new Promise((r) => setTimeout(r, 1000));
-    result = await getPaymentResult(body.session_id);
-  }
-
-  if (result.status !== "completed") {
-    await reportPaymentStatus(body.session_id, "DECLINED");
+  const polled = await pollForCompletedPayment(body.session_id, { intervalMs: 1000, timeoutMs: 6000 });
+  if (!polled.ok) {
+    await reportPaymentStatus(body.session_id, "DECLINED").catch(() => {});
     return NextResponse.json(
-      { ok: false, error: `Payment not completed (status: ${result.status})` },
+      { ok: false, error: `Payment not completed (${polled.reason}, last status: ${polled.last_status})` },
       { status: 402 },
     );
   }
+  const result = polled.result;
 
-  await reportPaymentStatus(body.session_id, "APPROVED");
+  await reportPaymentStatus(body.session_id, "APPROVED", result.txn_ref_id);
 
   const confirmation_id = `AIDHD-${Date.now().toString(36).toUpperCase()}`;
   const tokenRef = result.token ? `•••• ${result.token.slice(-4)}` : "mock";

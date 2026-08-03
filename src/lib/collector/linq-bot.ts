@@ -6,6 +6,7 @@
 import { executeAgentTool } from "../agent-tools/registry";
 import { displayCityForPlace, lookupPlace } from "../geo/airports";
 import { isOptOut, sendLinqChatMessage } from "../integrations/linq";
+import { getBaseUrl } from "../base-url";
 import {
   claimLinqEvent,
   clearLinqSession,
@@ -321,7 +322,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       merchant: `AiDHD ${origin}→${destination}`,
       amount,
       category: "flight",
-      email: "traveler@aidhd.app",
+      email: "ameyagarwal10@gmail.com",
     });
     const data = pay.data as
       | { session_id?: string; iframe_url?: string }
@@ -336,7 +337,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       data?.iframe_url ||
       (data?.session_id
         ? `https://sandbox.collect.prava.space?session=${data.session_id}`
-        : "https://aidhd-omega.vercel.app/agent");
+        : `${getBaseUrl()}/agent`);
     await reply(
       msg.chat_id,
       `if that works, approve $${amount} here (Prava Collect):\n${link}\n\ntext PAID after the passkey and i'll lock it`,
@@ -381,7 +382,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       data?.iframe_url ||
       (data?.session_id
         ? `https://sandbox.collect.prava.space?session=${data.session_id}`
-        : "https://aidhd-omega.vercel.app/agent");
+        : `${getBaseUrl()}/agent`);
     await reply(
       msg.chat_id,
       `wanna hold a table for $${amount}? pay here:\n${link}\n\nthen just text PAID`,
@@ -393,7 +394,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
   if (!/voice|call|agent/i.test(vibe)) {
     await reply(
       msg.chat_id,
-      `want to talk it through live instead? https://aidhd-omega.vercel.app/agent`,
+      `want to talk it through live instead? ${getBaseUrl()}/agent`,
       replies,
     );
   }

@@ -11,6 +11,7 @@ import {
   searchDining,
   searchMovies,
 } from "../integrations/dining";
+import { searchShopifyProducts } from "../integrations/shopify";
 import { createPravaSession } from "../integrations/prava";
 import { lookupMerchantUrl } from "../integrations/merchants";
 import { lookupVendorTrust } from "../integrations/senso";
@@ -18,6 +19,7 @@ import { getWeatherForTravel } from "../integrations/weather";
 import { airportCodeForPlace } from "../geo/airports";
 import { airlineIataFromName, airlineLogoUrl } from "../geo/airlines";
 import { googleFlightsUrl } from "../integrations/linq";
+import { getBaseUrl } from "../base-url";
 
 export type AgentToolName =
   | "search_flights"
@@ -26,6 +28,7 @@ export type AgentToolName =
   | "search_dining"
   | "search_clubs"
   | "search_movies"
+  | "search_products"
   | "lookup_vendor"
   | "create_payment"
   | "get_weather"
@@ -44,6 +47,7 @@ export type AgentToolResult = {
       | "dining"
       | "clubs"
       | "movies"
+      | "products"
       | "payment"
       | "vendor"
       | "weather"
@@ -117,6 +121,18 @@ function clubPhotoUrl(index: number): string {
 
 function moviePhotoUrl(index: number): string {
   const id = MOVIE_PHOTO_IDS[index % MOVIE_PHOTO_IDS.length]!;
+  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=720&q=80`;
+}
+
+const PRODUCT_PHOTO_IDS = [
+  "1441986300917-64674bd600d8",
+  "1472851294608-062f824d29cc",
+  "1523275335684-37898b6baf30",
+  "1483985988355-763728e1935b",
+];
+
+function productPhotoUrl(index: number): string {
+  const id = PRODUCT_PHOTO_IDS[index % PRODUCT_PHOTO_IDS.length]!;
   return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=720&q=80`;
 }
 
@@ -215,6 +231,7 @@ export async function executeAgentTool(
             price_per_person: o.price_per_person,
             currency: o.currency,
             source,
+            duffel_passenger_id: o.duffel_passenger_id,
           };
         };
         const offers = fl.offers.slice(0, 5).map((o) => mapOffer(o, fl.source));
@@ -430,6 +447,31 @@ export async function executeAgentTool(
         };
       }
 
+      case "search_products": {
+        const query = str(parameters.query || parameters.keyword);
+        const sp = await searchShopifyProducts({ query: query || undefined, limit: 8 });
+        const offers = sp.offers.slice(0, 6).map((o, i) => ({
+          id: o.id,
+          variant_id: o.variant_id,
+          title: o.title,
+          description: o.description,
+          price: o.price,
+          currency: o.currency,
+          source: sp.source,
+          available: o.available,
+          photo_url: o.image_url || productPhotoUrl(i),
+        }));
+        return {
+          ok: true,
+          summary: `Found ${offers.length} bookable items${query ? ` for "${query}"` : ""} in the catalog (${sp.source}). From ~$${Math.round(offers[0]?.price ?? 0)}. Cards are on screen.`,
+          data: { offers, source: sp.source },
+          ui: {
+            kind: "products",
+            payload: { offers, label: query || "Catalog", source: sp.source },
+          },
+        };
+      }
+
       case "get_weather": {
         const city = str(parameters.city || parameters.destination);
         const date = str(
@@ -470,13 +512,60 @@ export async function executeAgentTool(
         const category = str(parameters.category) || "trip";
         const email =
           str(parameters.email || parameters.user_email) ||
-          "traveler@aidhd.app";
+          "ameyagarwal10@gmail.com";
         if (amount == null || amount <= 0) {
           return {
             ok: false,
             summary: "Need a positive amount (USD) to start Prava payment.",
           };
         }
+
+        // Only meaningful for category "flight" — carries the Duffel offer +
+        // passenger identity through to /api/checkout/execute once Prava
+        // approval completes, so that leg can actually charge Duffel instead
+        // of only recording Prava enrollment.
+        const flightOfferId = str(parameters.flight_offer_id) || undefined;
+        const duffelPassengerId = str(parameters.duffel_passenger_id) || undefined;
+        const givenName = str(parameters.passenger_given_name) || undefined;
+        const familyName = str(parameters.passenger_family_name) || undefined;
+        const bornOn = str(parameters.passenger_born_on) || undefined;
+        const genderRaw = str(parameters.passenger_gender).toLowerCase();
+        const gender = genderRaw === "m" || genderRaw === "f" ? genderRaw : undefined;
+        const titleRaw = str(parameters.passenger_title).toLowerCase();
+        const title =
+          titleRaw === "mr" || titleRaw === "ms" || titleRaw === "mrs" || titleRaw === "miss"
+            ? titleRaw
+            : undefined;
+        const phone = str(parameters.passenger_phone) || undefined;
+
+        // Only meaningful for category "product" — carries the Shopify variant
+        // through to /api/checkout/shopify-execute once Prava approval
+        // completes, so a real cart+checkout gets built for that variant
+        // instead of only recording Prava enrollment.
+        const shopifyVariantId = str(parameters.shopify_variant_id) || undefined;
+
+        const passenger =
+          category === "flight" &&
+          flightOfferId &&
+          duffelPassengerId &&
+          givenName &&
+          familyName &&
+          bornOn &&
+          gender &&
+          title &&
+          phone
+            ? {
+                id: duffelPassengerId,
+                given_name: givenName,
+                family_name: familyName,
+                email,
+                phone_number: phone,
+                born_on: bornOn,
+                gender,
+                title,
+              }
+            : undefined;
+
         const session = await createPravaSession({
           user_id: str(parameters.user_id) || `agent_${Date.now()}`,
           user_email: email,
@@ -489,7 +578,7 @@ export async function executeAgentTool(
         const payUrl =
           session.iframe_url ||
           (session.session_id
-            ? `https://aidhd-omega.vercel.app/pay?session=${encodeURIComponent(session.session_id)}`
+            ? `${getBaseUrl()}/pay?session=${encodeURIComponent(session.session_id)}`
             : null);
         if (session.error) {
           console.log(
@@ -520,7 +609,11 @@ export async function executeAgentTool(
               amount,
               merchant,
               category,
+              email,
               mode: session.mode,
+              flight_offer_id: category === "flight" ? flightOfferId : undefined,
+              passenger,
+              shopify_variant_id: category === "product" ? shopifyVariantId : undefined,
             },
           },
         };
@@ -540,7 +633,7 @@ export async function executeAgentTool(
       default:
         return {
           ok: false,
-          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, lookup_vendor, get_weather, or create_payment.`,
+          summary: `Unknown tool "${name}". Use search_flights, search_hotels, search_tickets, search_dining, search_clubs, search_movies, search_products, lookup_vendor, get_weather, or create_payment.`,
         };
     }
   } catch (e) {
@@ -564,6 +657,9 @@ IDENTITY
 CAPABILITIES
 - Flights (round-trip: ALWAYS pass return_date YYYY-MM-DD in the same search_flights call)
 - Hotels, tickets, dinner, clubs, movies
+- search_products → the actual Shopify catalog the group's card gets charged against at checkout.
+  Use this whenever nothing more specific (flight/hotel/ticket/dining) fits, or the user asks
+  "what can I buy/book" generally.
 - get_weather(city, date) → call this right after a destination city + first travel date is established
   (e.g., right after search_flights or search_hotels). Mention the outlook briefly and clearly flag
   any extreme weather caution shown on the card.
@@ -576,7 +672,24 @@ FLOW
 1) Intent: outing vs trip, cities, dates, budget, party size
 2) Tool search immediately
 3) Once destination + first travel date are known: call get_weather
-4) On pick: confirm total → create_payment
+4) On pick ("book it", "book this flight", "let's pay", etc. after offers were
+   already shown): call create_payment IMMEDIATELY in that same turn, using the
+   exact price from the most recent matching tool result already in this
+   conversation. Do not re-run a search tool and do not ask a confirmation
+   question first — state the total in your reply alongside opening Prava, not
+   before it.
+   EXCEPTION for flights: a real airline charge needs the passenger's legal
+   name (as on ID), date of birth, gender, title, and phone. If any are
+   missing, ask for them in that same turn BEFORE calling create_payment —
+   this is booking detail, not a secret, so it's fine to collect by voice/chat
+   (unlike card/passport numbers, see IDENTITY above). Once you have them,
+   pass flight_offer_id + duffel_passenger_id from the chosen search_flights
+   offer, plus passenger_given_name/family_name/born_on/gender/title/phone,
+   into create_payment alongside the usual amount/merchant/category="flight".
+   EXCEPTION for search_products picks: pass shopify_variant_id from the chosen
+   search_products offer into create_payment alongside category="product" —
+   without it the leg only records Prava enrollment and nothing is actually
+   ordered.
 5) If vault missing for ticketing, still show offers; say booking finalizes after vault + Prava
 
 EDGE CASES
@@ -642,6 +755,9 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
       city: prop("City name"),
       title: prop("Optional movie title keyword"),
     }, ["city"]),
+    client("search_products", "Search the connected Shopify catalog for bookable/purchasable items.", {
+      query: prop("Optional free-text search — omit to browse the full catalog"),
+    }, []),
     client("lookup_vendor", "Look up vendor trust / reputation score.", {
       vendor: prop("Merchant or venue name"),
     }, ["vendor"]),
@@ -660,8 +776,23 @@ export function elevenLabsToolDefinitions(_baseUrl?: string) {
         "Merchant's website, e.g. https://www.hilton.com/en/ for Hilton — Prava requires this; include the real site when known, omit only if truly unknown",
       ),
       amount: prop("USD total amount", "number"),
-      category: prop("flight | hotel | ticket | dining | club | movie | trip"),
+      category: prop("flight | hotel | ticket | dining | club | movie | product | trip"),
       email: prop("Payer email"),
+      shopify_variant_id: prop(
+        "Only for category=product: the variant_id from the chosen search_products offer",
+      ),
+      flight_offer_id: prop(
+        "Only for category=flight: the exact offer id from the most recent search_flights result being booked",
+      ),
+      duffel_passenger_id: prop(
+        "Only for category=flight: the duffel_passenger_id from that same search_flights offer",
+      ),
+      passenger_given_name: prop("Only for category=flight: passenger's legal first name, as on ID"),
+      passenger_family_name: prop("Only for category=flight: passenger's legal last name, as on ID"),
+      passenger_born_on: prop("Only for category=flight: passenger date of birth, YYYY-MM-DD"),
+      passenger_gender: prop("Only for category=flight: passenger gender, 'm' or 'f'"),
+      passenger_title: prop("Only for category=flight: 'mr' | 'ms' | 'mrs' | 'miss'"),
+      passenger_phone: prop("Only for category=flight: passenger phone number, e.g. +15555550100"),
     }, ["amount", "merchant"]),
     client("show_results", "Optional nudge that results are on screen.", {
       kind: prop("flights | hotels | tickets | dining | clubs | movies | payment | message"),

@@ -232,6 +232,12 @@ export interface FlightOffer {
   price_per_person: number;
   currency: string;
   tags: string[];
+  /**
+   * Duffel-generated passenger id from the offer_request response — required,
+   * unchanged, on the `passengers[].id` of a later /air/orders call for this
+   * offer. Only present for live Duffel offers (source: "duffel").
+   */
+  duffel_passenger_id?: string;
 }
 
 export interface HotelOffer {

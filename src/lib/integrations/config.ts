@@ -33,6 +33,16 @@ export function hasDuffel() {
   return Boolean(process.env.DUFFEL_API_KEY);
 }
 
+/** Storefront API — product search + cart creation (checkoutUrl for the browser-harness leg). */
+export function hasShopify() {
+  return Boolean(process.env.SHOPIFY_STORE_DOMAIN && process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN);
+}
+
+/** Hosted remote browser for checkout/browser-harness.ts — preferred over @sparticuz/chromium when set. */
+export function hasBrowserbase() {
+  return Boolean(process.env.BROWSERBASE_API_KEY);
+}
+
 /** @deprecated Amadeus self-service portal shut down — use Duffel Stays. */
 export function hasAmadeus() {
   return false;
@@ -78,6 +88,8 @@ export function integrationStatus() {
     ticketmaster: hasTicketmaster() ? "live" : "mock",
     duffel: hasDuffel() ? "live" : "fixture",
     duffel_stays: hasDuffel() ? "live" : "fixture",
+    shopify: hasShopify() ? "live" : "fixture",
+    browserbase: hasBrowserbase() ? "live" : "standby",
     elevenlabs: hasElevenLabs() ? "live" : "mock",
     eleven_agents: hasElevenAgentsOutbound() ? "live" : "standby",
     twilio: hasTwilio() ? "live" : "mock",

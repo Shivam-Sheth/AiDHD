@@ -1,39 +1,46 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { hasAnySession } from "@/lib/groups/client-session";
 
 /**
- * Client-side protected-route wrapper. Sessions live in the browser
- * (Supabase JWT or demo local user), so the guard runs client-side and
- * bounces signed-out visitors to /login with a return path.
+ * Client-side protected-route wrapper — gates on the shared auth state from
+ * @/components/auth/AuthProvider (mounted at the root) so it reuses the one
+ * login modal instead of routing to /login, which no longer exists (see
+ * AuthProvider's own note on why there's no standalone login page). Also
+ * accepts an existing group-platform session (Supabase JWT or demo local
+ * user) so a visitor who already has one isn't asked to sign in twice.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
+  const { loggedIn, openLogin } = useAuth();
+  const [hasGroupSession, setHasGroupSession] = useState(false);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      const ok = await hasAnySession();
+    void hasAnySession().then((ok) => {
       if (cancelled) return;
-      if (!ok) {
-        router.replace(`/login?next=${encodeURIComponent(pathname || "/")}`);
-        return;
-      }
+      setHasGroupSession(ok);
       setChecked(true);
-    })();
+    });
     return () => {
       cancelled = true;
     };
-  }, [router, pathname]);
+  }, []);
 
-  if (!checked) {
+  const authed = loggedIn || hasGroupSession;
+
+  useEffect(() => {
+    if (checked && !authed) openLogin();
+  }, [checked, authed, openLogin]);
+
+  if (!checked || !authed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <p className="font-display text-sm text-muted">Checking session…</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
+        <p className="font-display text-sm text-[var(--muted)]">
+          {checked ? "Sign in to continue…" : "Checking session…"}
+        </p>
       </div>
     );
   }

@@ -13,7 +13,7 @@ export function FinalCtaSection() {
             Stop planning by committee.
           </h2>
           <p className="mx-auto mt-6 max-w-lg text-lg leading-relaxed text-muted">
-            Start an outing or a trip, drop the link in the chat, and let AiDHD turn everyone&apos;s
+            Start an outing or a trip, drop the link in the chat, and let Pact turn everyone&apos;s
             budgets into a plan worth booking.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">

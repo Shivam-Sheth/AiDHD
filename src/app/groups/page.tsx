@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   groupAuthHeaders,
   readLocalGroupUser,
@@ -19,6 +20,7 @@ export default function GroupsPage() {
 }
 
 function GroupsPageInner() {
+  const { openLogin } = useAuth();
   const [groups, setGroups] = useState<GroupParty[]>([]);
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
@@ -81,13 +83,13 @@ function GroupsPageInner() {
       <div className="mb-8 flex items-baseline justify-between">
         <div>
           <Link href="/" className="text-sm text-muted hover:text-ink">
-            ← AiDHD
+            ← Home
           </Link>
           <h1 className="mt-2 font-display text-3xl font-bold text-ink">
             Your parties
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Host a group, invite friends, tag @AiDHD in chat.
+            Host a group, invite friends, tag @Prava in chat.
           </p>
         </div>
         <Link
@@ -105,9 +107,13 @@ function GroupsPageInner() {
         >
           <p className="text-sm text-ink-800">
             Quick session (or{" "}
-            <Link href="/login" className="text-accent underline">
+            <button
+              type="button"
+              onClick={openLogin}
+              className="text-accent underline"
+            >
               Google sign-in
-            </Link>
+            </button>
             )
           </p>
           <input

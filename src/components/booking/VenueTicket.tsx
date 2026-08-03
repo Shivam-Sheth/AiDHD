@@ -130,7 +130,7 @@ export function VenueTicket({
           className="text-[9px] font-semibold tracking-[0.22em] uppercase"
           style={{ writingMode: "vertical-rl" }}
         >
-          AiDHD
+          Pact
         </p>
         <div
           aria-hidden

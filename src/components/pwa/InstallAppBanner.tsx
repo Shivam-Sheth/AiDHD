@@ -67,7 +67,7 @@ export function InstallAppBanner() {
     <div className="fixed inset-x-0 bottom-0 z-[60] border-t border-line bg-surface/95 p-3 backdrop-blur-md safe-pb">
       <div className="mx-auto flex max-w-lg items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-ink">Install AiDHD</p>
+          <p className="text-sm font-semibold text-ink">Install Pact</p>
           <p className="mt-0.5 text-xs text-muted">
             {showIos
               ? "On iPhone: Share → Add to Home Screen. Opens like an app for invites + group chat."

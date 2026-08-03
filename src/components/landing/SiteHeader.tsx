@@ -42,14 +42,13 @@ export function SiteHeader({
   onScrollTo: (id: string) => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
-  const { openLogin, requireAuth } = useAuth();
+  const { loggedIn, openLogin, requireAuth } = useAuth();
   const router = useRouter();
   const { theme } = useTheme();
 
   const goPlanShop = () => requireAuth(() => router.push("/agent"));
-  /** Group-buy creation flow isn't built yet — the auth gate is live, the
-   * destination isn't. Logged-in clicks are a deliberate no-op until then. */
-  const startGroupBuy = () => requireAuth(() => {});
+  const startGroupBuy = () => requireAuth(() => router.push("/groups/new"));
+  const goToAccount = () => router.push("/account");
 
   /** The scrolled pill is deliberately the *inverse* of the page theme (see
    * --navpill-* in globals.css), so the logo variant has to track the pill's
@@ -164,13 +163,30 @@ export function SiteHeader({
               : "text-[var(--muted)] hover:bg-black/5 hover:text-[var(--accent)]"
             }
           />
-          <button
-            type="button"
-            onClick={openLogin}
-            className="shrink-0 rounded-full bg-[var(--coral)] px-4 py-1.5 text-sm font-semibold whitespace-nowrap text-white shadow-lg shadow-[var(--coral-shadow)] transition duration-300 hover:bg-[var(--coral-hover)]"
-          >
-            Sign in
-          </button>
+          {loggedIn ?
+            <button
+              type="button"
+              onClick={goToAccount}
+              aria-label="Account"
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+                scrolled ?
+                  "text-[var(--navpill-text-muted)] hover:bg-[var(--navpill-hover-bg)] hover:text-[var(--navpill-text)]"
+                : "text-[var(--muted)] hover:bg-black/5 hover:text-[var(--accent)]"
+              }`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            </button>
+          : <button
+              type="button"
+              onClick={openLogin}
+              className="shrink-0 rounded-full bg-[var(--coral)] px-4 py-1.5 text-sm font-semibold whitespace-nowrap text-white shadow-lg shadow-[var(--coral-shadow)] transition duration-300 hover:bg-[var(--coral-hover)]"
+            >
+              Sign in
+            </button>
+          }
         </div>
       </div>
     </header>

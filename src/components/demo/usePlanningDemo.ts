@@ -100,7 +100,7 @@ export function usePlanningDemo() {
           ` Failed: ${res.failed.map((f) => f.phone).join(", ")} (must be Meta-allowed with +1…).`
         : "";
       setWaNote(
-        `Invited ${res.invited.length}. They get Meta hello_world first. Ask them to reply "hi" — then AiDHD sends the planning intro (Meta blocks freeform until they reply).${failBit} ${res.tip ?? ""}`,
+        `Invited ${res.invited.length}. They get Meta hello_world first. Ask them to reply "hi" — then Pact sends the planning intro (Meta blocks freeform until they reply).${failBit} ${res.tip ?? ""}`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "WhatsApp invite failed");

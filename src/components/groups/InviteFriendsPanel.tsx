@@ -71,8 +71,8 @@ export function InviteFriendsPanel({
       if (!url) return;
       const result = await shareInviteLink({
         url,
-        title: `AiDHD · ${groupTitle}`,
-        text: `You're invited to "${groupTitle}" on AiDHD — join the group chat and we'll plan + book together.`,
+        title: `Pact · ${groupTitle}`,
+        text: `You're invited to "${groupTitle}" on Pact — join the group chat and we'll plan + book together.`,
       });
       if (result === "shared") setStatus("Shared via your phone’s share sheet.");
       else if (result === "copied")
@@ -365,7 +365,7 @@ export function InviteFriendsPanel({
             disabled={busy !== null}
             className="flex-1 rounded-lg bg-ink py-2 text-xs font-semibold text-inverse disabled:opacity-50"
           >
-            {busy === "whatsapp" ? "…" : "Send via AiDHD WhatsApp"}
+            {busy === "whatsapp" ? "…" : "Send via Pact WhatsApp"}
           </button>
           <button
             type="button"
@@ -373,7 +373,7 @@ export function InviteFriendsPanel({
             disabled={busy !== null}
             className="flex-1 rounded-lg border border-accent/50 bg-accent/15 py-2 text-xs font-semibold text-ink disabled:opacity-50"
           >
-            {busy === "imessage" ? "…" : "Send via AiDHD iMessage"}
+            {busy === "imessage" ? "…" : "Send via Pact iMessage"}
           </button>
         </div>
       )}

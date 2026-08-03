@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
           href="/"
           className="font-display text-2xl font-bold tracking-tight text-ink transition-opacity hover:opacity-70"
         >
-          AiDHD
+          Pact
         </Link>
         <Link
           href="/login"

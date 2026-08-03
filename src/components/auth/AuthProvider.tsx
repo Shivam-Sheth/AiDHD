@@ -32,6 +32,7 @@ const OAUTH_ERROR_PARAM = "login_error";
 const AuthContext = createContext<{
   loggedIn: boolean;
   login: () => void;
+  logout: () => void;
   openLogin: () => void;
   closeLogin: () => void;
   /** Runs `action` if already logged in, otherwise opens the login modal instead. */
@@ -39,6 +40,7 @@ const AuthContext = createContext<{
 }>({
   loggedIn: false,
   login: () => {},
+  logout: () => {},
   openLogin: () => {},
   closeLogin: () => {},
   requireAuth: () => {},
@@ -56,6 +58,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.localStorage.setItem(STORAGE_KEY, "1");
     } catch {
       // localStorage can throw in private-browsing/blocked-storage contexts — session just won't persist.
+    }
+  }
+
+  function logout() {
+    setLoggedIn(false);
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // see above
     }
   }
 
@@ -97,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ loggedIn, login, openLogin, closeLogin, requireAuth }}
+      value={{ loggedIn, login, logout, openLogin, closeLogin, requireAuth }}
     >
       {children}
       <LoginModal open={modalOpen} onClose={closeLogin} initialError={modalError} />

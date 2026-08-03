@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { PassportGate } from "@/components/vault/PassportGate";
 import {
   readLocalGroupUser,
@@ -25,6 +26,7 @@ export default function AccountPage() {
 
 function AccountPageInner() {
   const router = useRouter();
+  const { logout } = useAuth();
   const local = readLocalGroupUser();
   const [name, setName] = useState(local?.name || "");
   const [email, setEmail] = useState(local?.email || "");
@@ -271,7 +273,10 @@ function AccountPageInner() {
       <button
         type="button"
         onClick={() => {
-          void signOutEverywhere().then(() => router.replace("/login"));
+          void signOutEverywhere().then(() => {
+            logout();
+            router.replace("/");
+          });
         }}
         className="mt-8 w-full rounded-xl border border-line py-3 text-sm font-semibold text-ink-700 transition hover:border-danger/40 hover:text-danger"
       >

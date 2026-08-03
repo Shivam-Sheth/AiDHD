@@ -49,7 +49,7 @@ export function SiteNav() {
     >
       <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-6 lg:px-10">
         <a href="#top" className="focus-ring font-display text-base tracking-tight text-ink">
-          AiDHD
+          Pact
         </a>
 
         <nav className="hidden items-center gap-7 md:flex">

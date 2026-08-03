@@ -84,7 +84,7 @@ function NewGroupPageInner() {
         Host a party
       </h1>
       <p className="mt-1 text-sm text-muted">
-        Like Partiful — with AiDHD in the group chat to plan and book.
+        Like Partiful — with Pact in the group chat to plan and book.
       </p>
 
       <form onSubmit={submit} className="mt-8 space-y-4">

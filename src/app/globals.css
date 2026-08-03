@@ -5,6 +5,45 @@
   --font-display: var(--font-outfit), system-ui, sans-serif;
 }
 
+/* Bridges the group-platform pages (src/app/groups/**, AuthGuard, etc. —
+   merged from origin/amey) onto the same palette above instead of a second
+   theme: those pages use bare utility classes like `bg-canvas`/`text-ink`,
+   which Tailwind only generates from `@theme inline` color tokens. Each one
+   below aliases straight to the existing --ink/--bg/--accent/etc variables
+   (or a new same-palette shade) so both surfaces render identically themed. */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-inverse: var(--inverse);
+  --color-inverse-muted: var(--inverse-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-mesh: var(--mesh);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --shadow-xs: var(--shadow-xs-v);
+  --shadow-card: var(--shadow-card-v);
+  --shadow-lifted: var(--shadow-lifted-v);
+}
+
 /* Light theme (default). Every color the app renders with comes from a
    variable here — dark mode (below) only overrides these same names, so a
    component that reads var(--ink)/var(--bg)/etc. never needs a light/dark
@@ -84,6 +123,30 @@
   --navpill-border: rgb(255 255 255 / 0.1);
   --navpill-hover-bg: rgb(255 255 255 / 0.1);
   --navpill-accent-ink: #cffafe;
+
+  /* Extra shades for the group-platform pages (@theme inline above) — all
+     aliases onto the palette already defined here, plus a few new same-
+     family shades (line-strong/ink-800/900) that page needs but the rest
+     of the app didn't. */
+  --canvas: var(--bg);
+  --subtle: var(--surface-2);
+  --line-strong: #c7c7c7;
+  --ink-900: #0a0a0a;
+  --ink-800: #262626;
+  --ink-700: #404040;
+  --inverse: var(--surface);
+  --inverse-muted: var(--surface-2);
+  --accent-ink: #ffffff;
+  --mesh: var(--coral);
+  --success: #087443;
+  --success-soft: #eef6f1;
+  --danger: #c13515;
+  --danger-soft: #fdf0ed;
+  --warning: #b35309;
+  --warning-soft: #fdf5eb;
+  --shadow-xs-v: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-card-v: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px rgb(0 0 0 / 0.06);
+  --shadow-lifted-v: 0 2px 4px rgb(0 0 0 / 0.06), 0 12px 28px rgb(0 0 0 / 0.1);
 }
 
 :root[data-theme="dark"] {
@@ -124,6 +187,26 @@
   --navpill-border: rgb(11 18 32 / 0.12);
   --navpill-hover-bg: rgb(11 18 32 / 0.06);
   --navpill-accent-ink: #0e8a4f;
+
+  --canvas: var(--bg);
+  --subtle: var(--surface-2);
+  --line-strong: #3b3f48;
+  --ink-900: #ffffff;
+  --ink-800: #e4e7ea;
+  --ink-700: #c3c8cf;
+  --inverse: var(--surface);
+  --inverse-muted: var(--surface-2);
+  --accent-ink: #04150d;
+  --mesh: var(--coral);
+  --success: #3ddc97;
+  --success-soft: #0e2b1f;
+  --danger: #ff7a66;
+  --danger-soft: #2e1512;
+  --warning: #f0b357;
+  --warning-soft: #2c2113;
+  --shadow-xs-v: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-card-v: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.45);
+  --shadow-lifted-v: 0 2px 6px rgb(0 0 0 / 0.45), 0 18px 48px rgb(0 0 0 / 0.55);
 }
 
 html {

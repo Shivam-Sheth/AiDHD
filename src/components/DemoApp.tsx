@@ -181,7 +181,7 @@ export function DemoApp({
           ` Failed: ${res.failed.map((f) => f.phone).join(", ")} (must be Meta-allowed with +1…).`
         : "";
       setWaNote(
-        `Invited ${res.invited.length}. They get Meta hello_world first. Ask them to reply “hi” — then AiDHD sends the planning intro (Meta blocks freeform until they reply).${failBit} ${res.tip ?? ""}`,
+        `Invited ${res.invited.length}. They get Meta hello_world first. Ask them to reply “hi” — then Pact sends the planning intro (Meta blocks freeform until they reply).${failBit} ${res.tip ?? ""}`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "WhatsApp invite failed");
@@ -298,7 +298,7 @@ export function DemoApp({
       <Hero
         busy={busy}
         error={error}
-        onStartPlanning={() => requireAuth(() => router.push("/agent"))}
+        onStartPlanning={() => requireAuth(() => router.push("/groups/new"))}
         onSeeHowItWorks={() => scrollTo("how-it-works")}
       />
 
@@ -308,7 +308,7 @@ export function DemoApp({
 
       <FooterCTA
         busy={busy}
-        onStartPlanning={() => requireAuth(() => router.push("/agent"))}
+        onStartPlanning={() => requireAuth(() => router.push("/groups/new"))}
         onScrollTo={scrollTo}
         integrations={integrations}
         healthLoaded={healthLoaded}

@@ -7,7 +7,7 @@ export function DemoBrowserChrome({ title, children }: { title: string; children
         <div className="h-2 w-2 rounded-full bg-ink" />
         <div className="h-2 w-2 rounded-full bg-ink" />
         <div className="h-2 w-2 rounded-full bg-success" />
-        <span className="ml-2 text-sm font-medium text-faint">AiDHD — {title}</span>
+        <span className="ml-2 text-sm font-medium text-faint">Pact — {title}</span>
       </div>
       <div className="space-y-6 p-5 sm:p-6">{children}</div>
     </div>

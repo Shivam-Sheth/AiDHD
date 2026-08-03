@@ -34,7 +34,7 @@ export function LoginFields({
   const [submitting, setSubmitting] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       setError("Enter your name.");
@@ -48,8 +48,75 @@ export function LoginFields({
       setError("Enter your password.");
       return;
     }
+    if (!supabase) {
+      setError("Sign-in isn't configured — set SUPABASE_URL/SUPABASE_ANON_KEY.");
+      return;
+    }
     setError(null);
     setSubmitting(true);
+
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
+
+    const { data: signInData, error: signInError } =
+      await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+
+    let session = signInData.session;
+
+    if (signInError) {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
+        {
+          email: trimmedEmail,
+          password,
+          options: { data: { full_name: trimmedName } },
+        },
+      );
+      if (signUpError) {
+        setError(signUpError.message);
+        setSubmitting(false);
+        return;
+      }
+      // An empty identities array means the email is already registered —
+      // Supabase returns a fake user (no error) here to avoid leaking which
+      // emails exist, so this is the only way to tell it apart from a new signup.
+      if (signUpData.user && signUpData.user.identities?.length === 0) {
+        setError("That email is already registered — check your password.");
+        setSubmitting(false);
+        return;
+      }
+      session = signUpData.session;
+      if (!session) {
+        setError("Check your email to confirm your account, then sign in.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    if (!session) {
+      setError("Could not sign in.");
+      setSubmitting(false);
+      return;
+    }
+
+    await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ phone: phone.trim() || undefined }),
+    }).catch(() => {});
+
+    const { writeLocalGroupUser } = await import("@/lib/groups/client-session");
+    writeLocalGroupUser({
+      id: session.user.id,
+      name: trimmedName || session.user.email?.split("@")[0] || "Member",
+      email: session.user.email || trimmedEmail,
+    });
+
     login();
     onSuccess?.();
     router.push("/agent");

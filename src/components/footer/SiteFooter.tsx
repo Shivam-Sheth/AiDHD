@@ -5,7 +5,7 @@ export function SiteFooter() {
     <footer className="border-t border-line bg-surface py-10">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
         <div>
-          <p className="font-display text-sm text-ink">AiDHD</p>
+          <p className="font-display text-sm text-ink">Pact</p>
           <p className="mt-1 text-sm text-muted">
             Built for Prava&apos;s Agentic Commerce Hackathon
           </p>

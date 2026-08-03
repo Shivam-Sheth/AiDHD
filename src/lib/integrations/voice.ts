@@ -95,6 +95,15 @@ export async function placeElevenAgentsOutbound(input: {
   to: string;
   first_message: string;
   agent_id?: string;
+  /**
+   * Fully-interpolated system prompt for this call. Prefer this over leaving
+   * `{{placeholders}}` in the dashboard prompt — an undefined placeholder
+   * tears the call down the instant the callee answers (Twilio 31921).
+   *
+   * Requires the booking agent's Security → Overrides → System prompt toggle
+   * (enabled by POST /api/booking/call/sync).
+   */
+  system_prompt?: string;
   /** Exposed to the agent's tools as {{key}} — e.g. session_id for the card gate. */
   dynamic_variables?: Record<string, string>;
 }): Promise<{
@@ -120,6 +129,21 @@ export async function placeElevenAgentsOutbound(input: {
   }
 
   const to = input.to.startsWith("+") ? input.to : `+${input.to.replace(/\D/g, "")}`;
+
+  // Bake first_message + prompt at dial time. If overrides are disabled on the
+  // agent, ElevenLabs returns 200 and silently ignores these — the call then
+  // rings, the person answers, the agent never speaks, and the line drops.
+  // Sync with POST /api/booking/call/sync to flip the toggles.
+  const agentOverride: {
+    first_message: string;
+    prompt?: { prompt: string };
+  } = {
+    first_message: input.first_message,
+  };
+  if (input.system_prompt?.trim()) {
+    agentOverride.prompt = { prompt: input.system_prompt };
+  }
+
   const res = await fetch(
     "https://api.elevenlabs.io/v1/convai/twilio/outbound-call",
     {
@@ -134,7 +158,7 @@ export async function placeElevenAgentsOutbound(input: {
         to_number: to,
         conversation_initiation_client_data: {
           conversation_config_override: {
-            agent: { first_message: input.first_message },
+            agent: agentOverride,
           },
           dynamic_variables: input.dynamic_variables ?? {},
         },

@@ -41,9 +41,13 @@ Duffel test account: top up **test balance** (balance payments) or orders fail w
 
 ```bash
 curl -X POST https://YOUR_HOST/api/agent/sync
+# Booking outbound caller (separate agent — enables first_message + prompt overrides)
+curl -X POST https://YOUR_HOST/api/booking/call/sync
 ```
 
 Leave the Workflow canvas **flat** (Start only). Do **not** import a hotel booking template.
+
+If an outbound booking call **rings, you answer, then it drops in ~1s**: the booking agent's Security → Overrides toggles for First message / System prompt are off (or the dashboard prompt still has unresolved `{{placeholders}}`). Re-run `/api/booking/call/sync`.
 
 New tools pushed: `check_passport_vault`, `confirm_flight_booking`.
 

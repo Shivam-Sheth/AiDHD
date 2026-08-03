@@ -75,9 +75,11 @@ export async function POST(req: Request) {
   const placed = await placeElevenAgentsOutbound({
     to: airline_phone,
     first_message: firstMessage(session),
+    // Fully baked — no {{placeholders}}. Overrides must be enabled via
+    // POST /api/booking/call/sync or the answer-then-drop symptom returns.
+    system_prompt: systemPrompt(session),
     agent_id: bookingAgentId,
-    // Every {{placeholder}} in the prompt, not just session_id — an undefined
-    // one terminates the conversation instantly. See call-vars.ts.
+    // Safety net for leftover dashboard {{placeholders}} + tool session_id.
     dynamic_variables: callDynamicVariables(session),
   });
 

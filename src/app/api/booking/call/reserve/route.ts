@@ -154,6 +154,7 @@ export async function POST(req: Request) {
   const placed = await placeElevenAgentsOutbound({
     to: phone,
     first_message: reservationFirstMessage(brief),
+    system_prompt: reservationPrompt(brief),
     agent_id: process.env.ELEVENLABS_BOOKING_AGENT_ID,
     dynamic_variables: reservationVariables(brief, session.id),
   });

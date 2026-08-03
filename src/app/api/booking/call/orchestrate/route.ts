@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { quoteOffer } from "@/lib/booking/quote";
 import { createCallSession, updateCallSession, noteOnSession } from "@/lib/booking/call-session";
 import { callDynamicVariables } from "@/lib/booking/call-vars";
-import { firstMessage } from "@/lib/booking/call-script";
+import { firstMessage, systemPrompt } from "@/lib/booking/call-script";
 import { placeElevenAgentsOutbound } from "@/lib/integrations/voice";
 import { createPravaSession } from "@/lib/integrations/prava";
 
@@ -153,6 +153,7 @@ export async function POST(req: Request) {
   const placed = await placeElevenAgentsOutbound({
     to: airline_phone,
     first_message: firstMessage(session),
+    system_prompt: systemPrompt(session),
     agent_id: process.env.ELEVENLABS_BOOKING_AGENT_ID,
     dynamic_variables: callDynamicVariables(session),
   });

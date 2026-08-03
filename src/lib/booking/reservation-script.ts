@@ -1,4 +1,5 @@
 import type { MerchantCategory } from "./merchant-lookup";
+import { completeDynamicVariables } from "./call-vars";
 
 /**
  * Call script for non-flight bookings — restaurants, hotels, venues, stores.
@@ -88,12 +89,15 @@ Get a confirmation or reference number and repeat it back to check it, then call
 Be warm, concise and patient. Hold music and transfers are normal; wait them out.`;
 }
 
-/** Dynamic variables for ElevenLabs. Every {{placeholder}} above must appear. */
+/** Dynamic variables for ElevenLabs. Completes the full booking-agent key set. */
 export function reservationVariables(
   b: ReservationBrief,
   sessionId: string,
 ): Record<string, string> {
-  return {
+  const given = b.contact.name.split(" ")[0] ?? b.contact.name;
+  const family = b.contact.name.split(" ").slice(1).join(" ") || "";
+
+  return completeDynamicVariables({
     session_id: sessionId,
     merchant_name: b.merchant_name,
     category: b.category,
@@ -101,11 +105,18 @@ export function reservationVariables(
     party_size: b.party_size ? String(b.party_size) : "not specified",
     when: b.when ?? "not specified",
     requirements: b.requirements.join("; ") || "none",
-    given_name: b.contact.name.split(" ")[0] ?? b.contact.name,
-    family_name: b.contact.name.split(" ").slice(1).join(" ") || "",
+    given_name: given,
+    family_name: family,
     phone_number: b.contact.phone,
-    email: b.contact.email,
+    email: b.contact.email || "n/a",
     amount: b.budget?.amount ?? "0",
     currency: b.budget?.currency ?? "USD",
-  };
+
+    // Flight-prompt aliases — booking agent dashboard often still has these.
+    carrier: b.merchant_name,
+    airline_phone: b.contact.phone,
+    departing_at: b.when ?? "n/a",
+    cabin: b.category,
+    seat_preference: b.requirements.join("; ") || "no preference",
+  });
 }

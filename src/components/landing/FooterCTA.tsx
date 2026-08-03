@@ -1,6 +1,8 @@
 import type { MouseEvent } from "react";
+import Link from "next/link";
+import { FOOTER_COLUMNS } from "@/components/site/footer-links";
 
-type FooterLink = {
+type RenderedLink = {
   label: string;
   href: string;
   onClick?: (e: MouseEvent<HTMLAnchorElement>) => void;
@@ -11,7 +13,7 @@ function FooterColumn({
   links,
 }: {
   title: string;
-  links: FooterLink[];
+  links: RenderedLink[];
 }) {
   return (
     <div>
@@ -21,13 +23,13 @@ function FooterColumn({
       <ul className="mt-4 space-y-3">
         {links.map((link) => (
           <li key={link.label}>
-            <a
+            <Link
               href={link.href}
               onClick={link.onClick}
               className="text-sm text-[var(--hero-ink-muted)] transition-colors hover:text-[var(--hero-accent-ink)]"
             >
               {link.label}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
@@ -74,39 +76,28 @@ export function FooterCTA({
             </div>
           </div>
 
+          {/* Columns come from site/footer-links.ts so this footer and the
+              slim one on the standalone pages can never drift apart. Links
+              tagged with a section id scroll in place here (this component
+              only renders on the landing page) instead of navigating. */}
           <div className="grid grid-cols-2 gap-x-10 gap-y-10 sm:grid-cols-3">
-            <FooterColumn
-              title="Product"
-              links={[
-                {
-                  label: "How it works",
-                  href: "#how-it-works",
-                  onClick: (e) => {
-                    if (!onScrollTo) return;
-                    e.preventDefault();
-                    onScrollTo("how-it-works");
-                  },
-                },
-                { label: "Recent drops / Group gallery", href: "#" },
-              ]}
-            />
-            <FooterColumn
-              title="Support"
-              links={[
-                { label: "Support / Help", href: "#" },
-                { label: "Status page", href: "#" },
-                { label: "FAQ", href: "#" },
-                { label: "Contact / Email", href: "mailto:hello@aidhd.app" },
-              ]}
-            />
-            <FooterColumn
-              title="Legal"
-              links={[
-                { label: "Terms of Service", href: "#" },
-                { label: "Returns / Refund policy", href: "#" },
-                { label: "Privacy Policy", href: "#" },
-              ]}
-            />
+            {FOOTER_COLUMNS.map((col) => (
+              <FooterColumn
+                key={col.title}
+                title={col.title}
+                links={col.links.map((link) => ({
+                  label: link.label,
+                  href: link.href,
+                  onClick:
+                    link.scrollTo && onScrollTo
+                      ? (e) => {
+                          e.preventDefault();
+                          onScrollTo(link.scrollTo as string);
+                        }
+                      : undefined,
+                }))}
+              />
+            ))}
           </div>
         </div>
 

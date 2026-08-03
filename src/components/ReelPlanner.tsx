@@ -31,7 +31,7 @@ export function ReelPlanner() {
   const [phase, setPhase] = useState<"idle" | "preview" | "final">("idle");
 
   const active = result || preview;
-  const asks = preview?.asks || [];
+  const asks = useMemo(() => preview?.asks || [], [preview]);
 
   const missing = useMemo(() => {
     const need = new Set(asks.map((a) => a.field));

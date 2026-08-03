@@ -20,7 +20,7 @@
 **Do not put passport numbers or full card PANs in chat or agent tools.** Cards → Prava only. Passports → encrypted vault only.
 
 Public webhook URL after deploy:
-`https://aidhd-omega.vercel.app/api/channels/linq/webhook?version=2026-02-03`
+`https://aidhd-onkaaqeb6-amey-agarwals-projects.vercel.app/api/channels/linq/webhook?version=2026-02-03`
 
 ---
 

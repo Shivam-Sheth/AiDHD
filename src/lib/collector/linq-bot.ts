@@ -6,6 +6,7 @@
 import { executeAgentTool } from "../agent-tools/registry";
 import { displayCityForPlace, lookupPlace } from "../geo/airports";
 import { isOptOut, sendLinqChatMessage } from "../integrations/linq";
+import { getBaseUrl } from "../base-url";
 import {
   claimLinqEvent,
   clearLinqSession,
@@ -203,6 +204,46 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
     if (!fresh) return { replies: [], skipped: "duplicate_event" };
   }
 
+  // ---------------------------------------------------------------------
+  // Verified-user concierge path (identity via sms_links).
+  // "LINK 123456" verifies phone ownership; verified users get the full
+  // Prava agent (search → confirm → book → receipt → group sync).
+  // ---------------------------------------------------------------------
+  if (msg.from_phone) {
+    try {
+      const { getSmsLinkByPhone, verifySmsLink } = await import(
+        "@/lib/sms/identity"
+      );
+
+      const linkMatch = msg.text.trim().match(/^link\s+(\d{6})$/i);
+      if (linkMatch) {
+        const verified = await verifySmsLink(msg.from_phone, linkMatch[1]!);
+        await reply(
+          msg.chat_id,
+          verified
+            ? `you're linked, ${verified.user_name} ✅ text me anything — "book a table for 4 tomorrow 8pm", "find flights to nyc next weekend", "add dinner to my calendar"`
+            : "that code didn't match — grab a fresh one from the app (Account → Text Prava)",
+          replies,
+        );
+        return { replies };
+      }
+
+      if (!isOptOut(msg.text)) {
+        const link = await getSmsLinkByPhone(msg.from_phone);
+        if (link?.verified) {
+          const { handleConciergeSms } = await import("./sms-concierge");
+          return handleConciergeSms({
+            link,
+            chatId: msg.chat_id,
+            text: msg.text,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[linq-bot] concierge path failed, using collector", e);
+    }
+  }
+
   if (isOptOut(msg.text)) {
     const sess = await getLinqSession(key);
     await saveLinqSession(key, { ...sess, opted_out: true, phase: "done" });
@@ -321,7 +362,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       merchant: `AiDHD ${origin}→${destination}`,
       amount,
       category: "flight",
-      email: "traveler@aidhd.app",
+      email: "ameyagarwal10@gmail.com",
     });
     const data = pay.data as
       | { session_id?: string; iframe_url?: string }
@@ -336,7 +377,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       data?.iframe_url ||
       (data?.session_id
         ? `https://sandbox.collect.prava.space?session=${data.session_id}`
-        : "https://aidhd-omega.vercel.app/agent");
+        : `${getBaseUrl()}/agent`);
     await reply(
       msg.chat_id,
       `if that works, approve $${amount} here (Prava Collect):\n${link}\n\ntext PAID after the passkey and i'll lock it`,
@@ -381,7 +422,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
       data?.iframe_url ||
       (data?.session_id
         ? `https://sandbox.collect.prava.space?session=${data.session_id}`
-        : "https://aidhd-omega.vercel.app/agent");
+        : `${getBaseUrl()}/agent`);
     await reply(
       msg.chat_id,
       `wanna hold a table for $${amount}? pay here:\n${link}\n\nthen just text PAID`,
@@ -393,7 +434,7 @@ export async function handleLinqInbound(msg: LinqInbound): Promise<{
   if (!/voice|call|agent/i.test(vibe)) {
     await reply(
       msg.chat_id,
-      `want to talk it through live instead? https://aidhd-omega.vercel.app/agent`,
+      `want to talk it through live instead? ${getBaseUrl()}/agent`,
       replies,
     );
   }

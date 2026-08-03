@@ -47,7 +47,7 @@ export async function requestMandatesForPackage(eventId: string, packageId: stri
 
     const session = await createPravaSession({
       user_id: event.organizer_id,
-      user_email: "maya@aidhd.demo",
+      user_email: "ameyagarwal10@gmail.com",
       merchant: comp.vendor,
       amount: comp.cost,
       currency: comp.currency,
@@ -158,7 +158,15 @@ export async function executeBookings(
         Boolean(opts?.failTicket),
       );
     } else if (mandate.category === "dining") {
-      reservation = await reserveDining(comp.merchant_id || "din");
+      const din = await reserveDining({
+        offerId: comp.merchant_id || "din",
+        restaurant: comp.vendor,
+        spoc_name: getUser(event.organizer_id)?.name || "Organizer",
+        party_size: Math.max(2, event.invitee_ids.length),
+      });
+      reservation = din.ok
+        ? { ok: true, confirmation_id: din.confirmation_id }
+        : { ok: false, failure_reason: din.failure_reason };
     } else if (mandate.category === "flight") {
       const r = await reserveFlight(comp.merchant_id || "flt");
       reservation = r.ok
@@ -276,7 +284,7 @@ export async function rerequestFailedMandate(eventId: string) {
 
   const session = await createPravaSession({
     user_id: getEvent(eventId)!.organizer_id,
-    user_email: "maya@aidhd.demo",
+    user_email: "ameyagarwal10@gmail.com",
     merchant: failed.merchant,
     amount: failed.amount_cap,
     currency: failed.currency,

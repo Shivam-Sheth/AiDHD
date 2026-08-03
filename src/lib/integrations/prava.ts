@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
 import { hasPrava } from "./config";
+import { logRequest, logResponse, logInfo, redactPaymentResult } from "../checkout/debug-log";
+import { getBaseUrl } from "../base-url";
 
 export interface PravaSessionResult {
   session_id: string;
@@ -47,34 +49,48 @@ export async function createPravaSession(input: {
   if (hasPrava()) {
     try {
       const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
-      const res = await fetch("https://sandbox.api.prava.space/v1/sessions", {
+      const url = "https://sandbox.api.prava.space/v1/sessions";
+      const reqBody = {
+        user_id: input.user_id,
+        user_email: input.user_email,
+        total_amount: input.amount.toFixed(2),
+        currency: input.currency,
+        purchase_context: [
+          {
+            merchant_details: {
+              name: input.merchant,
+              // Prava forwards this to Visa as the merchant's real website —
+              // must be a real public HTTPS URL. getBaseUrl() falls back to
+              // http://localhost:3000 outside Vercel (VERCEL_PROJECT_PRODUCTION_URL
+              // is only set there), which Prava's API rejects — never use the
+              // raw base-url helper here for that reason. Falls back to a
+              // real HTTPS placeholder during local dev instead; on Vercel,
+              // getBaseUrl() itself is always correct.
+              url:
+                input.merchant_url ||
+                (getBaseUrl().startsWith("http://localhost")
+                  ? "https://aidhd-vert.vercel.app/agent"
+                  : getBaseUrl()),
+              country_code_iso2: "US",
+            },
+            product_details: [
+              {
+                description: `AiDHD ${input.category} booking`,
+                unit_price: input.amount.toFixed(2),
+                quantity: 1,
+              },
+            ],
+          },
+        ],
+      };
+      logRequest("prava", "POST", url, reqBody);
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${secret}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          user_id: input.user_id,
-          user_email: input.user_email,
-          total_amount: input.amount.toFixed(2),
-          currency: input.currency,
-          purchase_context: [
-            {
-              merchant_details: {
-                name: input.merchant,
-                url: input.merchant_url || "https://ai-dhd.vercel.app",
-                country_code_iso2: "US",
-              },
-              product_details: [
-                {
-                  description: `AiDHD ${input.category} booking`,
-                  unit_price: input.amount.toFixed(2),
-                  quantity: 1,
-                },
-              ],
-            },
-          ],
-        }),
+        body: JSON.stringify(reqBody),
       });
 
       const data = (await res.json()) as {
@@ -87,6 +103,7 @@ export async function createPravaSession(input: {
         error?: string;
         detail?: string;
       };
+      logResponse("prava", "POST", url, res.status, data);
 
       if (res.ok && data.session_id) {
         const iframe =
@@ -113,11 +130,13 @@ export async function createPravaSession(input: {
           `Prava session failed (${res.status})`,
       };
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Prava request failed";
+      logInfo("prava", "POST /v1/sessions threw", { message });
       return {
         session_id: `sess_err_${randomUUID().slice(0, 8)}`,
         session_token: "",
         mode: "live",
-        error: e instanceof Error ? e.message : "Prava request failed",
+        error: message,
       };
     }
   }
@@ -237,12 +256,15 @@ export async function completePravaCheckout(input: {
 /* ------------------------- Real Prava API, from here ------------------------- */
 
 export interface PravaPaymentResult {
-  /** awaiting_result | completed | failed (per docs.prava.space/concepts/payments) */
+  /** pending | processing | awaiting_result | completed | failed (per docs.prava.space's PaymentResult schema) */
   status: string;
   /** One-time virtual card number — single-use, merchant- and amount-locked, short-lived. */
   token?: string;
   dynamic_cvv?: string;
-  expiry?: string;
+  expiry_month?: string;
+  expiry_year?: string;
+  /** Line-item reference required by report-status — see reportPaymentStatus below. */
+  txn_ref_id?: string;
   mode: "live" | "mock";
 }
 
@@ -257,31 +279,56 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
       status: "completed",
       token: `4242${randomUUID().replace(/-/g, "").slice(0, 8)}`,
       dynamic_cvv: "***",
-      expiry: "12/29",
+      expiry_month: "12",
+      expiry_year: "29",
+      txn_ref_id: `tli_mock_${randomUUID().slice(0, 8)}`,
       mode: "mock",
     };
   }
+  const url = `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/payment-result`;
   try {
     const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
-    const res = await fetch(
-      `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/payment-result`,
-      { headers: { Authorization: `Bearer ${secret}` } },
-    );
-    if (!res.ok) return { status: "failed", mode: "live" };
+    logRequest("prava", "GET", url);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${secret}` } });
+    if (!res.ok) {
+      logResponse("prava", "GET", url, res.status);
+      return { status: "failed", mode: "live" };
+    }
     const data = (await res.json()) as {
       status?: string;
-      token?: string;
-      dynamic_cvv?: string;
-      expiry?: string;
+      transactions?: Array<{
+        status?: string;
+        line_items?: Array<{
+          txn_ref_id?: string | null;
+          token?: string | null;
+          dynamic_cvv?: string | null;
+          expiry_month?: string | null;
+          expiry_year?: string | null;
+        }>;
+      }>;
     };
-    return {
+    // Credentials sit on the first line item of the first transaction per
+    // docs.prava.space's PaymentResult schema — never at the response's top
+    // level, despite that being a natural first guess.
+    const item = data.transactions?.[0]?.line_items?.[0];
+    const result: PravaPaymentResult = {
       status: data.status || "awaiting_result",
-      token: data.token,
-      dynamic_cvv: data.dynamic_cvv,
-      expiry: data.expiry,
+      token: item?.token || undefined,
+      dynamic_cvv: item?.dynamic_cvv || undefined,
+      expiry_month: item?.expiry_month || undefined,
+      expiry_year: item?.expiry_year || undefined,
+      // Required by report-status (POST .../report-status) — pass this back
+      // verbatim, not the session id, per docs.prava.space/api-reference/report-status.
+      txn_ref_id: item?.txn_ref_id || undefined,
       mode: "live",
     };
-  } catch {
+    // Logged redacted — see debug-log.ts; token/dynamic_cvv never appear here in full.
+    logResponse("prava", "GET", url, res.status, redactPaymentResult(result));
+    return result;
+  } catch (e) {
+    logInfo("prava", "GET /payment-result threw", {
+      message: e instanceof Error ? e.message : "unknown",
+    });
     return { status: "failed", mode: "live" };
   }
 }
@@ -290,29 +337,53 @@ export async function getPaymentResult(sessionId: string): Promise<PravaPaymentR
  * POST /v1/sessions/:id/report-status — mandatory per docs.prava.space:
  * closes the payment lifecycle regardless of whether the downstream merchant
  * charge itself succeeded.
+ *
+ * Body shape is `{ txn_ref_id, txn_status }` (docs.prava.space/api-reference/report-status)
+ * — NOT `{ status }`. `txn_ref_id` is the line-item ref from getPaymentResult's
+ * `PravaPaymentResult.txn_ref_id`, not the session id. Omitting it (as this
+ * function used to) means Prava has nothing to match the report to, so the
+ * session never actually closes even though the request returns 200.
  */
 export async function reportPaymentStatus(
   sessionId: string,
   status: "APPROVED" | "DECLINED",
+  txnRefId?: string,
+  opts?: { authorization_code?: string; response_code?: string },
 ): Promise<{ ok: boolean }> {
   if (!hasPrava() || sessionId.startsWith("sess_mock") || sessionId.startsWith("sess_err")) {
     return { ok: true };
   }
+  if (!txnRefId) {
+    logInfo("prava", "report-status skipped: no txn_ref_id (payment-result never reached awaiting_result/completed with a line item)", {
+      session_id: sessionId,
+    });
+    return { ok: false };
+  }
+  const url = `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/report-status`;
+  const reqBody = {
+    txn_ref_id: txnRefId,
+    txn_status: status,
+    ...(opts?.authorization_code ? { authorization_code: opts.authorization_code } : {}),
+    ...(opts?.response_code ? { response_code: opts.response_code } : {}),
+  };
   try {
     const secret = process.env.PRAVA_SECRET_KEY || process.env.PRAVA_API_KEY!;
-    const res = await fetch(
-      `https://sandbox.api.prava.space/v1/sessions/${encodeURIComponent(sessionId)}/report-status`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${secret}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
+    logRequest("prava", "POST", url, reqBody);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify(reqBody),
+    });
+    const data = await res.json().catch(() => null);
+    logResponse("prava", "POST", url, res.status, data);
     return { ok: res.ok };
-  } catch {
+  } catch (e) {
+    logInfo("prava", "POST /report-status threw", {
+      message: e instanceof Error ? e.message : "unknown",
+    });
     return { ok: false };
   }
 }

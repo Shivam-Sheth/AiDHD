@@ -80,11 +80,27 @@ export async function createLinqChat(input: {
     };
   }
 
+  // `to` is an ARRAY per the partner v3 spec. Passing a bare string returns
+  // 1003 "Invalid request body", which previously surfaced to users as a
+  // misleading "sandbox is inbound-first" message — it had nothing to do with
+  // inbound. Accept either shape from callers and normalise here.
+  const recipients = (Array.isArray(input.to) ? input.to : [input.to])
+    .map((t) => String(t).trim())
+    .filter(Boolean);
+
+  if (!recipients.length) {
+    return {
+      ok: false as const,
+      mode: "live" as const,
+      error: "No recipient phone numbers provided",
+    };
+  }
+
   const { ok, status, data } = await linqFetch("/chats", {
     method: "POST",
     body: JSON.stringify({
       from,
-      to: input.to,
+      to: recipients,
       message: { parts: [{ type: "text", value: input.text }] },
     }),
   });

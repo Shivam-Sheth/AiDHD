@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
-import { DM_Sans, Outfit } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { DM_Sans, Outfit, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
+import { Providers } from "./providers";
 
 /** Runs before hydration so <html data-theme> is already correct on first
  * paint — without this, a system-dark visitor would flash light-themed HTML
@@ -32,13 +33,39 @@ const dmSans = DM_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+});
+
 export const metadata: Metadata = {
   title: "Pact — Concierge for group nights & trips",
   description:
     "Group nights out and weekend trips from the same chat. Pact builds costed plans and books with scoped Prava payments per category.",
+  applicationName: "Pact",
   icons: {
     icon: "/pact-icon.svg",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Pact",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#10121a",
 };
 
 export default function RootLayout({
@@ -49,7 +76,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${dmSans.variable} h-full`}
+      className={`${outfit.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased" suppressHydrationWarning>
@@ -59,7 +86,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }}
         />
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <Providers>{children}</Providers>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -42,6 +42,7 @@ import {
 } from "../store";
 import type { CollectorSession, Package } from "../types";
 import { ensureHydrated, flushDurableNow } from "../state-sync";
+import { getBaseUrl } from "../base-url";
 
 const DEFAULT_EVENT =
   process.env.WHATSAPP_DEFAULT_EVENT_ID || "evt_demo_friday";
@@ -487,7 +488,7 @@ export async function handleWhatsAppInbound(input: {
         contact.pending_reel = undefined;
         replies.push(
           `Locked: ${pick.event_name} @ ${pick.venue} · ${pick.date} · ~$${Math.round(pick.price)}.\n` +
-            `Next: Prava ticket mandate on https://aidhd-omega.vercel.app`,
+            `Next: Prava ticket mandate on ${getBaseUrl()}`,
         );
         await replyOnce(phone, replies);
         await flushDurableNow();
@@ -718,7 +719,7 @@ export async function handleWhatsAppInbound(input: {
         if (cached) {
           replies.push(
             `Voted for ${idx + 1}) ${cached.label} (~$${Math.round(cached.cost_per_person)}/pp).\n` +
-              `Prava mandates: https://aidhd-omega.vercel.app`,
+              `Prava mandates: ${getBaseUrl()}`,
           );
           await replyOnce(phone, replies);
           return { replies, user_id: contact.user_id, event_id: eventId };
@@ -749,7 +750,7 @@ export async function handleWhatsAppInbound(input: {
     upsertEvent({ ...event, selected_package_id: fresh.id, status: "voting" });
     cachePackagesOnContacts(eventId, listPackages(eventId));
     replies.push(
-      `Voted for ${idx + 1}) ${pkg.label} (~$${Math.round(pkg.cost_per_person)}/pp).\nPrava mandates: https://aidhd-omega.vercel.app`,
+      `Voted for ${idx + 1}) ${pkg.label} (~$${Math.round(pkg.cost_per_person)}/pp).\nPrava mandates: ${getBaseUrl()}`,
     );
     await replyOnce(phone, replies);
     return { replies, user_id: contact.user_id, event_id: eventId };

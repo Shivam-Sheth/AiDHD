@@ -25,6 +25,7 @@ import {
 } from "@/components/PlacesMap";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { useTheme } from "@/components/ThemeProvider";
+import type { DebugLogEntry } from "@/lib/checkout/debug-log";
 
 type FlightCard = {
   id: string;
@@ -37,6 +38,19 @@ type FlightCard = {
   cabin: string;
   price_per_person: number;
   source: string;
+  /** Duffel-generated passenger id from the offer_request — needed to book this offer for real. */
+  duffel_passenger_id?: string;
+};
+
+type CheckoutPassenger = {
+  id: string;
+  given_name: string;
+  family_name: string;
+  email: string;
+  phone_number: string;
+  born_on: string;
+  gender: "m" | "f";
+  title: "mr" | "ms" | "mrs" | "miss";
 };
 
 type HotelCard = {
@@ -98,6 +112,19 @@ type MovieCard = {
   source?: string;
 };
 
+type ProductCard = {
+  id: string;
+  /** Shopify variant id — what actually gets carried into create_payment / the cart. */
+  variant_id: string;
+  title: string;
+  description: string;
+  price: number;
+  currency: string;
+  available: boolean;
+  photo_url?: string | null;
+  source?: string;
+};
+
 type UiCard =
   | {
       kind: "flights";
@@ -132,6 +159,10 @@ type UiCard =
       payload: { offers: MovieCard[]; label?: string; source?: string };
     }
   | {
+      kind: "products";
+      payload: { offers: ProductCard[]; label?: string; source?: string };
+    }
+  | {
       kind: "payment";
       payload: {
         session_id: string;
@@ -143,6 +174,12 @@ type UiCard =
         merchant: string;
         mode: string;
         category?: string;
+        email?: string;
+        /** category="flight" only — carries the Duffel offer through to a real charge. */
+        flight_offer_id?: string;
+        passenger?: CheckoutPassenger;
+        /** category="product" only — carries the Shopify variant through to a real charge. */
+        shopify_variant_id?: string;
       };
     }
   | {
@@ -156,6 +193,10 @@ type UiCard =
         amount: number;
         mode: string;
         summary: string;
+        /** Present only when this leg actually charged Duffel (see /api/checkout/execute). */
+        duffel_order_id?: string;
+        /** Present only when this leg actually charged Shopify (see /api/checkout/shopify-execute). */
+        shopify_order_url?: string;
       };
     }
   | { kind: "vendor"; payload: unknown }
@@ -179,6 +220,73 @@ type UiCard =
 
 type ChatLine = { role: "user" | "assistant"; text: string };
 
+type LastOffer = {
+  kind: string;
+  merchant: string;
+  amount: number;
+  flight_offer_id?: string;
+  duffel_passenger_id?: string;
+  shopify_variant_id?: string;
+} | null;
+
+/**
+ * Real price of the most recently shown offer, keyed off whatever card is
+ * newest in `cards`. Used so create_payment always charges what was actually
+ * quoted (a Duffel flight, a hotel stay, etc.) instead of a guessed amount.
+ */
+function deriveLastOffer(cards: UiCard[]): LastOffer {
+  for (const c of cards) {
+    if (c.kind === "flights") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return {
+          kind: "flights",
+          merchant: `${top.airline} ${top.from}→${top.to} flight`,
+          amount: top.price_per_person,
+          flight_offer_id: top.id,
+          duffel_passenger_id: top.duffel_passenger_id,
+        };
+      }
+    } else if (c.kind === "hotels") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "hotels", merchant: top.name, amount: top.price_total };
+      }
+    } else if (c.kind === "tickets") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "tickets", merchant: top.event_name, amount: top.price };
+      }
+    } else if (c.kind === "dining") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "dining", merchant: top.name, amount: top.price_per_person };
+      }
+    } else if (c.kind === "clubs") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "clubs", merchant: top.name, amount: top.cover };
+      }
+    } else if (c.kind === "movies") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return { kind: "movies", merchant: top.title, amount: top.price };
+      }
+    } else if (c.kind === "products") {
+      const top = c.payload.offers[0];
+      if (top) {
+        return {
+          kind: "products",
+          merchant: top.title,
+          amount: top.price,
+          shopify_variant_id: top.variant_id,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 function fmtTime(iso: string) {
   try {
     const d = new Date(iso);
@@ -192,17 +300,30 @@ function fmtTime(iso: string) {
   }
 }
 
+const DEBUG_TAG_COLORS: Record<string, string> = {
+  prava: "text-amber-300",
+  duffel: "text-sky-300",
+  poll: "text-violet-300",
+  "checkout execute": "text-emerald-300",
+  "prava complete": "text-emerald-300",
+};
+
 function sourceBadge(source?: string) {
   const live =
-    source === "duffel" || source === "ticketmaster" || source === "linq";
+    source === "duffel" ||
+    source === "ticketmaster" ||
+    source === "linq" ||
+    source === "shopify";
   const label =
     source === "duffel"
       ? "Live · Duffel"
       : source === "ticketmaster"
         ? "Live · Ticketmaster"
-        : source === "fixture"
-          ? "Fixture"
-          : source || "Lookup";
+        : source === "shopify"
+          ? "Live · Shopify"
+          : source === "fixture"
+            ? "Fixture"
+            : source || "Lookup";
   return (
     <span
       className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
@@ -528,6 +649,33 @@ function ConciergeInner({
   const [placeReviews, setPlaceReviews] = useState<Record<string, PlaceReview[]>>({});
   const [routeInfo, setRouteInfo] = useState<RouteInfoPayload | null>(null);
 
+  const lastOffer = useMemo(() => deriveLastOffer(cards), [cards]);
+
+  /** Live Prava/Duffel checkout trace — see lib/checkout/debug-log.ts. */
+  const [debugEntries, setDebugEntries] = useState<DebugLogEntry[]>([]);
+  const [debugConnected, setDebugConnected] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(true);
+  const debugBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const es = new EventSource("/api/checkout/debug-stream");
+    es.onopen = () => setDebugConnected(true);
+    es.onerror = () => setDebugConnected(false);
+    es.onmessage = (ev) => {
+      try {
+        const entry = JSON.parse(ev.data) as DebugLogEntry;
+        setDebugEntries((prev) => [...prev, entry].slice(-500));
+      } catch {
+        // Ignore malformed frames rather than break the stream.
+      }
+    };
+    return () => es.close();
+  }, []);
+
+  useEffect(() => {
+    if (debugOpen) debugBottomRef.current?.scrollIntoView({ block: "end" });
+  }, [debugEntries.length, debugOpen]);
+
   const pushUi = useCallback((ui: UiCard | UiCard[] | undefined | null) => {
     if (!ui) return;
     const list = Array.isArray(ui) ? ui : [ui];
@@ -543,15 +691,50 @@ function ConciergeInner({
     if (!payment) return;
     setCompleting(true);
     try {
-      const res = await fetch("/api/prava/complete", {
+      // Flights with a real offer + passenger attached actually spend the
+      // Prava card against Duffel; products with a real Shopify variant
+      // attached spend it via headless-browser checkout (see
+      // browser-harness.ts — Shopify has no server-to-server card-charge API
+      // anymore). Everything else (no merchant payment API wired up) only
+      // records the Prava enrollment, same as before.
+      const canChargeDuffel =
+        payment.payload.category === "flight" &&
+        Boolean(payment.payload.flight_offer_id) &&
+        Boolean(payment.payload.passenger);
+      const canChargeShopify =
+        payment.payload.category === "product" && Boolean(payment.payload.shopify_variant_id);
+      const endpoint = canChargeDuffel
+        ? "/api/checkout/execute"
+        : canChargeShopify
+          ? "/api/checkout/shopify-execute"
+          : "/api/prava/complete";
+      const body = canChargeDuffel
+        ? {
+            session_id: payment.payload.session_id,
+            merchant: payment.payload.merchant,
+            amount: payment.payload.amount,
+            currency: "USD",
+            offer_id: payment.payload.flight_offer_id,
+            passengers: [payment.payload.passenger],
+          }
+        : canChargeShopify
+          ? {
+              session_id: payment.payload.session_id,
+              merchant: payment.payload.merchant,
+              amount: payment.payload.amount,
+              variant_id: payment.payload.shopify_variant_id,
+              email: payment.payload.email || "ameyagarwal10@gmail.com",
+            }
+          : {
+              session_id: payment.payload.session_id,
+              merchant: payment.payload.merchant,
+              amount: payment.payload.amount,
+              category: payment.payload.category || "trip",
+            };
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_id: payment.payload.session_id,
-          merchant: payment.payload.merchant,
-          amount: payment.payload.amount,
-          category: payment.payload.category || "trip",
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -587,7 +770,13 @@ function ConciergeInner({
 
     const sdk = new PravaSDK({ publishableKey: pravaPublishableKey });
     void sdk.collectPAN({
-      sessionToken: payment.payload.session_token,
+      // @prava-sdk/core's buildIframeUrl() only fills the iframe URL's `session`
+      // query param when one isn't already present, using whatever we pass here
+      // as sessionToken — Prava's own reference integration (prava-sandbox)
+      // passes session_id for that reason, not the JWT session_token, or the
+      // mounted iframe binds to the wrong identifier and card collection never
+      // resolves.
+      sessionToken: payment.payload.session_id,
       iframeUrl: payment.payload.iframe_url,
       container: cardContainerRef.current,
       onSuccess: () => void completePayment(),
@@ -656,15 +845,40 @@ function ConciergeInner({
   useConversationClientTool("search_movies", async (params) =>
     runTool("search_movies", params as Record<string, unknown>),
   );
+  useConversationClientTool("search_products", async (params) =>
+    runTool("search_products", params as Record<string, unknown>),
+  );
   useConversationClientTool("lookup_vendor", async (params) =>
     runTool("lookup_vendor", params as Record<string, unknown>),
   );
   useConversationClientTool("get_weather", async (params) =>
     runTool("get_weather", params as Record<string, unknown>),
   );
-  useConversationClientTool("create_payment", async (params) =>
-    runTool("create_payment", params as Record<string, unknown>),
-  );
+  useConversationClientTool("create_payment", async (params) => {
+    const p = { ...(params as Record<string, unknown>) };
+    const amt = Number(p.amount);
+    // The voice LLM sometimes forgets the exact price it quoted — backfill
+    // from the last real offer shown on screen rather than let it guess.
+    if ((!Number.isFinite(amt) || amt <= 0) && lastOffer) {
+      p.amount = lastOffer.amount;
+      if (!p.merchant) p.merchant = lastOffer.merchant;
+    }
+    // Same reasoning as the amount/merchant backfill above: the voice LLM
+    // reliably asks for passenger details but can forget to echo the offer
+    // ids back verbatim, and those must match exactly for Duffel to accept
+    // the order — so fill them from the flight card actually on screen.
+    if (p.category === "flight" && lastOffer?.kind === "flights") {
+      if (!p.flight_offer_id) p.flight_offer_id = lastOffer.flight_offer_id;
+      if (!p.duffel_passenger_id) p.duffel_passenger_id = lastOffer.duffel_passenger_id;
+    }
+    // Same backfill reasoning as flights above: the voice LLM can forget to
+    // echo the variant id back verbatim, and it must match exactly for the
+    // Shopify cart to build against the right item.
+    if (p.category === "product" && lastOffer?.kind === "products") {
+      if (!p.shopify_variant_id) p.shopify_variant_id = lastOffer.shopify_variant_id;
+    }
+    return runTool("create_payment", p);
+  });
 
   const conversation = useConversation({
     onConnect: () => setVoiceError(null),
@@ -802,6 +1016,7 @@ function ConciergeInner({
               role: l.role,
               content: l.text,
             })),
+            last_offer: lastOffer,
           }),
         });
         const data = await res.json();
@@ -1318,6 +1533,30 @@ function ConciergeInner({
                   </div>
                 );
               }
+              if (c.kind === "products") {
+                return (
+                  <div
+                    key={`p-${idx}`}
+                    className="animate-[fade-in_0.4s_ease] space-y-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/80">
+                        Catalog · {c.payload.label || "items"}
+                      </p>
+                      {sourceBadge(c.payload.source)}
+                    </div>
+                    {c.payload.offers.slice(0, 4).map((p) => (
+                      <MediaCard
+                        key={p.id}
+                        photo={p.photo_url}
+                        title={p.title}
+                        meta={p.available ? p.description : `${p.description} · Sold out`}
+                        price={p.price}
+                      />
+                    ))}
+                  </div>
+                );
+              }
               if (c.kind === "weather") {
                 const w = c.payload;
                 return (
@@ -1379,6 +1618,48 @@ function ConciergeInner({
             Paste Instagram → plan
           </Link>
         </p>
+
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0c1117]/90">
+          <button
+            type="button"
+            onClick={() => setDebugOpen((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-2.5"
+          >
+            <span className="font-display text-xs font-semibold text-white/70">
+              Checkout debug console
+            </span>
+            <span className="flex items-center gap-2 text-[10px]">
+              <span className={debugConnected ? "text-emerald-400" : "text-red-400"}>
+                {debugConnected ? "● live" : "● disconnected"}
+              </span>
+              <span className="text-white/40">{debugOpen ? "▾" : "▸"}</span>
+            </span>
+          </button>
+          {debugOpen && (
+            <div className="max-h-64 overflow-y-auto border-t border-white/10 px-4 py-3 font-mono text-[11px] leading-relaxed">
+              {debugEntries.length === 0 && (
+                <p className="text-white/40">
+                  Waiting for checkout activity — approve a Prava payment to see it here.
+                </p>
+              )}
+              {debugEntries.map((e) => (
+                <div key={e.id} className="mb-1.5">
+                  <span className="text-white/35">{e.ts.slice(11, 23)}</span>{" "}
+                  <span className={DEBUG_TAG_COLORS[e.tag] || "text-white/70"}>
+                    [{e.tag}]
+                  </span>{" "}
+                  <span className="text-white/85">{e.message}</span>
+                  {e.data !== undefined && (
+                    <pre className="mt-0.5 ml-4 whitespace-pre-wrap break-all text-white/45">
+                      {JSON.stringify(e.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))}
+              <div ref={debugBottomRef} />
+            </div>
+          )}
+        </div>
       </aside>
 
       <RoutePanel info={routeInfo} />

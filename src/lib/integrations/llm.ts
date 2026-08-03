@@ -6,24 +6,61 @@ import { hasGemini, hasOpenAI } from "./config";
 export type LlmProvider = "gemini" | "openai" | "none";
 
 export function activeLlmProvider(): LlmProvider {
-  // Gemini preferred while OpenAI credits are pending.
-  if (hasGemini()) return "gemini";
+  // OpenAI preferred when credits are configured; Gemini remains fallback.
   if (hasOpenAI()) return "openai";
+  if (hasGemini()) return "gemini";
   return "none";
 }
 
 /**
  * Prefer Gemini. OpenAI stays wired as fallback for when credits arrive.
  */
+/** Plain-text completion — prefers OpenAI when set (group chat credits), else Gemini. */
+export async function completeText(input: {
+  system: string;
+  user: string;
+}): Promise<{ text: string; provider: LlmProvider } | null> {
+  if (hasOpenAI()) {
+    try {
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const res = await client.chat.completions.create({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        messages: [
+          { role: "system", content: input.system },
+          { role: "user", content: input.user },
+        ],
+        temperature: 0.4,
+      });
+      const text = res.choices[0]?.message?.content;
+      if (text?.trim()) return { text, provider: "openai" };
+    } catch {
+      // fall through
+    }
+  }
+
+  if (hasGemini()) {
+    const apiKey = process.env.GEMINI_API_KEY!;
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model,
+        contents: `${input.system}\n\n${input.user}`,
+      });
+      const text = response.text;
+      if (text?.trim()) return { text, provider: "gemini" };
+    } catch {
+      // none
+    }
+  }
+
+  return null;
+}
+
 export async function completeJson(input: {
   system: string;
   user: string;
 }): Promise<{ text: string; provider: LlmProvider } | null> {
-  if (hasGemini()) {
-    const gemini = await completeWithGemini(input);
-    if (gemini) return gemini;
-  }
-
   if (hasOpenAI()) {
     try {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -38,8 +75,13 @@ export async function completeJson(input: {
       const text = res.choices[0]?.message?.content;
       if (text?.trim()) return { text, provider: "openai" };
     } catch {
-      return null;
+      // fall through to Gemini
     }
+  }
+
+  if (hasGemini()) {
+    const gemini = await completeWithGemini(input);
+    if (gemini) return gemini;
   }
 
   return null;

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ReelPlanner } from "@/components/ReelPlanner";
 
 export const metadata: Metadata = {
-  title: "AiDHD — Reel to itinerary",
+  title: "Pact — Reel to itinerary",
   description:
     "Paste an Instagram or TikTok reel link (plus caption/transcript) and get a day plan.",
 };

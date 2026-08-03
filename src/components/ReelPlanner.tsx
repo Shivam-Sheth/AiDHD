@@ -189,11 +189,9 @@ export function ReelPlanner() {
       <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-pattern opacity-40" />
 
       <header className="mx-auto flex max-w-3xl items-baseline justify-between px-5 pt-8 sm:px-6">
-        <Link
-          href="/"
-          className="font-display text-2xl font-bold tracking-tight text-neutral-900 transition-opacity hover:opacity-70"
-        >
-          AiDHD
+        <Link href="/" className="transition-opacity hover:opacity-70">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/pact-logo-light.svg" alt="Pact" className="h-9 w-auto" />
         </Link>
         <Link
           href="/"

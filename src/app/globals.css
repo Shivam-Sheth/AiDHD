@@ -5,6 +5,11 @@
   --font-display: var(--font-outfit), system-ui, sans-serif;
 }
 
+/* Light theme (default). Every color the app renders with comes from a
+   variable here — dark mode (below) only overrides these same names, so a
+   component that reads var(--ink)/var(--bg)/etc. never needs a light/dark
+   copy of its own classNames, just the `dark:` escape hatches noted per
+   component where Tailwind utilities (not vars) were still hardcoded. */
 :root {
   --ink: #171717;
   --muted: #525252;
@@ -12,23 +17,113 @@
   --line: #e5e5e5;
   --bg: #fafafa;
   --surface: #ffffff;
+  --surface-2: #f2f5f9;
   --accent: #092b52;
   --accent-hover: #0d9488;
   --accent-soft: #ccfbf1;
   --accent-shadow: rgb(15 118 110 / 0.22);
+  /* Fixed brand navy for decorative fills that carry their own fixed-color
+     icon/text on top (e.g. the "brand" wallet ticket in TripsOutings) —
+     unlike --accent above, this one deliberately does NOT flip with theme,
+     since it's a solid card background, not text/hover color on a page surface. */
+  --wallet-brand: #092b52;
 
-  /* "Night road" — the landing hero/footer-CTA palette. Dusk-to-night gradient
-     base with a warm coral accent for primary CTAs; teal above stays the
-     functional accent used through the rest of the product. */
+  /* "Night road" — the landing hero/footer-CTA gradient. Dusk-to-night base
+     with an electric-cyan glow for countdowns/threshold elements; teal above
+     stays the functional accent used through the rest of the product.
+     (--coral* names kept as-is — renaming would mean touching every landing
+     component that references them; only the values moved off the old warm
+     coral to the cool accent.) */
   --night: #0a0b1f;
   --night-soft: #14173a;
   --dusk: #2c2a6b;
   --dusk-soft: #4a3d8f;
   --star: #eef1ff;
-  --coral: #ff7a52;
-  --coral-hover: #ff9268;
-  --coral-soft: #ffe4d6;
-  --coral-shadow: rgb(255 122 82 / 0.35);
+  --coral: #1ec775;
+  --coral-gradient: #67e8f9;
+  --coral-hover: #1ec775;
+  --coral-soft: #cffafe;
+  --coral-shadow: rgb(34 211 238 / 0.35);
+
+  /* Hero/footer-CTA gradient + text/pill colors, theme-aware so the same
+     "night road" section can render as an airy day-sky instead. Light
+     defaults here; dark theme below points these straight at --night/
+     --night-soft/--dusk/--star so there's one definition of "dark hero",
+     not two. */
+  --hero-bg-1: #eef4ff;
+  --hero-bg-2: #e1ebfb;
+  --hero-bg-3: #cee0f8;
+  --hero-glow: rgb(30 199 117 / 0.14);
+  --hero-ink: #0b1220;
+  --hero-ink-muted: rgb(11 18 32 / 0.68);
+  --hero-ink-faint: rgb(11 18 32 / 0.4);
+  --hero-pill-bg: rgb(11 18 32 / 0.05);
+  --hero-pill-border: rgb(11 18 32 / 0.12);
+  --hero-divider: rgb(11 18 32 / 0.1);
+  --hero-panel-bg: rgb(255 255 255 / 0.55);
+  --hero-panel-border: rgb(11 18 32 / 0.12);
+  --hero-band-bg: rgb(11 18 32 / 0.03);
+  /* --coral-soft (light cyan) only reads on a dark hero pill/link — on a
+     light one it needs a darkened version of the same coral-green hue. */
+  --hero-accent-ink: #0e8a4f;
+  /* Shop Pay purple — a fixed brand accent (not theme-flipping) layered into
+     the hero/footer gradient as a glow, same idea as --wallet-brand: a
+     decorative fill, not a text/hover color, so it doesn't need a light/dark
+     pair of its own. Only the glow's opacity differs per theme (below). */
+  --hero-purple: #5a31f4;
+  --hero-purple-glow: rgb(90 49 244 / 0.16);
+  --grid-line: rgb(0 0 0 / 0.03);
+
+  /* SiteHeader's floating "pill" on scroll — deliberately the *inverse* of
+     the page theme (dark pill on a light page, light pill on a dark page),
+     not a copy of it, so these are fixed literals per theme rather than
+     aliases to --ink/--surface/etc (which track the page, not its inverse). */
+  --navpill-bg: #0a0b1f;
+  --navpill-text: #ffffff;
+  --navpill-text-muted: rgb(255 255 255 / 0.7);
+  --navpill-border: rgb(255 255 255 / 0.1);
+  --navpill-hover-bg: rgb(255 255 255 / 0.1);
+  --navpill-accent-ink: #cffafe;
+}
+
+:root[data-theme="dark"] {
+  --ink: #f2f4f8;
+  --muted: #a8b0bf;
+  --faint: #6b7280;
+  --line: #262b38;
+  --bg: #10121a;
+  --surface: #171a24;
+  --surface-2: #1b1e29;
+  --accent: #7dd3c0;
+  --accent-hover: #2dd4bf;
+  /* --accent-soft intentionally not overridden: its one live use (an icon
+     color sitting on the fixed --wallet-brand navy in TripsOutings) needs to
+     stay a light tint in both themes, not flip dark. */
+  --accent-shadow: rgb(45 212 191 / 0.35);
+
+  --hero-bg-1: var(--night);
+  --hero-bg-2: var(--night-soft);
+  --hero-bg-3: var(--dusk);
+  --hero-glow: rgb(34 211 238 / 0.16);
+  --hero-ink: #ffffff;
+  --hero-ink-muted: rgb(255 255 255 / 0.7);
+  --hero-ink-faint: rgb(255 255 255 / 0.4);
+  --hero-pill-bg: rgb(255 255 255 / 0.05);
+  --hero-pill-border: rgb(255 255 255 / 0.15);
+  --hero-divider: rgb(255 255 255 / 0.1);
+  --hero-panel-bg: rgb(255 255 255 / 0.07);
+  --hero-panel-border: rgb(255 255 255 / 0.16);
+  --hero-band-bg: rgb(0 0 0 / 0.2);
+  --hero-accent-ink: var(--coral-soft);
+  --hero-purple-glow: rgb(90 49 244 / 0.22);
+  --grid-line: rgb(255 255 255 / 0.05);
+
+  --navpill-bg: #f4f6fa;
+  --navpill-text: #0b1220;
+  --navpill-text-muted: rgb(11 18 32 / 0.7);
+  --navpill-border: rgb(11 18 32 / 0.12);
+  --navpill-hover-bg: rgb(11 18 32 / 0.06);
+  --navpill-accent-ink: #0e8a4f;
 }
 
 html {
@@ -42,6 +137,9 @@ body {
   color: var(--ink);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Browsers don't set cursor: pointer on <button> by default (unlike <a>),
@@ -58,8 +156,8 @@ button:not(:disabled),
 
 .bg-grid-pattern {
   background-image:
-    linear-gradient(to right, rgb(0 0 0 / 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(0 0 0 / 0.03) 1px, transparent 1px);
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
@@ -114,27 +212,16 @@ button:not(:disabled),
   opacity: 0;
 }
 
-/* Static "no-WebGL / reduced motion" backdrop for the hero — same night-road
-   palette as the Three.js scene so the fallback never looks like a broken load. */
-.bg-night-road {
+/* Hero/footer-CTA gradient — a layered gradient in both themes (no WebGL/
+   Three.js involved): a Shop-Pay-purple glow top-left, the coral/cyan
+   threshold-accent glow bottom-center, and a dusk-to-night or day-sky base
+   depending on theme. */
+.bg-hero-gradient {
   background:
-    radial-gradient(ellipse 60% 40% at 50% 100%, rgb(255 122 82 / 0.16), transparent 70%),
-    radial-gradient(ellipse 80% 60% at 50% 0%, var(--dusk) 0%, transparent 60%),
-    linear-gradient(180deg, var(--night) 0%, var(--night-soft) 55%, var(--night) 100%);
-}
-
-@keyframes twinkle {
-  0%,
-  100% {
-    opacity: 0.25;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
-
-.animate-twinkle {
-  animation: twinkle 3.2s ease-in-out infinite;
+    radial-gradient(ellipse 55% 45% at 12% 20%, var(--hero-purple-glow), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, var(--hero-glow), transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 0%, var(--hero-bg-3) 0%, transparent 60%),
+    linear-gradient(180deg, var(--hero-bg-1) 0%, var(--hero-bg-2) 55%, var(--hero-bg-1) 100%);
 }
 
 @keyframes marquee {

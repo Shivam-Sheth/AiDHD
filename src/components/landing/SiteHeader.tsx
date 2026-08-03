@@ -1,19 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ThemeToggle } from "./ThemeToggle";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useTheme } from "@/components/ThemeProvider";
 
 const NAV_LINKS: [string, string][] = [
-  ["use-cases", "Nights & trips"],
   ["how-it-works", "How it works"],
+  ["use-cases", "Use cases"],
 ];
 
 /**
  * Light, full-width bar at rest, with curved bottom corners only (it sits
  * flush against the top of the viewport, so top corners would never be
- * visible anyway). Fades to the hero's dark night palette as it compresses
- * into a floating rounded pill on scroll, and stays that way (only
- * re-expands/re-lightens back at the top).
+ * visible anyway). Fades to a floating rounded pill on scroll, and stays
+ * that way (only re-expands back at the top). The pill is always the
+ * *inverse* of the page theme (--navpill-* in globals.css) — dark pill on a
+ * light page, light pill on a dark page — rather than a fixed dark night
+ * palette, so it stays a deliberate accent in both themes instead of
+ * disappearing into the page on scroll in dark mode.
  *
  * Same element throughout; only its classes toggle, so box-model/radius/
  * color all animate as one continuous morph. Three things that used to break
@@ -30,15 +37,25 @@ const NAV_LINKS: [string, string][] = [
  *      paces the motion evenly across the whole duration instead.
  */
 export function SiteHeader({
-  busy,
   onScrollTo,
-  onStartPlanning,
 }: {
-  busy: boolean;
   onScrollTo: (id: string) => void;
-  onStartPlanning: () => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
+  const { openLogin, requireAuth } = useAuth();
+  const router = useRouter();
+  const { theme } = useTheme();
+
+  const goPlanShop = () => requireAuth(() => router.push("/agent"));
+  /** Group-buy creation flow isn't built yet — the auth gate is live, the
+   * destination isn't. Logged-in clicks are a deliberate no-op until then. */
+  const startGroupBuy = () => requireAuth(() => {});
+
+  /** The scrolled pill is deliberately the *inverse* of the page theme (see
+   * --navpill-* in globals.css), so the logo variant has to track the pill's
+   * actual background, not just the page theme — matching that inversion
+   * here is what keeps the wordmark legible in all four combinations. */
+  const logoOnDarkBg = scrolled ? theme === "light" : theme === "dark";
 
   useEffect(() => {
     // Hysteresis: different enter/exit thresholds so hovering right around
@@ -57,35 +74,49 @@ export function SiteHeader({
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-3">
+      {/* grid, not flex+justify-between: an absolutely-centered nav could
+          overlap the logo/buttons whenever the pill's capped width made
+          them collide (verified — it did, between roughly 768–1050px). A
+          3-column grid reserves the outer columns to their own content
+          width first, so the center column (and the nav centered inside
+          it) can never overlap them, at any width. */}
       <div
-        className={`flex w-full items-center justify-between transition-all duration-500 ease-in-out ${
+        className={`grid w-full grid-cols-[auto_1fr_auto] items-center transition-all duration-500 ease-in-out ${
           scrolled
-            ? "mt-3 max-w-4xl gap-4 rounded-full border border-white/10 bg-[var(--night)]/90 px-5 py-2.5 shadow-2xl shadow-black/40 backdrop-blur-xl"
-            : "mt-0 max-w-full gap-4 rounded-t-none rounded-b-3xl border-b border-neutral-200/80 bg-white/95 px-3 py-4 shadow-lg shadow-black/5 backdrop-blur-md lg:px-8"
+            ? "mt-3 max-w-5xl gap-4 rounded-full border border-[var(--navpill-border)] bg-[var(--navpill-bg)]/90 px-5 py-0.5 shadow-2xl shadow-black/40 backdrop-blur-xl"
+            : "mt-0 max-w-full gap-4 rounded-t-none rounded-b-3xl border-b border-[var(--line)] bg-[var(--surface)]/95 px-3 py-1 shadow-lg shadow-black/5 backdrop-blur-md lg:px-8"
         }`}
       >
+        {/* Bar padding was trimmed by the same amount the logo grew (py-4→py-3
+            unscrolled, py-2.5→py-1.5 scrolled), so the outer bar height is
+            unchanged even though the logo itself is now noticeably larger. */}
         <button
           type="button"
           onClick={() => onScrollTo("top")}
-          className={`font-display shrink-0 text-lg font-bold transition-colors duration-500 ${
-            scrolled
-              ? "text-white hover:text-white/80"
-              : "text-neutral-900 hover:text-[var(--accent)]"
-          }`}
+          className="shrink-0 transition-opacity duration-500 hover:opacity-75"
         >
-          AiDHD
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={logoOnDarkBg ? "/pact-logo-dark.svg" : "/pact-logo-light.svg"}
+            alt="Pact"
+            className="h-15 w-auto"
+          />
         </button>
 
-        <nav className="hidden items-center gap-5 md:flex lg:gap-7">
+        <nav
+          className={`hidden items-center justify-self-center divide-x md:flex ${
+            scrolled ? "divide-[var(--navpill-border)]" : "divide-[var(--line)]"
+          }`}
+        >
           {NAV_LINKS.map(([id, label]) => (
             <button
-              key={id}
+              key={`${id}-${label}`}
               type="button"
               onClick={() => onScrollTo(id)}
-              className={`text-sm font-medium whitespace-nowrap transition-colors duration-500 ${
+              className={`px-4 text-sm font-medium whitespace-nowrap transition-colors duration-500 ${
                 scrolled
-                  ? "text-white/70 hover:text-white"
-                  : "text-neutral-600 hover:text-[var(--accent)]"
+                  ? "text-[var(--navpill-text-muted)] hover:text-[var(--navpill-text)]"
+                  : "text-[var(--muted)] hover:text-[var(--accent)]"
               }`}
             >
               {label}
@@ -93,34 +124,52 @@ export function SiteHeader({
           ))}
           <Link
             href="/reel"
-            className={`hidden text-sm font-medium whitespace-nowrap transition-colors duration-500 lg:inline ${
+            className={`px-4 text-sm font-medium whitespace-nowrap transition-colors duration-500 ${
               scrolled
-                ? "text-[var(--coral-soft)] hover:text-white"
+                ? "text-[var(--navpill-accent-ink)] hover:text-[var(--navpill-text)]"
                 : "text-[var(--coral)] hover:text-[var(--coral-hover)]"
             }`}
           >
             Reel → itinerary
           </Link>
+          <button
+            type="button"
+            onClick={goPlanShop}
+            className={`px-4 text-sm font-medium whitespace-nowrap transition-colors duration-500 ${
+              scrolled
+                ? "text-[var(--navpill-accent-ink)] hover:text-[var(--navpill-text)]"
+                : "text-[var(--coral)] hover:text-[var(--coral-hover)]"
+            }`}
+          >
+            Plan / Shop
+          </button>
+          <button
+            type="button"
+            onClick={startGroupBuy}
+            className={`px-4 text-sm font-medium whitespace-nowrap transition-colors duration-500 ${
+              scrolled
+                ? "text-[var(--navpill-accent-ink)] hover:text-[var(--navpill-text)]"
+                : "text-[var(--coral)] hover:text-[var(--coral-hover)]"
+            }`}
+          >
+            Start a group buy
+          </button>
         </nav>
 
         <div className="flex shrink-0 items-center gap-3">
-          <Link
-            href="/login"
-            className={`hidden text-sm font-medium transition-colors duration-500 sm:inline ${
-              scrolled
-                ? "text-white/70 hover:text-white"
-                : "text-neutral-600 hover:text-[var(--accent)]"
-            }`}
-          >
-            Sign in
-          </Link>
+          <ThemeToggle
+            className={
+              scrolled ?
+                "text-[var(--navpill-text-muted)] hover:bg-[var(--navpill-hover-bg)] hover:text-[var(--navpill-text)]"
+              : "text-[var(--muted)] hover:bg-black/5 hover:text-[var(--accent)]"
+            }
+          />
           <button
             type="button"
-            disabled={busy}
-            onClick={onStartPlanning}
-            className="shrink-0 rounded-full bg-[var(--coral)] px-4 py-1.5 text-sm font-semibold whitespace-nowrap text-white shadow-lg shadow-[var(--coral-shadow)] transition duration-300 hover:bg-[var(--coral-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={openLogin}
+            className="shrink-0 rounded-full bg-[var(--coral)] px-4 py-1.5 text-sm font-semibold whitespace-nowrap text-white shadow-lg shadow-[var(--coral-shadow)] transition duration-300 hover:bg-[var(--coral-hover)]"
           >
-            {busy ? "Working…" : "Start planning"}
+            Sign in
           </button>
         </div>
       </div>

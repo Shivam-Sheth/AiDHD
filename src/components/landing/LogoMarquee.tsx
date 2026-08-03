@@ -1,40 +1,49 @@
+import { useTheme } from "@/components/ThemeProvider";
+
 /**
  * Real hackathon integration logos, dropped in public/. Duffel and Prava
- * ship as dark navy/black wordmarks — invert() flips them to match Linq and
- * ElevenLabs, which are already white. Senso is a colored icon + dark text,
- * so it gets a small light chip instead of being inverted (inverting would
- * mangle its actual brand colors).
+ * ship as dark navy/black wordmarks; Linq and ElevenLabs ship as white ones.
+ * `darkAsset` records which is which (a fixed fact about the file, not a
+ * style choice) — against the hero's dark theme the dark-asset logos need
+ * invert() to read as white, and against light theme it's the reverse (the
+ * white-asset logos need invert() to read as dark). Senso is a colored icon
+ * + dark text, so it gets a small light chip instead of ever being inverted
+ * (inverting would mangle its actual brand colors, and the chip gives it
+ * contrast against either theme on its own).
  */
 const PARTNERS: {
   name: string;
   src: string;
-  invert?: boolean;
+  darkAsset?: boolean;
   chip?: boolean;
 }[] = [
-  { name: "Prava", src: "/prava-payments-logo.svg", invert: true },
-  { name: "Linq", src: "/linq-logo.png" },
-  { name: "Senso", src: "/senso-logo.webp", chip: true },
-  { name: "Duffel", src: "/duffel-logo.png", invert: true },
+  { name: "Prava", src: "/prava-payments-logo.svg", darkAsset: true },
   { name: "ElevenLabs", src: "/eleven-labs.svg" },
+  { name: "Shopify", src: "/shopify-logo.svg" },
+  { name: "Linq", src: "/linq-logo.png" },
+  { name: "Duffel", src: "/duffel-logo.png", darkAsset: true },
 ];
 
 function PartnerLogo({
   name,
   src,
-  invert,
+  darkAsset,
   chip,
 }: {
   name: string;
   src: string;
-  invert?: boolean;
+  darkAsset?: boolean;
   chip?: boolean;
 }) {
+  const { theme } = useTheme();
+  const invert = !chip && (theme === "dark" ? darkAsset : !darkAsset);
+
   // eslint-disable-next-line @next/next/no-img-element
   const img = (
     <img
       src={src}
       alt={name}
-      className={`h-6 w-auto object-contain sm:h-7 ${invert ? "invert" : ""}`}
+      className={`h-4 w-auto object-contain sm:h-5 ${invert ? "invert" : ""}`}
     />
   );
 
@@ -74,7 +83,7 @@ export function LogoMarquee() {
   const track = Array.from({ length: COPIES }, () => PARTNERS).flat();
 
   return (
-    <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+    <div className="relative w-2/3 mx-auto overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
       <div className="animate-marquee flex w-max items-center py-1">
         {track.map((p, i) => (
           <PartnerLogo key={`${p.name}-${i}`} {...p} />

@@ -1,30 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useState } from "react";
 import { LogoMarquee } from "./LogoMarquee";
 import { GroupPlanningAnimation } from "./GroupPlanningAnimation";
 
-const HeroScene = dynamic(
-  () => import("./HeroScene").then((m) => m.HeroScene),
-  {
-    ssr: false,
-    loading: () => null,
-  },
-);
-
-/**
- * Headline options considered:
- * 1. "The group chat ends. The plan begins." (implemented)
- * 2. "Everyone chips in. One agent books it."
- * 3. "Stop reply-alling your vacation."
- */
-
 const LOOP_STEPS = [
-  "Budgets & vibes in",
-  "Agent reconciles",
-  "2–3 costed options",
-  "One tap books",
+  "Friends join the window",
+  "Agent recommends picks",
+  "Threshold tracked live",
+  "One prava checkout",
 ];
 
 export function Hero({
@@ -38,19 +21,9 @@ export function Hero({
   onStartPlanning: () => void;
   onSeeHowItWorks: () => void;
 }) {
-  const [sceneUnavailable, setSceneUnavailable] = useState(false);
-
   return (
-    <section id="top" className="bg-night-road relative overflow-hidden">
-      {/* Three.js scene is now an ambient backdrop behind the two-column
-          layout, not the focal centerpiece — falls back to the CSS gradient
-          above (bg-night-road) if WebGL isn't available or while the chunk loads. */}
-      <div className="absolute inset-0">
-        {!sceneUnavailable && (
-          <HeroScene onUnavailable={() => setSceneUnavailable(true)} />
-        )}
-      </div>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--night)] via-transparent to-transparent" />
+    <section id="top" className="bg-hero-gradient relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--hero-bg-1)] via-transparent to-transparent" />
 
       {/* pt-16 clears the fixed SiteHeader's unscrolled height (h-16 equivalent).
           flex-col + flex-1 so the logo band below sits in normal flow at the
@@ -58,22 +31,23 @@ export function Hero({
       <div className="relative flex min-h-[70vh] flex-col pt-16">
         <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center gap-6 px-6 py-8 lg:grid lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-10 lg:px-10">
           <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-            <span className="animate-fade-in rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-wide text-[var(--coral-soft)] uppercase backdrop-blur-sm">
-              Group nights & trips, planned by one agent
+            <span className="animate-fade-in rounded-full border border-[var(--hero-pill-border)] bg-[var(--hero-pill-bg)] px-4 py-1.5 text-xs font-semibold tracking-wide text-[var(--hero-accent-ink)] uppercase backdrop-blur-sm">
+              Group buys, live in a 2-hour window
             </span>
 
-            <h1 className="animate-fade-in font-display mt-5 max-w-xl text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              The group chat ends.
+            <h1 className="animate-fade-in font-display mt-5 max-w-xl text-4xl font-bold tracking-tight text-[var(--hero-ink)] sm:text-4xl lg:text-5xl">
+              The discount code dies.
               <br />
-              <span className="bg-gradient-to-r from-[var(--coral)] to-[var(--coral-hover)] bg-clip-text text-transparent">
-                The plan begins.
+              <span className="bg-gradient-to-r from-[var(--coral)] to-[var(--coral-gradient)] bg-clip-text text-transparent">
+                The group buy begins.
               </span>
             </h1>
 
-            <p className="animate-fade-in mt-5 max-w-lg text-lg leading-relaxed text-white/70">
-              Everyone drops a budget and a vibe — for a Friday concert or a
-              week-long trip. Our agent turns the whole group&apos;s input
-              into 2–3 fully costed plans, then books the one you pick.
+            <p className="animate-fade-in mt-5 max-w-lg text-lg leading-relaxed text-[var(--hero-ink-muted)]">
+              Everyone in the group gets one 2-hour window to fill their cart.
+              Cross the combined spend threshold together and the discount
+              unlocks for the whole group — the agent recommends what to add,
+              prava checks everyone out before the clock hits zero.
             </p>
 
             <div className="animate-slide-up mt-8 flex flex-wrap justify-center gap-4 lg:justify-start">
@@ -83,12 +57,12 @@ export function Hero({
                 onClick={onStartPlanning}
                 className="rounded-xl bg-[var(--coral)] px-6 py-3.5 font-semibold text-white shadow-lg shadow-[var(--coral-shadow)] transition hover:bg-[var(--coral-hover)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {busy ? "Reconciling the group…" : "Start planning →"}
+                {busy ? "Opening the window…" : "Start a group buy →"}
               </button>
               <button
                 type="button"
                 onClick={onSeeHowItWorks}
-                className="rounded-xl border-2 border-white/20 px-6 py-3.5 font-semibold text-white/90 transition hover:border-white/40 hover:bg-white/5"
+                className="rounded-xl border-2 border-[var(--hero-pill-border)] px-6 py-3.5 font-semibold text-[var(--hero-ink-muted)] transition hover:border-[var(--hero-divider)] hover:bg-[var(--hero-pill-bg)]"
               >
                 See how it works
               </button>
@@ -106,8 +80,8 @@ export function Hero({
           </div>
         </div>
 
-        <div className="relative border-t border-white/10 bg-black/20 py-3 backdrop-blur-sm">
-          <p className="mb-2 text-center text-[10px] font-semibold tracking-widest text-white/30 uppercase">
+        <div className="relative border-t border-[var(--hero-divider)] bg-[var(--hero-band-bg)] py-3 backdrop-blur-sm">
+          <p className="mb-2 text-center text-[10px] font-semibold tracking-widest text-[var(--hero-ink-muted)] uppercase">
             INTEGRATIONS
           </p>
           <LogoMarquee />

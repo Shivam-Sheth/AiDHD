@@ -15,7 +15,7 @@ function FooterColumn({
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold tracking-wider text-white/40 uppercase">
+      <p className="text-xs font-semibold tracking-wider text-[var(--hero-ink-faint)] uppercase">
         {title}
       </p>
       <ul className="mt-4 space-y-3">
@@ -24,7 +24,7 @@ function FooterColumn({
             <a
               href={link.href}
               onClick={link.onClick}
-              className="text-sm text-white/70 transition-colors hover:text-[var(--coral-soft)]"
+              className="text-sm text-[var(--hero-ink-muted)] transition-colors hover:text-[var(--hero-accent-ink)]"
             >
               {link.label}
             </a>
@@ -53,14 +53,14 @@ export function FooterCTA({
   const entries = Object.entries(integrations);
 
   return (
-    <section className="bg-night-road relative overflow-hidden py-20 lg:py-24">
+    <section className="bg-hero-gradient relative overflow-hidden py-20 lg:py-24">
       <div className="relative mx-auto max-w-6xl px-6 lg:px-10">
         <div className="flex flex-col gap-14 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-md text-left">
-            <h2 className="font-display text-3xl font-bold text-white sm:text-4xl">
-              Your group already has the group chat.
+            <h2 className="font-display text-3xl font-bold text-[var(--hero-ink)] sm:text-4xl">
+              Your favorite brand still does discount codes.
               <br />
-              Give it an agent that finishes the job.
+              Bring them a group buy instead.
             </h2>
             <div className="mt-8">
               <button
@@ -69,7 +69,7 @@ export function FooterCTA({
                 onClick={onStartPlanning}
                 className="rounded-xl bg-[var(--coral)] px-6 py-3.5 font-semibold text-white shadow-lg shadow-[var(--coral-shadow)] transition hover:bg-[var(--coral-hover)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {busy ? "Reconciling the group…" : "Start planning →"}
+                {busy ? "Opening the window…" : "Start a group buy →"}
               </button>
             </div>
           </div>
@@ -87,7 +87,7 @@ export function FooterCTA({
                     onScrollTo("how-it-works");
                   },
                 },
-                { label: "Recent bookings / Trip gallery", href: "#" },
+                { label: "Recent drops / Group gallery", href: "#" },
               ]}
             />
             <FooterColumn
@@ -103,15 +103,15 @@ export function FooterCTA({
               title="Legal"
               links={[
                 { label: "Terms of Service", href: "#" },
-                { label: "Cancellation / Refund policy", href: "#" },
+                { label: "Returns / Refund policy", href: "#" },
                 { label: "Privacy Policy", href: "#" },
               ]}
             />
           </div>
         </div>
 
-        <div className="mt-14 border-t border-white/10 pt-8">
-          <p className="text-xs font-medium tracking-wider text-white/40 uppercase">
+        <div className="mt-14 border-t border-[var(--hero-divider)] pt-8">
+          <p className="text-xs font-medium tracking-wider text-[var(--hero-ink-faint)] uppercase">
             Built for Prava&apos;s Agentic Commerce Hackathon.{" "}
           </p>
         </div>

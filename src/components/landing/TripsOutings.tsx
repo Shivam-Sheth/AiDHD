@@ -29,7 +29,7 @@ const ACTIVE_Z = 40; // the open ticket wins over the wallet AND the other ticke
 const HIT_Z_CLOSED = 50; // invisible hover/focus target, above all visuals
 const HIT_Z_OPEN = 60; // wins over the other ticket's closed hit-area when open
 
-function TicketIcon({ color }: { color: string }) {
+function CartIcon({ color }: { color: string }) {
   return (
     <svg
       width="22"
@@ -42,25 +42,29 @@ function TicketIcon({ color }: { color: string }) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M2 9a3 3 0 1 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 1 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
-      <path d="M13 5v2" />
-      <path d="M13 17v2" />
-      <path d="M13 11v2" />
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+      <path d="M3 6h18" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
     </svg>
   );
 }
 
-function PlaneIcon({ color }: { color: string }) {
+function StorefrontIcon({ color }: { color: string }) {
   return (
     <svg
       width="22"
       height="22"
       viewBox="0 0 24 24"
-      fill={color}
-      stroke="none"
+      fill="none"
+      stroke={color}
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
+      <path d="M4 9 5 4h14l1 5" />
+      <path d="M4 9v10a1 1 0 0 0 1 1h4v-6h6v6h4a1 1 0 0 0 1-1V9" />
+      <path d="M4 9h16" />
     </svg>
   );
 }
@@ -126,7 +130,7 @@ function Wallet() {
       {/* Slot shadow where the tickets emerge. */}
       <div className="absolute top-3 bottom-3 right-0 w-10 bg-gradient-to-l from-black/50 to-transparent" />
       <span className="font-display absolute bottom-5 left-6 text-[11px] tracking-[0.35em] text-white/25 uppercase">
-        AiDHD
+        Pact
       </span>
     </div>
   );
@@ -188,7 +192,7 @@ function TicketCard({
     <>
       <div
         {...handlers}
-        className="absolute top-0 cursor-pointer rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-[var(--coral)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50"
+        className="absolute top-0 cursor-pointer rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-[var(--coral)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-2)]"
         style={{
           left: open ? OPEN_MAIN_LEFT : restStubLeft,
           width: open ? MAIN_W + STUB_W : STUB_W,
@@ -209,7 +213,7 @@ function TicketCard({
         }}
       >
         <div
-          className={`h-full w-full overflow-hidden rounded-3xl border border-neutral-200 bg-white p-7 shadow-xl shadow-black/20 `}
+          className={`h-full w-full overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-7 shadow-xl shadow-black/20 `}
         >
           <p
             className="text-xs font-semibold tracking-wider uppercase"
@@ -217,12 +221,12 @@ function TicketCard({
           >
             {eyebrow}
           </p>
-          <h3 className="font-display mt-2 text-2xl font-semibold text-neutral-900">
+          <h3 className="font-display mt-2 text-2xl font-semibold text-[var(--ink)]">
             {title}
           </h3>
-          <p className="mt-3 leading-relaxed text-neutral-600">{description}</p>
-          <div className="mt-5 border-t border-dashed border-neutral-200" />
-          <ul className="mt-4 space-y-1.5 text-sm text-neutral-600">
+          <p className="mt-3 leading-relaxed text-[var(--muted)]">{description}</p>
+          <div className="mt-5 border-t border-dashed border-[var(--line)]" />
+          <ul className="mt-4 space-y-1.5 text-sm text-[var(--muted)]">
             {bullets.map((bullet) => (
               <li key={bullet}>· {bullet}</li>
             ))}
@@ -277,41 +281,41 @@ function WalletScene() {
 
         <TicketCard
           stubRestOffset={0}
-          eyebrow="Outing"
+          eyebrow="For friends"
           eyebrowColor="var(--coral)"
-          title="Concert, show, or club night"
-          description="Ticket tiers, timing, and add-ons like a pre-show dinner — fit to everyone's combined budget. Live end-to-end today, with separate Prava mandates for ticket and dining."
+          title="Shop the drop together"
+          description="Join a friend's group, drop items in your cart, and watch the countdown and threshold bar move live. The agent recommends picks that fit your budget and help the group unlock the discount."
           bullets={[
-            "Ticket tier + venue",
-            "Pre-show dinner reservation",
-            "Separate spend caps per category",
+            "Live countdown + threshold bar",
+            "Agent-recommended picks",
+            "One prava checkout when it's time",
           ]}
           stubBg="var(--night)"
           stubBorder="rgba(255,255,255,0.8)"
           labelColor="rgba(255,255,255,0.85)"
           barcodeTint="rgba(255,255,255,0.25)"
-          stubLabel="AiDHD · Outing"
-          icon={<TicketIcon color="var(--coral)" />}
+          stubLabel="Pact · Friends"
+          icon={<CartIcon color="var(--coral)" />}
           idx={0}
         />
 
         <TicketCard
           stubRestOffset={STUB_W}
-          eyebrow="Trip"
+          eyebrow="For brands"
           eyebrowColor="var(--accent)"
-          title="Weekend or multi-day trip"
-          description="Flights, hotel, a day-by-day itinerary, and at least one dinner booking — same reconciliation agent, same per-category Prava mandates (flight · hotel · dining · activities)."
+          title="Plug in a live discount event"
+          description="Shopify brands set a discount, a spend threshold, and a countdown window — the platform and prava handle invites, recommendations, and checkout. Same storefront, bigger basket size."
           bullets={[
-            "Flights + hotel stay",
-            "Itinerary days that fit the group",
-            "Re-mandate only the leg that fails",
+            "Set discount + threshold + window",
+            "Agent drives basket size up",
+            "prava settles checkout, per order",
           ]}
-          stubBg="var(--accent)"
+          stubBg="var(--wallet-brand)"
           stubBorder="rgba(255,255,255,0.8)"
           labelColor="rgba(255,255,255,0.9)"
           barcodeTint="rgba(255,255,255,0.3)"
-          stubLabel="AiDHD · Trip"
-          icon={<PlaneIcon color="var(--accent-soft)" />}
+          stubLabel="Pact · Brands"
+          icon={<StorefrontIcon color="var(--accent-soft)" />}
           idx={1}
         />
       </div>
@@ -323,18 +327,19 @@ export function TripsOutings() {
   return (
     <section
       id="use-cases"
-      className="border-t border-neutral-200 bg-neutral-50 bg-grid-pattern py-20 lg:py-24"
+      className="border-t border-[var(--line)] bg-[var(--surface-2)] bg-grid-pattern py-20 lg:py-24"
     >
       <div className="mx-auto max-w-6xl px-6 lg:px-10">
-        <h2 className="font-display text-center text-3xl font-bold text-neutral-900 sm:text-4xl">
-          Same agent. Two kinds of plans.
+        <h2 className="font-display text-center text-3xl font-bold text-[var(--ink)] sm:text-4xl">
+          Same drop. Two sides of the counter.
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-center text-neutral-600">
-          Whether it&apos;s three hours or three days, the flow is identical:
-          collect → package → pay per category → book.
+        <p className="mx-auto mt-4 max-w-2xl text-center text-[var(--muted)]">
+          Whether you&apos;re shopping with friends or running the drop, the
+          mechanics are the same: invite → recommend → cross the threshold →
+          checkout via prava.
         </p>
-        <p className="mt-2 text-center text-xs text-neutral-400">
-          Hover a ticket to pull it out of the wallet.
+        <p className="mt-2 text-center text-xs text-[var(--faint)]">
+          Hover a pass to pull it out of the wallet.
         </p>
 
         <div className="mt-14">

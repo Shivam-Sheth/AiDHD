@@ -12,14 +12,14 @@ export default function AuthCallbackPage() {
 
     async function finish() {
       if (!supabase) {
-        router.replace("/login?error=google_not_configured");
+        router.replace("/?login_error=google_not_configured");
         return;
       }
 
       const { data, error } = await supabase.auth.getSession();
       if (cancelled) return;
       if (error || !data.session) {
-        router.replace("/login?error=google_oauth_failed");
+        router.replace("/?login_error=google_oauth_failed");
         return;
       }
 

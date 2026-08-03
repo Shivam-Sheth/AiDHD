@@ -8,6 +8,7 @@ import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { TripsOutings } from "@/components/landing/TripsOutings";
 import { FooterCTA } from "@/components/landing/FooterCTA";
+import { useAuth } from "@/components/auth/AuthProvider";
 import type { PackageComponent, PackageData, Snapshot } from "@/lib/types-client";
 
 const EVENT_ID = "evt_demo_friday";
@@ -75,6 +76,7 @@ export function DemoApp({
   googleMapsApiKey: string | null;
 }) {
   const router = useRouter();
+  const { requireAuth } = useAuth();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [integrations, setIntegrations] = useState<Record<string, string>>({});
   const [healthLoaded, setHealthLoaded] = useState(false);
@@ -290,17 +292,13 @@ export function DemoApp({
   }, [snap?.packages, snap?.event.destination_or_venue]);
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <SiteHeader
-        busy={busy}
-        onScrollTo={scrollTo}
-        onStartPlanning={() => router.push("/agent")}
-      />
+    <div className="min-h-screen bg-[var(--bg)]">
+      <SiteHeader onScrollTo={scrollTo} />
 
       <Hero
         busy={busy}
         error={error}
-        onStartPlanning={() => router.push("/agent")}
+        onStartPlanning={() => requireAuth(() => router.push("/agent"))}
         onSeeHowItWorks={() => scrollTo("how-it-works")}
       />
 
@@ -310,7 +308,7 @@ export function DemoApp({
 
       <FooterCTA
         busy={busy}
-        onStartPlanning={() => router.push("/agent")}
+        onStartPlanning={() => requireAuth(() => router.push("/agent"))}
         onScrollTo={scrollTo}
         integrations={integrations}
         healthLoaded={healthLoaded}

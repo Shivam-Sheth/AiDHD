@@ -9,20 +9,23 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { useTheme, type Theme } from "@/components/ThemeProvider";
 
 /**
- * Looping, scene-based visualization of the actual group-planning flow —
- * ported from a standalone animation prototype (demo.html): create event →
- * invite group → collect budgets → agent reconciling → generate options →
- * group picks → trip booked.
+ * Looping, scene-based visualization of the group-buy flow: a brand opens a
+ * live window → a friend invites the group → everyone adds items to their
+ * cart → the agent recommends bundles to close the gap to the threshold →
+ * bundles are ready → the group crosses the threshold and checks out →
+ * the discount unlocks for everyone.
  *
- * Colors, spacing, typography, timing, and easing are preserved exactly
- * from the source. Inline styles (not Tailwind) are used throughout on
- * purpose: every value here is a continuously animated float computed per
- * frame from a scene clock — Tailwind's utility classes are static strings
- * resolved at build time, so they can't express a per-frame opacity/
- * transform, and a dynamically-built arbitrary-value className wouldn't be
- * picked up by Tailwind's build-time scanner anyway.
+ * Timing/easing/layout math is unchanged from the original trip-planning
+ * version of this component — only the scene copy, data, and colors (now
+ * theme-aware, see PALETTE below) moved. Inline styles (not Tailwind) are
+ * used throughout on purpose: every value here is a continuously animated
+ * float computed per frame from a scene clock — Tailwind's utility classes
+ * are static strings resolved at build time, so they can't express a
+ * per-frame opacity/transform, and a dynamically-built arbitrary-value
+ * className wouldn't be picked up by Tailwind's build-time scanner anyway.
  *
  * The source ran on a general-purpose scene-sequencing engine built for a
  * video editor (host timeline sync, video export, an on-canvas scrub bar,
@@ -34,25 +37,88 @@ import {
  * transition, so a hard cut is the whole behavior to preserve).
  */
 
-// ── Palette & shared primitives (exact from source) ─────────────────────────
-const ORANGE = "#E8734A";
+// ── Palette & shared primitives ──────────────────────────────────────────────
+// These four are solid fills that carry their own contrasting content on top
+// (a white avatar initial, a white checkmark) — legible against either card
+// theme on their own, so unlike PALETTE below they don't need a light/dark
+// pair.
+const AVATAR_ACCENT = "#22d3ee";
 const TEAL = "#2F6F5C";
 const PURPLE = "#4B4A72";
 const BLUE = "#3D5A78";
-const TEXT = "#F5F4F8";
-const MUTED = "rgba(245,244,248,0.55)";
-const MUTED2 = "rgba(245,244,248,0.35)";
+
+// Everything that sits directly on the card surface (text, dividers, the
+// card glass itself, the threshold/top-pick highlight) does need to flip
+// with theme, since the surrounding hero can now be an airy light card or
+// the original dark glass.
+const PALETTE: Record<
+  Theme,
+  {
+    text: string;
+    muted: string;
+    muted2: string;
+    rowText: string;
+    cardBg: string;
+    cardBorder: string;
+    cardShadow: string;
+    divider: string;
+    tagBg: string;
+    tagBorder: string;
+    highlightInk: string;
+    successBg: string;
+    successText: string;
+    successBorder: string;
+  }
+> = {
+  dark: {
+    text: "#F5F4F8",
+    muted: "rgba(245,244,248,0.55)",
+    muted2: "rgba(245,244,248,0.35)",
+    rowText: "rgba(245,244,248,0.75)",
+    cardBg: "rgba(255,255,255,0.07)",
+    cardBorder: "rgba(255,255,255,0.16)",
+    cardShadow: "0 16px 40px rgba(0,0,0,0.35)",
+    divider: "rgba(255,255,255,0.1)",
+    tagBg: "rgba(255,255,255,0.08)",
+    tagBorder: "1px solid rgba(255,255,255,0.12)",
+    highlightInk: "#22d3ee",
+    successBg: "rgba(47,111,92,0.18)",
+    successText: "#bfe3d8",
+    successBorder: "1px solid rgba(47,111,92,0.5)",
+  },
+  light: {
+    text: "#12151c",
+    muted: "rgba(18,21,28,0.6)",
+    muted2: "rgba(18,21,28,0.32)",
+    rowText: "rgba(18,21,28,0.72)",
+    cardBg: "rgba(255,255,255,0.75)",
+    cardBorder: "rgba(15,23,42,0.12)",
+    cardShadow: "0 16px 40px rgba(15,23,42,0.14)",
+    divider: "rgba(15,23,42,0.1)",
+    tagBg: "rgba(15,23,42,0.06)",
+    tagBorder: "1px solid rgba(15,23,42,0.12)",
+    highlightInk: "#0e8a4f",
+    successBg: "rgba(47,111,92,0.12)",
+    successText: "#1c5f4a",
+    successBorder: "1px solid rgba(47,111,92,0.35)",
+  },
+};
+
+type Palette = (typeof PALETTE)["dark"];
+
+function cardStyle(p: Palette): CSSProperties {
+  return {
+    borderRadius: 20,
+    background: p.cardBg,
+    border: `1px solid ${p.cardBorder}`,
+    boxShadow: p.cardShadow,
+  };
+}
+
 const FONT =
   "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Helvetica, Arial, sans-serif";
 const HERO_W = 640;
 const HERO_H = 760;
-
-const cardBase: CSSProperties = {
-  borderRadius: 20,
-  background: "rgba(255,255,255,0.07)",
-  border: "1px solid rgba(255,255,255,0.16)",
-  boxShadow: "0 16px 40px rgba(0,0,0,0.35)",
-};
 
 function hexToRgba(hex: string, a: number): string {
   const h = hex.replace("#", "");
@@ -101,12 +167,13 @@ function interpolate(
 }
 
 // ── Shared scene primitives (exact from source) ──────────────────────────────
-type SceneCtx = { localTime: number; dur: number; index: number; count: number };
+type SceneCtx = { localTime: number; dur: number; index: number; count: number; theme: Theme };
 const SceneContext = createContext<SceneCtx>({
   localTime: 0,
   dur: 0,
   index: 0,
   count: 0,
+  theme: "dark",
 });
 const useScene = () => useContext(SceneContext);
 
@@ -181,8 +248,8 @@ function CheckBadge({
 
 function Tag({
   children,
-  color = MUTED,
-  bg = "rgba(255,255,255,0.08)",
+  color,
+  bg,
   border,
 }: {
   children: ReactNode;
@@ -190,6 +257,8 @@ function Tag({
   bg?: string;
   border?: string;
 }) {
+  const { theme } = useScene();
+  const p = PALETTE[theme];
   return (
     <div
       style={{
@@ -197,12 +266,12 @@ function Tag({
         alignItems: "center",
         padding: "5px 11px",
         borderRadius: 20,
-        background: bg,
-        border: border || "1px solid rgba(255,255,255,0.12)",
+        background: bg ?? p.tagBg,
+        border: border ?? p.tagBorder,
         fontSize: 11,
         fontWeight: 700,
         letterSpacing: "0.04em",
-        color,
+        color: color ?? p.muted,
         textTransform: "uppercase",
         fontFamily: FONT,
         whiteSpace: "nowrap",
@@ -213,9 +282,10 @@ function Tag({
   );
 }
 
-// ── Scene 1: Create event ────────────────────────────────────────────────────
+// ── Scene 1: Open the window ─────────────────────────────────────────────────
 function CreateEvent() {
-  const { localTime } = useScene();
+  const { localTime, theme } = useScene();
+  const p = PALETTE[theme];
   const entryP = Easing.easeInOutCubic(clamp(localTime / 0.4, 0, 1));
   const hintP = Easing.easeInOutCubic(clamp((localTime - 0.85) / 0.35, 0, 1));
   return (
@@ -228,7 +298,7 @@ function CreateEvent() {
           width: 520,
           transform: `translate(-50%,${(1 - entryP) * 14}px)`,
           opacity: entryP,
-          ...cardBase,
+          ...cardStyle(p),
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 15, padding: "22px 24px" }}>
@@ -246,35 +316,37 @@ function CreateEvent() {
           >
             <div
               style={{
-                width: 15,
-                height: 15,
+                width: 16,
+                height: 16,
                 border: "2px solid rgba(255,255,255,0.85)",
-                borderRadius: 4,
+                borderRadius: "50%",
+                borderTopColor: "transparent",
               }}
             />
           </div>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, fontFamily: FONT, whiteSpace: "nowrap" }}>
-              New trip · Tokyo, Nov 14–17
+            <div style={{ fontSize: 18, fontWeight: 700, color: p.text, fontFamily: FONT, whiteSpace: "nowrap" }}>
+              Zara Puffer Drop · 2h window
             </div>
-            <div style={{ fontSize: 13, color: MUTED, fontFamily: FONT, marginTop: 3, whiteSpace: "nowrap" }}>
-              Starting an event for the group
+            <div style={{ fontSize: 13, color: p.muted, fontFamily: FONT, marginTop: 3, whiteSpace: "nowrap" }}>
+              Starting a group buy
             </div>
           </div>
         </div>
       </div>
       <div style={{ position: "absolute", left: "50%", top: 372, transform: "translateX(-50%)", opacity: hintP }}>
-        <Tag>Add people to invite →</Tag>
+        <Tag>Add friends to invite →</Tag>
       </div>
     </SceneFrame>
   );
 }
 
-// ── Scene 2: Invite group ────────────────────────────────────────────────────
+// ── Scene 2: Invite friends ───────────────────────────────────────────────────
 function Invite() {
-  const { localTime } = useScene();
+  const { localTime, theme } = useScene();
+  const p = PALETTE[theme];
   const people = [
-    { n: "Maya", c: ORANGE, i: "M" },
+    { n: "Maya", c: AVATAR_ACCENT, i: "M" },
     { n: "Jordan", c: PURPLE, i: "J" },
     { n: "Sam", c: BLUE, i: "S" },
   ];
@@ -290,12 +362,12 @@ function Invite() {
           width: 440,
           transform: "translate(-50%,0) scale(0.94)",
           opacity: 0.22,
-          ...cardBase,
+          ...cardStyle(p),
           padding: "16px 20px",
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, fontFamily: FONT, whiteSpace: "nowrap" }}>
-          New trip · Tokyo, Nov 14–17
+        <div style={{ fontSize: 15, fontWeight: 700, color: p.text, fontFamily: FONT, whiteSpace: "nowrap" }}>
+          Zara Puffer Drop · 2h window
         </div>
       </div>
       <div
@@ -307,7 +379,7 @@ function Invite() {
           opacity: labelP,
           fontSize: 17,
           fontWeight: 600,
-          color: TEXT,
+          color: p.text,
           fontFamily: FONT,
           whiteSpace: "nowrap",
         }}
@@ -315,11 +387,11 @@ function Invite() {
         Inviting Maya, Jordan &amp; Sam
       </div>
       <div style={{ position: "absolute", left: "50%", top: 265, transform: "translateX(-50%)", display: "flex", gap: 36 }}>
-        {people.map((p, i) => {
+        {people.map((person, i) => {
           const d = Easing.easeInOutCubic(clamp((localTime - 0.12 * i) / 0.32, 0, 1));
           return (
             <div
-              key={p.n}
+              key={person.n}
               style={{
                 opacity: d,
                 transform: `translateY(${(1 - d) * 12}px)`,
@@ -329,8 +401,8 @@ function Invite() {
                 gap: 8,
               }}
             >
-              <Avatar initial={p.i} color={p.c} size={50} />
-              <div style={{ fontSize: 13, color: TEXT, fontFamily: FONT, fontWeight: 600 }}>{p.n}</div>
+              <Avatar initial={person.i} color={person.c} size={50} />
+              <div style={{ fontSize: 13, color: p.text, fontFamily: FONT, fontWeight: 600 }}>{person.n}</div>
               <Tag>Invited</Tag>
             </div>
           );
@@ -344,7 +416,7 @@ function Invite() {
           transform: "translateX(-50%)",
           opacity: waitP,
           fontSize: 13,
-          color: MUTED,
+          color: p.muted,
           fontFamily: FONT,
           whiteSpace: "nowrap",
         }}
@@ -355,27 +427,28 @@ function Invite() {
   );
 }
 
-// ── Scene 3: Collect budgets ─────────────────────────────────────────────────
+// ── Scene 3: Cart adds coming in ─────────────────────────────────────────────
 const PEOPLE = [
-  { n: "Maya", i: "M", c: ORANGE, budget: "$1,200", pref: "Window seat, loves museums" },
-  { n: "Jordan", i: "J", c: PURPLE, budget: "$900", pref: "Budget flights, foodie" },
-  { n: "Sam", i: "S", c: BLUE, budget: "$1,500", pref: "Boutique hotel, late riser" },
+  { n: "Maya", i: "M", c: AVATAR_ACCENT, cart: "$128", items: "Puffer jacket, beanie" },
+  { n: "Jordan", i: "J", c: PURPLE, cart: "$96", items: "Graphic tee, tote bag" },
+  { n: "Sam", i: "S", c: BLUE, cart: "$154", items: "Puffer jacket, wool scarf" },
 ];
 
 function Submissions() {
-  const { localTime, dur } = useScene();
+  const { localTime, dur, theme } = useScene();
+  const p = PALETTE[theme];
   const SEG = dur / 3;
   const activeContinuous = clamp(localTime / SEG, 0, 2);
   const mainY = 260;
   return (
     <SceneFrame>
       <div style={{ position: "absolute", left: "50%", top: 70, transform: "translateX(-50%)", display: "flex", gap: 18 }}>
-        {PEOPLE.map((p, k) => {
+        {PEOPLE.map((person, k) => {
           const responded = localTime > k * SEG + 0.4;
           const started = localTime >= k * SEG;
           return (
-            <div key={p.n} style={{ position: "relative", opacity: started ? 1 : 0.18 }}>
-              <Avatar initial={p.i} color={p.c} size={30} />
+            <div key={person.n} style={{ position: "relative", opacity: started ? 1 : 0.18 }}>
+              <Avatar initial={person.i} color={person.c} size={30} />
               {responded && (
                 <div
                   style={{
@@ -398,7 +471,7 @@ function Submissions() {
           );
         })}
       </div>
-      {PEOPLE.map((p, k) => {
+      {PEOPLE.map((person, k) => {
         const localSince = localTime - k * SEG;
         if (localSince < 0) return null;
         const entryP = Easing.easeInOutCubic(clamp(localSince / 0.3, 0, 1));
@@ -410,7 +483,7 @@ function Submissions() {
         const checkP = Easing.easeOutBack(clamp((localSince - 0.4) / 0.28, 0, 1));
         return (
           <div
-            key={p.n}
+            key={person.n}
             style={{
               position: "absolute",
               left: "50%",
@@ -419,19 +492,19 @@ function Submissions() {
               zIndex: 10 + k,
               transform: `translate(-50%,0) scale(${scale})`,
               opacity: baseOpacity * entryP,
-              ...cardBase,
+              ...cardStyle(p),
               padding: "18px 22px",
               display: "flex",
               alignItems: "center",
               gap: 14,
             }}
           >
-            <Avatar initial={p.i} color={p.c} size={42} />
+            <Avatar initial={person.i} color={person.c} size={42} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: TEXT, fontFamily: FONT }}>
-                {p.n} · {p.budget}
+              <div style={{ fontSize: 17, fontWeight: 700, color: p.text, fontFamily: FONT }}>
+                {person.n} · {person.cart}
               </div>
-              <div style={{ fontSize: 12.5, color: MUTED, fontFamily: FONT, marginTop: 3 }}>{p.pref}</div>
+              <div style={{ fontSize: 12.5, color: p.muted, fontFamily: FONT, marginTop: 3 }}>{person.items}</div>
             </div>
             <div style={{ position: "relative", width: 28, height: 28 }}>
               <CheckBadge size={28} bg={TEAL} opacity={checkP} scale={0.6 + 0.4 * checkP} />
@@ -443,11 +516,12 @@ function Submissions() {
   );
 }
 
-// ── Scene 4: Agent reconciling ───────────────────────────────────────────────
+// ── Scene 4: Agent recommending ──────────────────────────────────────────────
 function Reconciling() {
-  const { localTime, dur } = useScene();
+  const { localTime, dur, theme } = useScene();
+  const p = PALETTE[theme];
   const entryP = Easing.easeInOutCubic(clamp(localTime / 0.35, 0, 1));
-  const phrases = ["Checking flights…", "Matching hotels…", "Building itinerary…"];
+  const phrases = ["Checking the group's carts…", "Tracking the threshold…", "Building bundle picks…"];
   const seg = dur / 3;
   const idx = Math.min(2, Math.floor(localTime / seg));
   const withinSeg = localTime - idx * seg;
@@ -465,7 +539,7 @@ function Reconciling() {
           width: 420,
           transform: "translate(-50%,0) scale(0.9)",
           opacity: 0.2,
-          ...cardBase,
+          ...cardStyle(p),
           padding: "14px 20px",
           display: "flex",
           alignItems: "center",
@@ -473,7 +547,7 @@ function Reconciling() {
         }}
       >
         <Avatar initial="S" color={BLUE} size={34} />
-        <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, fontFamily: FONT }}>Sam · $1,500</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: p.text, fontFamily: FONT }}>Sam · $154</div>
       </div>
       <div
         style={{
@@ -482,7 +556,7 @@ function Reconciling() {
           top: 280,
           transform: `translate(-50%,${(1 - entryP) * 12}px)`,
           opacity: entryP,
-          ...cardBase,
+          ...cardStyle(p),
           borderRadius: 36,
           padding: "12px 22px",
           display: "flex",
@@ -491,7 +565,7 @@ function Reconciling() {
         }}
       >
         <div style={{ display: "flex" }}>
-          <Avatar initial="M" color={ORANGE} size={30} />
+          <Avatar initial="M" color={AVATAR_ACCENT} size={30} />
           <div style={{ marginLeft: -9 }}>
             <Avatar initial="J" color={PURPLE} size={30} />
           </div>
@@ -499,12 +573,12 @@ function Reconciling() {
             <Avatar initial="S" color={BLUE} size={30} />
           </div>
         </div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, fontFamily: FONT, whiteSpace: "nowrap" }}>
-          Agent reconciling
+        <div style={{ fontSize: 15, fontWeight: 600, color: p.text, fontFamily: FONT, whiteSpace: "nowrap" }}>
+          Agent recommending
         </div>
         <div style={{ display: "flex", gap: 5, marginLeft: 2 }}>
           {dots.map((o, i) => (
-            <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: TEXT, opacity: 0.35 + 0.5 * o }} />
+            <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: p.text, opacity: 0.35 + 0.5 * o }} />
           ))}
         </div>
       </div>
@@ -516,7 +590,7 @@ function Reconciling() {
           transform: "translateX(-50%)",
           opacity: phraseOpacity,
           fontSize: 13.5,
-          color: MUTED,
+          color: p.muted,
           fontFamily: FONT,
           whiteSpace: "nowrap",
         }}
@@ -531,24 +605,24 @@ function Reconciling() {
 const OPTIONS = [
   {
     key: "A",
-    label: "Classic Tokyo",
-    total: 2340,
-    pp: 780,
-    rows: ["Flights · $420 pp", "Hotel · Shibuya, 3 nights", "Itinerary · 3 days", "Dinner · Ichiran"],
+    label: "Cozy Starter",
+    total: 460,
+    pp: 153,
+    rows: ["Puffer jacket · $120", "Beanie · $28", "Wool socks · $22", "Crosses the threshold"],
   },
   {
     key: "B",
-    label: "Comfort Plus",
-    total: 2610,
-    pp: 870,
-    rows: ["Flights · $470 pp", "Hotel · Shinjuku, 3 nights", "Itinerary · 3 days", "Dinner · Sushi Saito"],
+    label: "Full Fit",
+    total: 540,
+    pp: 180,
+    rows: ["Puffer jacket · $120", "Wool scarf · $45", "Graphic tee · $38", "+ free shipping unlocked"],
   },
   {
     key: "C",
-    label: "Budget Friendly",
-    total: 2190,
-    pp: 730,
-    rows: ["Flights · $360 pp", "Hotel · Asakusa, 3 nights", "Itinerary · 3 days", "Dinner · Ichiran"],
+    label: "Squad Pack",
+    total: 410,
+    pp: 137,
+    rows: ["Puffer jacket · $120", "Tote bag · $32", "Beanie · $28", "Fastest to threshold"],
   },
 ];
 
@@ -565,10 +639,13 @@ function OptionCard({
   highlighted: string;
   accent: string;
 }) {
+  const { theme } = useScene();
+  const p = PALETTE[theme];
   const start = index * 0.12;
   const entryP = Easing.easeInOutCubic(clamp((localTime - start) / 0.35, 0, 1));
   const isHi = opt.key === highlighted;
   const hiP = Easing.easeInOutCubic(clamp((localTime - start - 0.28) / 0.32, 0, 1));
+  const base = cardStyle(p);
   return (
     <div
       style={{
@@ -580,11 +657,11 @@ function OptionCard({
         flexDirection: "column",
         position: "relative",
         padding: "18px 16px",
-        ...cardBase,
-        border: isHi ? `1.5px solid ${hexToRgba(accent, 0.25 + 0.65 * hiP)}` : cardBase.border,
+        ...base,
+        border: isHi ? `1.5px solid ${hexToRgba(accent, 0.25 + 0.65 * hiP)}` : base.border,
         boxShadow: isHi
           ? `0 16px 40px rgba(0,0,0,0.35), 0 0 30px ${hexToRgba(accent, 0.22 * hiP)}`
-          : cardBase.boxShadow,
+          : base.boxShadow,
       }}
     >
       {isHi && (
@@ -594,21 +671,21 @@ function OptionCard({
           </Tag>
         </div>
       )}
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: MUTED, fontFamily: FONT, textTransform: "uppercase" }}>
-        Option {opt.key}
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: p.muted, fontFamily: FONT, textTransform: "uppercase" }}>
+        Bundle {opt.key}
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, fontFamily: FONT, marginTop: 5 }}>{opt.label}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: p.text, fontFamily: FONT, marginTop: 5 }}>{opt.label}</div>
       <div style={{ marginTop: 12 }}>
-        <div style={{ fontSize: 21, fontWeight: 700, color: TEXT, fontFamily: FONT, lineHeight: 1 }}>
+        <div style={{ fontSize: 21, fontWeight: 700, color: p.text, fontFamily: FONT, lineHeight: 1 }}>
           ${opt.total.toLocaleString()}
         </div>
-        <div style={{ fontSize: 10.5, color: MUTED, fontFamily: FONT, marginTop: 3 }}>${opt.pp}/person</div>
+        <div style={{ fontSize: 10.5, color: p.muted, fontFamily: FONT, marginTop: 3 }}>${opt.pp}/person</div>
       </div>
-      <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "13px 0" }} />
+      <div style={{ height: 1, background: p.divider, margin: "13px 0" }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {opt.rows.map((r, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10.5, color: "rgba(245,244,248,0.75)", fontFamily: FONT }}>
-            <div style={{ width: 4, height: 4, borderRadius: 2, background: isHi ? accent : MUTED2, flexShrink: 0 }} />
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10.5, color: p.rowText, fontFamily: FONT }}>
+            <div style={{ width: 4, height: 4, borderRadius: 2, background: isHi ? accent : p.muted2, flexShrink: 0 }} />
             {r}
           </div>
         ))}
@@ -617,9 +694,11 @@ function OptionCard({
   );
 }
 
-// ── Scene 5: Generate options ────────────────────────────────────────────────
-function OptionsScene({ highlighted = "B", accent = ORANGE }: { highlighted?: string; accent?: string }) {
-  const { localTime } = useScene();
+// ── Scene 5: Bundles ready ───────────────────────────────────────────────────
+function OptionsScene({ highlighted = "B", accent }: { highlighted?: string; accent?: string }) {
+  const { localTime, theme } = useScene();
+  const p = PALETTE[theme];
+  const resolvedAccent = accent ?? p.highlightInk;
   const labelP = Easing.easeInOutCubic(clamp(localTime / 0.3, 0, 1));
   return (
     <SceneFrame>
@@ -630,16 +709,16 @@ function OptionsScene({ highlighted = "B", accent = ORANGE }: { highlighted?: st
           top: 70,
           transform: "translate(-50%,0) scale(0.9)",
           opacity: 0.18,
-          ...cardBase,
+          ...cardStyle(p),
           borderRadius: 36,
           padding: "10px 18px",
           fontSize: 12.5,
-          color: TEXT,
+          color: p.text,
           fontFamily: FONT,
           whiteSpace: "nowrap",
         }}
       >
-        Agent reconciling
+        Agent recommending
       </div>
       <div
         style={{
@@ -650,28 +729,31 @@ function OptionsScene({ highlighted = "B", accent = ORANGE }: { highlighted?: st
           opacity: labelP,
           fontSize: 16.5,
           fontWeight: 600,
-          color: TEXT,
+          color: p.text,
           fontFamily: FONT,
           whiteSpace: "nowrap",
         }}
       >
-        3 options ready
+        3 bundles ready
       </div>
       <div style={{ position: "absolute", left: "50%", top: 172, transform: "translateX(-50%)", display: "flex", gap: 14 }}>
         {OPTIONS.map((opt, i) => (
-          <OptionCard key={opt.key} opt={opt} index={i} localTime={localTime} highlighted={highlighted} accent={accent} />
+          <OptionCard key={opt.key} opt={opt} index={i} localTime={localTime} highlighted={highlighted} accent={resolvedAccent} />
         ))}
       </div>
     </SceneFrame>
   );
 }
 
-// ── Scene 6: Group picks ─────────────────────────────────────────────────────
-function PickScene({ highlighted = "B", accent = ORANGE }: { highlighted?: string; accent?: string }) {
-  const { localTime } = useScene();
+// ── Scene 6: Threshold crossed ───────────────────────────────────────────────
+function PickScene({ highlighted = "B", accent }: { highlighted?: string; accent?: string }) {
+  const { localTime, theme } = useScene();
+  const p = PALETTE[theme];
+  const resolvedAccent = accent ?? p.highlightInk;
   const dimP = Easing.easeInOutCubic(clamp((localTime - 0.2) / 0.4, 0, 1));
   const checkP = Easing.easeOutBack(clamp((localTime - 0.4) / 0.32, 0, 1));
   const tagP = Easing.easeInOutCubic(clamp((localTime - 0.7) / 0.3, 0, 1));
+  const base = cardStyle(p);
   return (
     <SceneFrame>
       <div
@@ -682,12 +764,12 @@ function PickScene({ highlighted = "B", accent = ORANGE }: { highlighted?: strin
           transform: "translateX(-50%)",
           fontSize: 16.5,
           fontWeight: 600,
-          color: TEXT,
+          color: p.text,
           fontFamily: FONT,
           whiteSpace: "nowrap",
         }}
       >
-        3 options ready
+        3 bundles ready
       </div>
       <div style={{ position: "absolute", left: "50%", top: 172, transform: "translateX(-50%)", display: "flex", gap: 14 }}>
         {OPTIONS.map((opt) => {
@@ -706,8 +788,8 @@ function PickScene({ highlighted = "B", accent = ORANGE }: { highlighted?: strin
                 display: "flex",
                 flexDirection: "column",
                 padding: "18px 16px",
-                ...cardBase,
-                border: isHi ? `1.5px solid ${accent}` : cardBase.border,
+                ...base,
+                border: isHi ? `1.5px solid ${resolvedAccent}` : base.border,
               }}
             >
               {isHi && (
@@ -717,26 +799,26 @@ function PickScene({ highlighted = "B", accent = ORANGE }: { highlighted?: strin
               )}
               {isHi && (
                 <div style={{ position: "absolute", top: -11, right: 12 }}>
-                  <Tag bg={accent} color="#fff" border="none">
+                  <Tag bg={resolvedAccent} color="#fff" border="none">
                     Top pick
                   </Tag>
                 </div>
               )}
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: MUTED, fontFamily: FONT, textTransform: "uppercase" }}>
-                Option {opt.key}
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: p.muted, fontFamily: FONT, textTransform: "uppercase" }}>
+                Bundle {opt.key}
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, fontFamily: FONT, marginTop: 5 }}>{opt.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: p.text, fontFamily: FONT, marginTop: 5 }}>{opt.label}</div>
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 21, fontWeight: 700, color: TEXT, fontFamily: FONT, lineHeight: 1 }}>
+                <div style={{ fontSize: 21, fontWeight: 700, color: p.text, fontFamily: FONT, lineHeight: 1 }}>
                   ${opt.total.toLocaleString()}
                 </div>
-                <div style={{ fontSize: 10.5, color: MUTED, fontFamily: FONT, marginTop: 3 }}>${opt.pp}/person</div>
+                <div style={{ fontSize: 10.5, color: p.muted, fontFamily: FONT, marginTop: 3 }}>${opt.pp}/person</div>
               </div>
-              <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "13px 0" }} />
+              <div style={{ height: 1, background: p.divider, margin: "13px 0" }} />
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {opt.rows.map((r, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10.5, color: "rgba(245,244,248,0.75)", fontFamily: FONT }}>
-                    <div style={{ width: 4, height: 4, borderRadius: 2, background: isHi ? accent : MUTED2, flexShrink: 0 }} />
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 10.5, color: p.rowText, fontFamily: FONT }}>
+                    <div style={{ width: 4, height: 4, borderRadius: 2, background: isHi ? resolvedAccent : p.muted2, flexShrink: 0 }} />
                     {r}
                   </div>
                 ))}
@@ -746,17 +828,19 @@ function PickScene({ highlighted = "B", accent = ORANGE }: { highlighted?: strin
         })}
       </div>
       <div style={{ position: "absolute", left: "50%", top: 552, transform: "translateX(-50%)", opacity: tagP }}>
-        <Tag bg={hexToRgba(TEAL, 0.18)} color="#bfe3d8" border={`1px solid ${hexToRgba(TEAL, 0.5)}`}>
-          3/3 voted · Option {highlighted}
+        <Tag bg={p.successBg} color={p.successText} border={p.successBorder}>
+          3/3 checked out · Bundle {highlighted}
         </Tag>
       </div>
     </SceneFrame>
   );
 }
 
-// ── Scene 7: Trip booked ─────────────────────────────────────────────────────
-function Booked({ highlighted = "B", accent = ORANGE }: { highlighted?: string; accent?: string }) {
-  const { localTime } = useScene();
+// ── Scene 7: Discount unlocked ───────────────────────────────────────────────
+function Booked({ highlighted = "B", accent }: { highlighted?: string; accent?: string }) {
+  const { localTime, theme } = useScene();
+  const p = PALETTE[theme];
+  const resolvedAccent = accent ?? p.highlightInk;
   const opt = OPTIONS.find((o) => o.key === highlighted) || OPTIONS[1];
   const entryP = Easing.easeInOutCubic(clamp(localTime / 0.4, 0, 1));
   const scale = 0.95 + 0.05 * entryP;
@@ -771,7 +855,7 @@ function Booked({ highlighted = "B", accent = ORANGE }: { highlighted?: string; 
           height: 120,
           transform: "translate(-50%,0) scale(0.92)",
           opacity: 0.2,
-          ...cardBase,
+          ...cardStyle(p),
           padding: "18px",
         }}
       />
@@ -783,46 +867,47 @@ function Booked({ highlighted = "B", accent = ORANGE }: { highlighted?: string; 
           width: 480,
           transform: `translate(-50%,0) scale(${scale})`,
           opacity: entryP,
-          ...cardBase,
-          border: `1.5px solid ${accent}`,
-          boxShadow: `0 16px 40px rgba(0,0,0,0.35), 0 0 36px ${hexToRgba(accent, 0.16)}`,
+          ...cardStyle(p),
+          border: `1.5px solid ${resolvedAccent}`,
+          boxShadow: `0 16px 40px rgba(0,0,0,0.35), 0 0 36px ${hexToRgba(resolvedAccent, 0.16)}`,
           padding: "28px 30px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
             <div style={{ position: "relative", width: 38, height: 38 }}>
-              <CheckBadge size={38} bg={accent} />
+              <CheckBadge size={38} bg={resolvedAccent} />
             </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, fontFamily: FONT }}>Trip booked</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: p.text, fontFamily: FONT }}>Discount unlocked</div>
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
-          <Tag bg={hexToRgba(TEAL, 0.18)} color="#bfe3d8" border={`1px solid ${hexToRgba(TEAL, 0.5)}`}>
-            3/3 confirmed
+          <Tag bg={p.successBg} color={p.successText} border={p.successBorder}>
+            3/3 checked out
           </Tag>
         </div>
-        <div style={{ height: 1, background: "rgba(255,255,255,0.12)", margin: "20px 0 18px" }} />
+        <div style={{ height: 1, background: p.divider, margin: "20px 0 18px" }} />
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 34, fontWeight: 700, color: TEXT, fontFamily: FONT }}>${opt.total.toLocaleString()}</div>
-          <div style={{ fontSize: 14, color: MUTED, fontFamily: FONT }}>${opt.pp}/person</div>
+          <div style={{ fontSize: 34, fontWeight: 700, color: p.text, fontFamily: FONT }}>${opt.total.toLocaleString()}</div>
+          <div style={{ fontSize: 14, color: p.muted, fontFamily: FONT }}>${opt.pp}/person</div>
         </div>
-        <div style={{ fontSize: 13, color: MUTED, fontFamily: FONT, marginTop: 12 }}>Flights, hotel &amp; 3-day itinerary confirmed</div>
+        <div style={{ fontSize: 13, color: p.muted, fontFamily: FONT, marginTop: 12 }}>Puffer jacket, scarf &amp; tee unlocked at 20% off for everyone</div>
       </div>
     </SceneFrame>
   );
 }
 
 // ── Scene sequencing ──────────────────────────────────────────────────────────
-// Exact from window.OM_SCENES / window.OM_PLAYBACK in demo.html.
+// Timing (durations, count, loop math) exact from window.OM_SCENES /
+// window.OM_PLAYBACK in demo.html — only the `name` labels moved.
 const SCENES: { name: string; dur: number }[] = [
-  { name: "Create event", dur: 4 },
-  { name: "Invite group", dur: 4 },
-  { name: "Collect budgets", dur: 4 },
-  { name: "Agent reconciling", dur: 4 },
-  { name: "Generate options", dur: 4 },
-  { name: "Group picks", dur: 4 },
-  { name: "Trip booked", dur: 4 },
+  { name: "Open the window", dur: 4 },
+  { name: "Invite friends", dur: 4 },
+  { name: "Cart adds coming in", dur: 4 },
+  { name: "Agent recommending", dur: 4 },
+  { name: "Bundles ready", dur: 4 },
+  { name: "Threshold crossed", dur: 4 },
+  { name: "Discount unlocked", dur: 4 },
 ];
 const SCENE_COMPONENTS = [CreateEvent, Invite, Submissions, Reconciling, OptionsScene, PickScene, Booked];
 const TOTAL_DUR = SCENES.reduce((sum, s) => sum + s.dur, 0);
@@ -902,15 +987,16 @@ function useContainerScale(nativeWidth: number) {
 }
 
 export function GroupPlanningAnimation({ className }: { className?: string }) {
+  const { theme } = useTheme();
   const reducedMotion = usePrefersReducedMotion();
   const time = useLoopClock(TOTAL_DUR, reducedMotion);
-  // Reduced motion: hold on the settled last frame (Trip booked, fully
+  // Reduced motion: hold on the settled last frame (Discount unlocked, fully
   // entered) instead of running the loop — a meaningful static state.
   const { index, localTime } = activeScene(reducedMotion ? TOTAL_DUR - 0.001 : time);
   const [containerRef, scale] = useContainerScale(HERO_W);
 
   const Scene = SCENE_COMPONENTS[index];
-  const ctx: SceneCtx = { localTime, dur: SCENES[index].dur, index, count: SCENES.length };
+  const ctx: SceneCtx = { localTime, dur: SCENES[index].dur, index, count: SCENES.length, theme };
 
   return (
     <div

@@ -25,6 +25,12 @@ export function hasWhatsApp() {
   );
 }
 
+export function hasShopify() {
+  return Boolean(
+    process.env.SHOPIFY_STORE_DOMAIN && process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN,
+  );
+}
+
 export function hasTicketmaster() {
   return Boolean(process.env.TICKETMASTER_API_KEY);
 }
@@ -74,6 +80,7 @@ export function integrationStatus() {
     gemini: hasGemini() ? "live" : "mock",
     openai: hasOpenAI() ? "live" : "standby",
     prava: hasPrava() ? "live" : "mock",
+    shopify: hasShopify() ? "live" : "fixture",
     senso: hasSenso() ? "live" : "mock",
     linq: hasLinq() ? "live" : "mock",
     whatsapp: hasWhatsApp() ? "live" : "mock",

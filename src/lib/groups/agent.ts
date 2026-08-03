@@ -14,7 +14,7 @@ import { completeJson, completeText } from "@/lib/integrations/llm";
 import { getPassportRef } from "@/lib/vault/traveler-store";
 import { createApproval } from "./approvals";
 import { mentionsAidhd, stripMentions } from "./mentions";
-import { createPoll } from "./polls";
+import { createPoll, listPolls } from "./polls";
 import {
   appendMessage,
   createBookingDraft,
@@ -27,6 +27,7 @@ import {
   AIDHD_BOT_ID,
   AIDHD_BOT_NAME,
   type BookingCategory,
+  type GroupMessage,
   type GroupParty,
   type TravelerSlot,
 } from "./types";
@@ -37,7 +38,14 @@ restaurants, concerts, sports, movies, classes, appointments, experiences,
 products. Be sharp, warm, decisive.
 
 Rules:
-- Use recent group messages for context — names, dates, budgets, vibes, cities already said.
+- The RECENT CHAT below is the source of truth. Read it before answering and reuse
+  what the group already settled — headcount, dates, budget, city, who is doing what,
+  specific items people named. Never ask for something the chat already answered.
+- If they already said "10 people", "10 diet cokes", "August 12" — those are facts.
+  Build on them; don't restate the question back at them.
+- ALWAYS answer the tagged question. Planning, lists, recommendations, opinions and
+  recaps are real answers — you are not only a booking bot. Only fall back to
+  "what would you like?" if the chat genuinely contains nothing to work with.
 - Never invent live prices; call tools (flights, hotels, tickets, dining, weather, payments).
 - NEVER ask for passport numbers or card PANs in chat. Passports are ONLY for flight booking
   via private passport links / PassportGate (Remember encrypted vs Use once) — never at login.
@@ -47,16 +55,71 @@ Rules:
 - APPROVAL GATE: you never pay, book, reserve, purchase, cancel, call a business,
   or touch someone's calendar without explicit human approval. Propose it —
   the app posts an Approve/Decline card and waits.
-- You can also: create polls for the group, summarize the conversation,
-  suggest plans, coordinate shared purchases and split costs, place research
-  calls to businesses (approval first), add confirmed plans to Google Calendar
-  (approval first).
+- You can also: answer questions, build lists (shopping, packing, to-do) from what the
+  group said, create polls, summarize the conversation, suggest plans, coordinate
+  shared purchases and split costs, place research calls to businesses (approval
+  first), add confirmed plans to Google Calendar (approval first).
 - Prefer actionable next steps ("want me to search flights ORD→JFK Sat?").
 - Keep replies under ~130 words unless listing 2–3 concrete options.
 - hi/thanks → brief, no tools.`;
 
+/** Dates in chat are bare ("August 12") — the model needs an anchor year. */
+function todayLine(): string {
+  const now = new Date();
+  return `TODAY: ${now.toISOString().slice(0, 10)} (${now.toLocaleDateString("en-US", { weekday: "long" })})`;
+}
+
+/**
+ * The model sees only this string, so it has to carry what the raw row list
+ * drops: which day each thing was said on (bare "August 12" is meaningless
+ * without it), who is a human vs. Prava's own earlier replies, and the roster
+ * churn filtered out so real conversation isn't buried under "X joined".
+ */
+function buildTranscript(messages: GroupMessage[]): string {
+  const lines: string[] = [];
+  let day = "";
+
+  for (const m of messages) {
+    const body = (m.body || "").trim();
+    if (!body) continue;
+    // "Kevin joined the party" — the MEMBERS line already covers the roster.
+    if (m.kind === "system") continue;
+
+    const stamp = m.created_at.slice(0, 10);
+    if (stamp !== day) {
+      day = stamp;
+      lines.push(`--- ${stamp} ---`);
+    }
+
+    const who = m.sender_id === AIDHD_BOT_ID ? AIDHD_BOT_NAME : m.sender_name;
+    // Long agent output (passport links, review URLs) crowds out the humans.
+    const text = body.length > 320 ? `${body.slice(0, 320)}…` : body;
+    lines.push(`${who}: ${text}`);
+  }
+
+  return lines.join("\n");
+}
+
+/** How polls actually landed — a decision the group made, not just a message. */
+async function pollDigest(groupId: string): Promise<string> {
+  const polls = await listPolls(groupId).catch(() => []);
+  if (!polls.length) return "";
+
+  const lines = polls.slice(0, 3).map((p) => {
+    const tally = p.options.map((opt, i) => {
+      const voters = (p.votes || []).filter((v) => v.option_index === i);
+      const names = voters.map((v) => v.user_name).filter(Boolean).join(", ");
+      return `${opt}: ${voters.length}${names ? ` (${names})` : ""}`;
+    });
+    return `- "${p.question}" [${p.status}] → ${tally.join(" · ")}`;
+  });
+
+  return `\nPOLLS:\n${lines.join("\n")}`;
+}
+
 type ToolPlan = {
   reply?: string;
+  make_list?: { title: string; items: string[] } | null;
   tools?: Array<{ name: string; params: Record<string, unknown> }>;
   ask_spoc?: boolean;
   start_booking?: {
@@ -83,6 +146,102 @@ type ToolPlan = {
     confirmation_number?: string;
   } | null;
 };
+
+/**
+ * Models fence JSON even when told not to (Gemini does it routinely), and an
+ * unparsed fence used to be posted into the group verbatim as the reply.
+ */
+function parsePlan(raw: string): ToolPlan | null {
+  const stripped = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```$/, "")
+    .trim();
+
+  const candidates = [stripped];
+  // Some models prepend a sentence before the object.
+  const first = stripped.indexOf("{");
+  const last = stripped.lastIndexOf("}");
+  if (first > 0 && last > first) candidates.push(stripped.slice(first, last + 1));
+
+  for (const c of candidates) {
+    try {
+      const parsed = JSON.parse(c) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as ToolPlan;
+      }
+    } catch {
+      // try next shape
+    }
+  }
+  return null;
+}
+
+const LIST_INTENT =
+  /\b(?:make|create|build|write|generate|put together|give me|send)\b[^?]*\blists?\b|\b(?:shopping|packing|grocery|to-?do|todo)\s+list\b|\bwhat\s+(?:do|should|are)\s+we\s+(?:need|get|buy|bring|getting)\b|\bwhat\s+else\s+do\s+we\s+need\b/i;
+
+/**
+ * "Here's the list:" with nothing after it. Models answer a list request with
+ * the lead-in and drop the items, because `reply` is the easiest field in a
+ * ten-field schema to fill.
+ */
+function isDanglingLeadIn(reply?: string): boolean {
+  const t = (reply || "").trim();
+  if (!t) return false;
+  if (t.length > 200) return false;
+  return /:$/.test(t) || /\b(?:here'?s|here is|below is)\b[^.!?]*\blist\b/i.test(t);
+}
+
+/**
+ * Focused second pass for list asks. A two-field schema gives the model nowhere
+ * to hide, where the full plan schema lets it answer with a lead-in and no items.
+ */
+async function generateList(input: {
+  context: string;
+  question: string;
+}): Promise<{ title: string; items: string[] } | null> {
+  const out = await completeJson({
+    system: `${SYSTEM}
+
+You are producing ONE list, from what the group already said. Include the exact
+quantities and items they named, then add what the plan obviously still needs.
+Never return an empty items array — if the chat is thin, infer sensible items
+for the occasion. Return JSON only: {"title":"short title","items":["item 1","item 2"]}`,
+    user: `${input.context}\n\nBuild the list they asked for.`,
+  });
+  if (!out?.text) return null;
+
+  const parsed = parsePlan(out.text) as
+    | { title?: string; items?: unknown[] }
+    | null;
+  const items = Array.isArray(parsed?.items)
+    ? parsed.items
+        .map((i) =>
+          typeof i === "string"
+            ? i.trim()
+            : String((i as { name?: string })?.name ?? "").trim(),
+        )
+        .filter(Boolean)
+    : [];
+  if (!items.length) return null;
+
+  return { title: parsed?.title?.trim() || "List", items };
+}
+
+/** True when the plan came back with nothing actionable in it. */
+function planIsEmpty(plan: ToolPlan): boolean {
+  return (
+    !plan.reply?.trim() &&
+    !plan.tools?.length &&
+    !plan.make_list?.items?.length &&
+    !plan.start_booking &&
+    !plan.create_poll &&
+    !plan.summarize &&
+    !plan.call_business &&
+    !plan.add_to_calendar &&
+    !plan.ask_spoc
+  );
+}
 
 function heuristicTools(question: string, group: GroupParty) {
   const lower = question.toLowerCase();
@@ -132,18 +291,51 @@ function heuristicTools(question: string, group: GroupParty) {
   return [];
 }
 
+/** Everything the model needs to know about this group, in prompt order. */
+function contextBlock(input: {
+  group: GroupParty;
+  membersLine: string;
+  transcript: string;
+  polls: string;
+  question: string;
+}): string {
+  return `${todayLine()}
+GROUP: ${input.group.title} (${input.group.mode}) @ ${input.group.place}
+DATES: ${input.group.proposed_dates.join(", ") || "TBD"}
+SPOC: ${input.group.spoc_user_id || "none"}
+MEMBERS: ${input.membersLine}${input.polls}
+
+RECENT CHAT (oldest first — this is what the group actually said):
+${input.transcript || "(no messages yet)"}
+
+TAGGED QUESTION:
+${input.question}`;
+}
+
 async function planReply(input: {
   group: GroupParty;
   question: string;
   transcript: string;
   membersLine: string;
+  polls: string;
 }): Promise<ToolPlan> {
+  const context = contextBlock({
+    group: input.group,
+    membersLine: input.membersLine,
+    transcript: input.transcript,
+    polls: input.polls,
+    question: input.question,
+  });
+
   const planned = await completeJson({
     system: `${SYSTEM}
 
-Return JSON only:
+Return JSON only. "reply" is REQUIRED whenever you are not starting a booking,
+poll, list, call or calendar action — never return an object with every field
+null. Answer from RECENT CHAT.
 {
-  "reply": "optional short reply if no tools needed",
+  "reply": "your answer to the group, grounded in what they already said",
+  "make_list": null | {"title":"Adi house party — shopping list","items":["10 Diet Coke cans","2 party bags of Doritos"]},
   "tools": [{"name":"get_weather|search_flights|search_hotels|search_tickets|search_dining|search_clubs|search_movies|search_products|create_payment","params":{}}],
   "ask_spoc": false,
   "start_booking": null | {"category":"flight|hotel|ticket|dining|trip|event|movie|class|appointment|experience|product|other","summary":"...","amount":0,"merchant":"..."},
@@ -153,28 +345,30 @@ Return JSON only:
   "call_business": null | {"venue_name":"...","venue_phone":"+1...","venue_type":"restaurant|hotel|airline|event_venue|ticket_provider|store|customer_support|merchant|other","question":"what to ask"},
   "add_to_calendar": null | {"title":"...","start":"ISO or YYYY-MM-DD","end":"...","location":"...","description":"...","confirmation_number":"..."}
 }`,
-    user: `GROUP: ${input.group.title} (${input.group.mode}) @ ${input.group.place}
-DATES: ${input.group.proposed_dates.join(", ") || "TBD"}
-SPOC: ${input.group.spoc_user_id || "none"}
-MEMBERS: ${input.membersLine}
-
-RECENT CHAT:
-${input.transcript}
-
-TAGGED QUESTION:
-${input.question}`,
+    user: context,
   });
 
   if (planned?.text) {
-    try {
-      return JSON.parse(planned.text) as ToolPlan;
-    } catch {
-      return { reply: planned.text };
-    }
+    const plan = parsePlan(planned.text);
+    if (plan && !planIsEmpty(plan)) return plan;
+
+    // JSON mode failed us (unparseable, or every field null). Rather than post a
+    // canned deflection, ask again in plain prose with the same context — the
+    // group asked a real question and an answer exists in the chat.
+    console.warn(
+      "[groups/agent] empty plan from",
+      planned.provider,
+      "— retrying as prose",
+    );
+    const prose = await completeText({ system: SYSTEM, user: context });
+    if (prose?.text?.trim()) return { reply: prose.text.trim() };
+    if (plan) return plan;
   }
 
   const tools = heuristicTools(input.question, input.group);
   if (tools.length) return { tools };
+
+  console.warn("[groups/agent] no LLM available — check OPENAI_API_KEY/GEMINI_API_KEY");
   return {
     reply:
       "I'm here — ask me about weather, flights, hotels, tickets, or restaurants. Say @AiDHD book dinner if you want me to lock a table (I'll ask for a SPOC).",
@@ -195,14 +389,70 @@ export async function maybeHandleAgentMention(input: {
   const question = stripMentions(input.body) || input.body;
   const members = await listMembers(input.group.id);
   const humans = members.filter((m) => m.role !== "bot");
-  const messages = await listMessages(input.group.id, 40);
-  const transcript = messages
-    .slice(-24)
-    .map((m) => `${m.sender_name}: ${m.body || ""}`)
-    .join("\n");
+  const [messages, polls] = await Promise.all([
+    listMessages(input.group.id, 60),
+    pollDigest(input.group.id),
+  ]);
+  const transcript = buildTranscript(messages.slice(-40));
   const membersLine = humans
     .map((m) => `${m.display_name} (${m.role})`)
     .join(", ");
+
+  // Buy a linked product. Handled before the LLM plan because a product URL is
+  // unambiguous — no reason to let the model reinterpret it — and because the
+  // money path must always land on an approval card, never on a tool call.
+  const { looksLikePurchaseRequest, looksLikePaidConfirmation, getPendingPurchase } =
+    await import("@/lib/commerce/chat-purchase");
+
+  if (looksLikePaidConfirmation(question) && getPendingPurchase(input.group.id)) {
+    const { finishPurchase } = await import("@/lib/commerce/chat-purchase");
+    const done = await finishPurchase(input.group.id);
+    const msg = await appendMessage({
+      groupId: input.group.id,
+      senderId: AIDHD_BOT_ID,
+      senderName: AIDHD_BOT_NAME,
+      body: done.ok ? `✅ ${done.summary}` : done.summary,
+      kind: done.ok ? "tool_result" : "agent",
+    });
+    return { handled: true, agentMessageId: msg?.id };
+  }
+
+  if (looksLikePurchaseRequest(input.body)) {
+    const { resolveBuyable } = await import("@/lib/commerce/chat-purchase");
+    const buyable = await resolveBuyable(input.body);
+    if (!buyable.ok) {
+      const msg = await appendMessage({
+        groupId: input.group.id,
+        senderId: AIDHD_BOT_ID,
+        senderName: AIDHD_BOT_NAME,
+        body: buyable.reason,
+        kind: "agent",
+      });
+      return { handled: true, agentMessageId: msg?.id };
+    }
+
+    const offer = buyable.offer;
+    const buyer = humans.find((h) => h.user_id === input.senderId);
+    await createApproval({
+      groupId: input.group.id,
+      kind: "purchase",
+      summary: `Buy ${offer.title} — $${offer.price.toFixed(2)} ${offer.currency}`,
+      amountUsd: offer.price,
+      payload: {
+        action: "buy_product",
+        variant_id: offer.variant_id,
+        title: offer.title,
+        amount: offer.price,
+        merchant: process.env.SHOPIFY_STORE_DOMAIN || "the store",
+        buyer_user_id: input.senderId,
+        buyer_email: buyer?.email || "shopper@aidhd.app",
+        buyer_name: input.senderName,
+        product_url: offer.url,
+        source: buyable.source,
+      },
+    });
+    return { handled: true };
+  }
 
   // Volunteer as SPOC via natural language
   if (
@@ -220,6 +470,7 @@ export async function maybeHandleAgentMention(input: {
     question,
     transcript,
     membersLine,
+    polls,
   });
 
   // Natural-language book intents even if the LLM omitted start_booking
@@ -281,6 +532,51 @@ export async function maybeHandleAgentMention(input: {
   }
   if (!plan.summarize && /\bsummar(y|ize|ise)\b|\bcatch me up\b|\btl;?dr\b/i.test(question)) {
     plan.summarize = true;
+  }
+
+  // A list was asked for but none came back (or only a "here's the list:"
+  // lead-in did) — go get the items with a schema that has no escape hatch.
+  if (
+    !plan.make_list?.items?.length &&
+    (LIST_INTENT.test(question) || isDanglingLeadIn(plan.reply))
+  ) {
+    const built = await generateList({
+      context: contextBlock({
+        group: input.group,
+        membersLine,
+        transcript,
+        polls,
+        question,
+      }),
+      question,
+    });
+    if (built) {
+      plan.make_list = built;
+      // The lead-in is now redundant with the list right under it.
+      if (isDanglingLeadIn(plan.reply)) plan.reply = "";
+    }
+  }
+
+  // List → post it as a checklist the group can read at a glance. Internal, no
+  // approval: nothing is bought until someone tags @Prava to actually order.
+  if (plan.make_list?.items?.length) {
+    const items = plan.make_list.items
+      .map((i) => String(i).trim())
+      .filter(Boolean)
+      .slice(0, 40);
+    const title = plan.make_list.title?.trim() || `${input.group.title} — list`;
+    const msg = await appendMessage({
+      groupId: input.group.id,
+      senderId: AIDHD_BOT_ID,
+      senderName: AIDHD_BOT_NAME,
+      // Models write "here's the list:" as a lead-in, so it goes above.
+      body: `${plan.reply?.trim() ? `${plan.reply.trim()}\n\n` : ""}📝 ${title}\n${items
+        .map((i) => `• ${i}`)
+        .join("\n")}`,
+      kind: "agent",
+      meta: { list: { title, items } },
+    });
+    return { handled: true, agentMessageId: msg?.id };
   }
 
   // Poll → post it and let the group vote (internal action, no approval needed).
@@ -528,14 +824,32 @@ export async function maybeHandleAgentMention(input: {
   if (toolBits.length) {
     const synthesis = await completeText({
       system: SYSTEM,
-      user: `Group context:\n${transcript}\n\nQuestion: ${question}\n\nTool results:\n${toolBits.join("\n")}\n\nWrite the chat reply.`,
+      user: `${todayLine()}\nGroup context:\n${transcript}\n\nQuestion: ${question}\n\nTool results:\n${toolBits.join("\n")}\n\nWrite the chat reply.`,
     });
     reply = synthesis?.text?.trim() || toolBits.join(" ");
   }
 
+  // Last resort: answer the question from the chat rather than deflecting with a
+  // menu of features. The canned line is what made @Prava look like it had not
+  // read the conversation. A bare "here's the list:" is just as useless, so it
+  // gets the same treatment.
+  if (!reply || (isDanglingLeadIn(reply) && !toolBits.length)) {
+    const grounded = await completeText({
+      system: SYSTEM,
+      user: contextBlock({
+        group: input.group,
+        membersLine,
+        transcript,
+        polls,
+        question,
+      }),
+    });
+    reply = grounded?.text?.trim() || "";
+  }
+
   if (!reply) {
     reply =
-      "Got it — ask me anything about the plan, or say @AiDHD book tickets / book dinner to start a draft.";
+      "I couldn't reach my model just now — try me again in a sec, or say @Prava book dinner / book tickets to start a draft.";
   }
 
   const msg = await appendMessage({

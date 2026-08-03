@@ -9,7 +9,7 @@ import {
   isMember,
   listMessages,
 } from "@/lib/groups/store";
-import type { GroupMessage } from "@/lib/groups/types";
+import { AIDHD_BOT_ID, type GroupMessage } from "@/lib/groups/types";
 
 async function decoratedMessages(groupId: string) {
   const [messages, reactions, reads] = await Promise.all([
@@ -101,6 +101,24 @@ export async function POST(
   });
 
   const { messages, reads } = await decoratedMessages(id);
+
+  // Members on iMessage are in the same conversation — push what was said here
+  // (and anything Prava answered) into the linked Linq thread.
+  if (group.linq_chat_id) {
+    const { mirrorToLinqThread } = await import("@/lib/collector/linq-group");
+    const cut = message ? messages.findIndex((m) => m.id === message.id) : -1;
+    const agentLines =
+      cut >= 0
+        ? messages
+            .slice(cut + 1)
+            .filter((m) => m.sender_id === AIDHD_BOT_ID && (m.body || "").trim())
+            .map((m) => m.body!.trim())
+        : [];
+    await mirrorToLinqThread({
+      chatId: group.linq_chat_id,
+      lines: [`${user.name}: ${text}`, ...agentLines],
+    }).catch((e) => console.error("[groups/messages] linq mirror failed", e));
+  }
   return NextResponse.json({
     message: message
       ? { ...message, body_ciphertext: undefined }

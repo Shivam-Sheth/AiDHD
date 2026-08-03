@@ -95,6 +95,8 @@ export async function placeElevenAgentsOutbound(input: {
   to: string;
   first_message: string;
   agent_id?: string;
+  /** Exposed to the agent's tools as {{key}} — e.g. session_id for the card gate. */
+  dynamic_variables?: Record<string, string>;
 }): Promise<{
   ok: boolean;
   mode: "eleven_agents" | "mock";
@@ -134,6 +136,7 @@ export async function placeElevenAgentsOutbound(input: {
           conversation_config_override: {
             agent: { first_message: input.first_message },
           },
+          dynamic_variables: input.dynamic_variables ?? {},
         },
       }),
     },

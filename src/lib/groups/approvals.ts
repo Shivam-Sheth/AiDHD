@@ -324,6 +324,38 @@ async function executeApprovedAction(
       };
     }
 
+    // Buy a product the group linked. This is the only path that spends money
+    // at a merchant, and it is unreachable without this approval having been
+    // granted by a human first.
+    if (action === "buy_product") {
+      const { startPurchase } = await import("@/lib/commerce/chat-purchase");
+      if (!approval.group_id) {
+        return { ok: false, summary: "Purchases need a group context." };
+      }
+      const groupId = approval.group_id;
+      const bought = await startPurchase({
+        groupId,
+        buyerUserId: String(p.buyer_user_id || approval.decided_by || ""),
+        buyerEmail: String(p.buyer_email || "shopper@aidhd.app"),
+        buyerName: (p.buyer_name as string | undefined) || undefined,
+        variantId: String(p.variant_id || ""),
+        title: String(p.title || approval.summary),
+        amount: Number(p.amount ?? approval.amount_usd ?? 0),
+        merchant: String(p.merchant || "the store"),
+        postPayLink: async (message) => {
+          await appendMessage({
+            groupId,
+            senderId: AIDHD_BOT_ID,
+            senderName: AIDHD_BOT_NAME,
+            body: message,
+            kind: "booking_prompt",
+            meta: { approval_id: approval.id, purchase: true },
+          });
+        },
+      });
+      return { ok: bought.ok, summary: bought.summary };
+    }
+
     if (action === "sms") {
       const { sendLinqChatMessage } = await import("@/lib/integrations/linq");
       const sent = await sendLinqChatMessage({

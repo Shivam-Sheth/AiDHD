@@ -622,6 +622,14 @@ function decryptRow(
   return { ...row, body: body ?? "[unable to decrypt]" };
 }
 
+/**
+ * Newest `limit` messages, returned oldest→newest.
+ *
+ * Ordering ascending with a LIMIT returns the *first* N rows, so past `limit`
+ * messages both the chat UI and @Prava's context froze on the opening of the
+ * thread and never saw anything recent. Take the newest N, then flip back into
+ * reading order.
+ */
 export async function listMessages(
   groupId: string,
   limit = 80,
@@ -631,12 +639,12 @@ export async function listMessages(
 
   if (supabaseConfigured()) {
     const { ok, data } = await sb(
-      `group_messages?group_id=eq.${groupId}&order=created_at.asc&limit=${limit}`,
+      `group_messages?group_id=eq.${groupId}&order=created_at.desc&limit=${limit}`,
     );
     if (ok && Array.isArray(data)) {
-      return (data as Record<string, unknown>[]).map((row) =>
-        decryptRow(group, rowToMessage(row)),
-      );
+      return (data as Record<string, unknown>[])
+        .map((row) => decryptRow(group, rowToMessage(row)))
+        .reverse();
     }
   }
 
@@ -832,6 +840,43 @@ export async function linkLinqChat(
     });
   }
   mem().groups.set(groupId, group);
+}
+
+/** Reverse lookup for inbound iMessage: which group is this Linq thread? */
+export async function getGroupByLinqChat(
+  linqChatId: string,
+): Promise<GroupParty | null> {
+  if (!linqChatId) return null;
+  if (supabaseConfigured()) {
+    const { ok, data } = await sb(
+      `groups?linq_chat_id=eq.${encodeURIComponent(linqChatId)}&limit=1`,
+    );
+    if (ok && Array.isArray(data) && data[0]) {
+      const g = rowToGroup(data[0] as Record<string, unknown>);
+      mem().groups.set(g.id, g);
+      return g;
+    }
+  }
+  for (const g of mem().groups.values()) {
+    if (g.linq_chat_id === linqChatId) return g;
+  }
+  return null;
+}
+
+/** Find a member by phone (E.164 or raw) — inbound channels only know numbers. */
+export async function findMemberByPhone(
+  groupId: string,
+  phone: string,
+): Promise<GroupMember | null> {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return null;
+  const members = await listMembers(groupId);
+  return (
+    members.find((m) => (m.phone || "").replace(/\D/g, "") === digits) ||
+    members.find((m) => m.user_id === `im_${digits}`) ||
+    members.find((m) => m.user_id === `sms_${digits}`) ||
+    null
+  );
 }
 
 export async function createBookingDraft(input: {

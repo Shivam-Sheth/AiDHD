@@ -83,6 +83,25 @@ New tools pushed: `check_passport_vault`, `confirm_flight_booking`.
 3. First Linq message is **link-free**; second message has the `/invite/…` URL.
 4. Subscribe webhook once: `POST /api/channels/linq/subscribe` with your public URL.
 
+### F2. Prava inside an iMessage *group* thread
+
+Passing several phones to `POST /api/groups/:id/channels/linq` opens one Linq
+chat with all of them — that is a group iMessage thread with our number in it.
+The thread id is stored on `groups.linq_chat_id`, and inbound webhooks for a
+linked thread route to the **group agent** (same model, same chat history, same
+approval gates as the web chat) instead of the 1:1 collector in `linq-bot.ts`.
+
+- Adopt a thread that already exists (id comes off any inbound webhook):
+  `POST /api/groups/:id/channels/linq` with `{"chat_id":"<linq chat id>"}` — links
+  only, sends nothing.
+- In the thread, tag **@Prava**. Untagged messages are still recorded as group
+  context; only tagged ones get a reply (Meta-AI behaviour).
+- Web ⇄ iMessage is one conversation: web messages mirror into the thread, and
+  iMessage messages appear in the web chat.
+- The brain is `OPENAI_API_KEY` (falls back to `GEMINI_API_KEY`) — there is no
+  separate Linq model key. ElevenLabs is **voice only**; it cannot send iMessage,
+  so it stays on outbound calls (`booking/call/*`).
+
 ---
 
 ## G. Realtime flight book (voice `/agent` or tools)

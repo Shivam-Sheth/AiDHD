@@ -33,6 +33,28 @@ export async function POST(
   if (!group || !(await isMember(id, user.id))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  let body: { phones?: string[]; names?: string[]; chat_id?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  // Adopt an iMessage thread that already exists (chat_id comes off an inbound
+  // webhook). Nothing is sent — this just points the thread at this group so
+  // @Prava starts answering in it with the group's full history.
+  const adoptId = body.chat_id?.trim();
+  if (adoptId) {
+    await linkLinqChat(id, adoptId);
+    return NextResponse.json({
+      ok: true,
+      group_id: id,
+      linq_chat_id: adoptId,
+      linked: true,
+      tip: "Tag @Prava in that iMessage thread — replies land in the thread and in the web chat.",
+    });
+  }
+
   if (!hasLinq()) {
     return NextResponse.json(
       { error: "Linq not configured (LINQ_API_KEY + LINQ_PHONE_NUMBER)" },
@@ -40,17 +62,14 @@ export async function POST(
     );
   }
 
-  let body: { phones?: string[]; names?: string[] };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
   const phones = (body.phones ?? [])
     .map((p) => String(p).trim())
     .filter(Boolean);
   if (!phones.length) {
-    return NextResponse.json({ error: "phones required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "phones required (or chat_id to adopt an existing thread)" },
+      { status: 400 },
+    );
   }
 
   for (let i = 0; i < phones.length; i++) {
@@ -78,7 +97,7 @@ export async function POST(
       {
         error:
           (opener as { error?: string }).error ||
-          "Linq create chat failed (sandbox is inbound-first — ask them to text the Linq number first if this keeps failing).",
+          "Linq create chat failed. Check the recipient is a valid E.164 number and that LINQ_PHONE_NUMBER is provisioned.",
         detail: "data" in opener ? opener.data : undefined,
       },
       { status: 502 },

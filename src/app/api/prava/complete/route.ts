@@ -4,7 +4,8 @@ import {
   bookGroupFlightWithVault,
 } from "@/lib/integrations/flights";
 import { reserveDining } from "@/lib/integrations/dining";
-import { getPaymentResult, reportPaymentStatus } from "@/lib/integrations/prava";
+import { reportPaymentStatus } from "@/lib/integrations/prava";
+import { pollForCompletedPayment } from "@/lib/checkout/poll-payment-result";
 import { sendLinqChatMessage } from "@/lib/integrations/linq";
 
 export const runtime = "nodejs";
@@ -42,21 +43,24 @@ export async function POST(req: Request) {
     );
   }
 
-  let result = await getPaymentResult(body.session_id);
-  for (let i = 0; i < 5 && result.status === "awaiting_result"; i++) {
-    await new Promise((r) => setTimeout(r, 1000));
-    result = await getPaymentResult(body.session_id);
-  }
-
-  if (result.status !== "completed") {
+  // "completed" never arrives on its own — Prava only moves past
+  // "awaiting_result" once WE call report-status, so waiting for it here
+  // deadlocked every live payment. The real ready signal is the one-time
+  // credentials being present. See checkout/poll-payment-result.ts.
+  const polled = await pollForCompletedPayment(body.session_id);
+  if (!polled.ok) {
     await reportPaymentStatus(body.session_id, "DECLINED");
     return NextResponse.json(
-      { ok: false, error: `Payment not completed (status: ${result.status})` },
+      {
+        ok: false,
+        error: `Payment not completed (${polled.reason}, last status: ${polled.last_status})`,
+      },
       { status: 402 },
     );
   }
+  const result = polled.result;
 
-  await reportPaymentStatus(body.session_id, "APPROVED");
+  await reportPaymentStatus(body.session_id, "APPROVED", result.txn_ref_id);
 
   const category = (body.category || "trip").toLowerCase();
   let confirmation_id = `AIDHD-${Date.now().toString(36).toUpperCase()}`;

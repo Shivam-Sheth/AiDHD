@@ -5,14 +5,16 @@
  * `src/lib/integrations/*` (or a domain service in `src/lib/*`), so
  * capabilities can be swapped per environment without touching call sites.
  *
- * Commerce note: Shopify is intentionally NOT implemented here — another
- * team owns that module. Register it via `registerCommerceProvider()` when
- * it lands; everything routing through `getCommerceProvider()` will pick it
- * up automatically.
+ * Commerce note: the Shopify module has landed (integrations/shopify.ts), so
+ * `getCommerceProvider()` now returns it whenever the store is connected and
+ * falls back to fixtures otherwise. `registerCommerceProvider()` still
+ * overrides both, for tests or a different merchant.
  */
 
 import type { CommerceProvider } from "./commerce";
 import { fixtureCommerceProvider } from "./commerce";
+import { shopifyCommerceProvider } from "./shopify-provider";
+import { hasShopify } from "@/lib/integrations/config";
 
 export const providers = {
   /** Supabase Auth (Google OAuth + email/password) — src/lib/supabase/client.ts, src/lib/groups/auth.ts */
@@ -59,13 +61,20 @@ export type ProviderName = keyof typeof providers;
 // Commerce (products from supported merchants)
 // ---------------------------------------------------------------------------
 
-let commerceProvider: CommerceProvider = fixtureCommerceProvider;
+let commerceProvider: CommerceProvider | null = null;
 
 /** Swap in a real commerce provider (e.g. the Shopify module) at boot. */
 export function registerCommerceProvider(provider: CommerceProvider) {
   commerceProvider = provider;
 }
 
+/**
+ * Shopify when the store is connected, fixtures otherwise. Resolved lazily so
+ * the choice follows the env at call time rather than module-load order, and
+ * so an explicit registerCommerceProvider() still wins.
+ */
 export function getCommerceProvider(): CommerceProvider {
-  return commerceProvider;
+  if (commerceProvider) return commerceProvider;
+  if (hasShopify()) return shopifyCommerceProvider;
+  return fixtureCommerceProvider;
 }

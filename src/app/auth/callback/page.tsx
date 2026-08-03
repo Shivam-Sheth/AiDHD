@@ -47,7 +47,8 @@ export default function AuthCallbackPage() {
         // non-fatal
       }
 
-      if (!cancelled) router.replace("/agent");
+      // Land on the app home after email confirm / OAuth — not /agent.
+      if (!cancelled) router.replace("/");
     }
 
     void finish();

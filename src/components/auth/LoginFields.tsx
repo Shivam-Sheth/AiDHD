@@ -67,11 +67,16 @@ export function LoginFields({
     let session = signInData.session;
 
     if (signInError) {
+      // Without emailRedirectTo, Supabase falls back to the project Site URL
+      // (often still http://localhost:3000) — confirm links then leave prod.
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
         {
           email: trimmedEmail,
           password,
-          options: { data: { full_name: trimmedName } },
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: { full_name: trimmedName },
+          },
         },
       );
       if (signUpError) {
